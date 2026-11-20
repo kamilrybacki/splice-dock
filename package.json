@@ -1,14 +1,41 @@
 {
   "name": "splicedock",
   "version": "1.0.0",
-  "description": "MCP gateway \u2014 aggregates MCP servers, HTTP APIs, and CLI tools",
+  "description": "MCP gateway — aggregates MCP servers, HTTP APIs, and CLI tools",
   "type": "module",
   "license": "MIT",
+  "author": "Kamil Rybacki",
+  "homepage": "https://kamilrybacki.github.io/splicedock/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kamilrybacki/splice-dock.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kamilrybacki/splice-dock/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gateway",
+    "agents",
+    "llm",
+    "cli"
+  ],
+  "bin": {
+    "splicedock": "bin/splicedock.js"
+  },
   "engines": {
     "node": ">=22"
   },
   "files": [
+    "bin",
     "dist",
+    "!dist/**/*.map",
+    "!dist/**/*.d.ts",
+    "!dist/**/*.d.ts.map",
+    "scripts/mint",
+    "site/examples",
+    "splicedock.example.yaml",
     "site/assets/splicedock-mark.svg",
     "site/assets/space-grotesk-latin-{500,700}.woff2",
     "site/assets/space-mono-latin-{400,700}.woff2",
@@ -16,6 +43,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
     "test": "vitest run",
@@ -42,7 +70,7 @@
     "@fastify/sensible": "^6.0.0",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "@simplewebauthn/server": "14.0.3",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^13.2.0",
     "codemirror": "^6.0.2",
     "esbuild": "^0.28.2",
     "express": "^4.21.0",
@@ -75,5 +103,8 @@
   },
   "overrides": {
     "minimatch": "$minimatch"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

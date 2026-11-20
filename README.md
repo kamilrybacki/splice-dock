@@ -24,6 +24,7 @@
 
 - [How it works](#how-it-works)
 - [Quickstart](#quickstart)
+- [Install](#install)
 - [Connect your tools](#connect-your-tools)
 - [Run a Code Mode workflow](#run-a-code-mode-workflow)
 - [Operate the gateway](#operate-the-gateway)
@@ -95,6 +96,51 @@ The example creates a short-lived profile token, lists tools, calls
 To leave the demo running and connect your own client, follow the
 [Quickstart guide](https://kamilrybacki.github.io/splicedock/start.html) and
 [issue a profile token](https://kamilrybacki.github.io/splicedock/connect.html#create-token).
+
+## <img src="docs/assets/section-build.svg" width="30" height="24" alt="">Install
+
+Splicedock ships as an npm package for bare-metal hosts and as a container
+image. Both read the same configuration file and environment variables.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SPLICEDOCK_CONFIG` | `/etc/splicedock/splicedock.yaml` | Gateway configuration file |
+| `SPLICEDOCK_DB_PATH` | `/var/splicedock/data/splicedock.db` | SQLite database |
+| `SPLICEDOCK_BIN` | `/var/splicedock/bin` | Directory for CLI tool binaries |
+
+Start from the [annotated configuration](splicedock.example.yaml). The MCP
+endpoint listens on port `8788` and the admin UI on port `8789`.
+
+### npm (bare metal)
+
+Requires Node.js 22 or later.
+
+```bash
+npm install -g splicedock
+export SPLICEDOCK_CONFIG="$HOME/splicedock/splicedock.yaml"
+export SPLICEDOCK_DB_PATH="$HOME/splicedock/splicedock.db"
+splicedock
+```
+
+To try it without installing, run `npx splicedock`. The package includes the
+Quickstart configuration at `$(npm root -g)/splicedock/site/examples/quickstart.yaml`
+and the annotated example at `$(npm root -g)/splicedock/splicedock.example.yaml`.
+To move an existing SQLite database to PostgreSQL, run
+`splicedock db migrate-sqlite-to-pg --sqlite <path>` with `SPLICEDOCK_DB_DSN` set.
+
+### Container
+
+```bash
+docker run --rm \
+  -p 8788:8788 -p 8789:8789 \
+  -v "$PWD/splicedock.yaml:/etc/splicedock/splicedock.yaml:ro" \
+  -v splicedock-data:/var/splicedock/data \
+  ghcr.io/kamilrybacki/splice-dock:v1.0.0
+```
+
+Each tagged release publishes a multi-architecture image with an SBOM and
+build provenance. Pass secrets with `-e` or `--env-file`, never in the
+configuration file.
 
 ## <img src="docs/assets/section-plug.svg" width="30" height="24" alt="">Connect your tools
 
