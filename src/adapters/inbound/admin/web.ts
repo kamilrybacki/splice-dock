@@ -12,7 +12,7 @@ import { renderAutomaticApprovals } from './web/pages/automatic-approvals.js';
 
 import type { FastifyInstance } from 'fastify';
 import { buildSessionCtx, verifyBypassSecret, setSessionCookie, clearSessionCookie, requireSession } from './web/session.js';
-import { AUTHELIA_HEADER, LEGACY_AUTHELIA_HEADER } from './auth.js';
+import { AUTHELIA_HEADER, CSRF_HEADER } from './auth.js';
 import { renderPage } from './web/layout.js';
 import { renderLoginPage } from './web/pages/login.js';
 import { renderToolsPage } from './web/pages/tools.js';
@@ -39,7 +39,7 @@ export function registerWebUiRoutes(app: FastifyInstance, opts: WebUiOptions): v
 
   app.get('/admin/login', async (req, reply) => {
     if (opts.autheliaBypassSecret) {
-      const bypass = req.headers[AUTHELIA_HEADER] ?? req.headers[LEGACY_AUTHELIA_HEADER];
+      const bypass = req.headers[AUTHELIA_HEADER];
       if (typeof bypass === 'string' && verifyBypassSecret(bypass, opts.autheliaBypassSecret)) {
         setSessionCookie(reply, opts.expectedToken);
         reply.redirect('/admin/');
@@ -67,7 +67,7 @@ export function registerWebUiRoutes(app: FastifyInstance, opts: WebUiOptions): v
 
   app.post('/admin/logout', async (req, reply) => {
     if (!requireSession(req, reply, authCtx)) return;
-    if (!req.headers['x-splicedock-csrf'] && !req.headers['x-cellarette-csrf']) {
+    if (!req.headers[CSRF_HEADER]) {
       reply.code(403).send({ error: { code: 'csrf', message: 'Missing CSRF header' } });
       return;
     }

@@ -155,7 +155,7 @@ async function call(base, path, token, body, fetchImpl) {
 }
 
 function displayName(profile, agent, backend) {
-  const raw = `cellarette:${profile}:${agent || '-'}:${backend || '-'}`;
+  const raw = `splicedock:${profile}:${agent || '-'}:${backend || '-'}`;
   return raw.length > DISPLAY_NAME_MAX ? raw.slice(0, DISPLAY_NAME_MAX) : raw;
 }
 

@@ -20,8 +20,15 @@ pull request against `main`. Pull requests are reviewed and merged here.
 CI builds the container image on every push to `main` and publishes
 `ghcr.io/kamilrybacki/splice-dock:latest` and `:<commit sha>`. A release is a
 `vX.Y.Z` tag on `main` (matching `version` in `package.json`), which also
-publishes `ghcr.io/kamilrybacki/splice-dock:vX.Y.Z`. Pin a tag or a digest in
-production rather than `:latest`.
+publishes `ghcr.io/kamilrybacki/splice-dock:vX.Y.Z` with an SBOM and build
+provenance. Images are built for `linux/amd64` and `linux/arm64`. Pin a tag or a digest in production rather than `:latest`.
+
+The same tag publishes the `splicedock` npm package with provenance through npm
+trusted publishing (the `npm` job in `.github/workflows/ci.yml`, GitHub
+environment `npm`), then creates a GitHub release with generated notes. If the
+tag does not match `version` in `package.json`, the test job fails and nothing
+is published.
+Record user-visible changes in [CHANGELOG.md](CHANGELOG.md) before tagging.
 
 ## Security issues
 
