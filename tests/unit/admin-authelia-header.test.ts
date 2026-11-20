@@ -14,8 +14,8 @@ describe('edge bypass header', () => {
   it('accepts the splicedock header', () => {
     expect(run({ 'x-splicedock-authelia': SECRET })).toBe(true);
   });
-  it('still accepts the legacy cellarette header during the rename', () => {
-    expect(run({ 'x-cellarette-authelia': SECRET })).toBe(true);
+  it('rejects the removed legacy cellarette header', () => {
+    expect(run({ 'x-cellarette-authelia': SECRET })).toBe(false);
   });
   it('rejects a wrong secret', () => {
     expect(run({ 'x-splicedock-authelia': 'nope' })).toBe(false);

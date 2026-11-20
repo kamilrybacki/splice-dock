@@ -3,7 +3,7 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { ADMIN_SESSION_COOKIE, AUTHELIA_HEADER, LEGACY_AUTHELIA_HEADER, buildAdminTokenSet, type AdminTokenSet } from '../auth.js';
+import { ADMIN_SESSION_COOKIE, AUTHELIA_HEADER, buildAdminTokenSet, type AdminTokenSet } from '../auth.js';
 
 export const SESSION_TTL_SEC = 8 * 3600;
 
@@ -78,7 +78,7 @@ export function verifyBypassSecret(submitted: string, expected: string): boolean
 
 export function requireSession(req: FastifyRequest, reply: FastifyReply, ctx: SessionCtx): boolean {
   if (ctx.autheliaSecret) {
-    const bypass = req.headers[AUTHELIA_HEADER] ?? req.headers[LEGACY_AUTHELIA_HEADER];
+    const bypass = req.headers[AUTHELIA_HEADER];
     if (typeof bypass === 'string' && verifyBypassSecret(bypass, ctx.autheliaSecret)) {
       setSessionCookie(reply, ctx.expectedToken);
       return true;

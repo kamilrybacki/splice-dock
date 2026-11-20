@@ -74,8 +74,8 @@ describe('github-app-token mint script', () => {
 
   it('scopes the token to repositories when asked', async () => {
     routes['POST /app/installations/42/access_tokens'] = { status: 201, json: { token: 'ghs_scoped', expires_at: new Date(Date.now() + 3_600_000).toISOString() } };
-    await mintGitHubAppToken({ appId: '1', privateKey: PEM, installationId: '42', repositories: ['cellarette'], apiBase });
-    expect(requests[0]!.body).toEqual({ repositories: ['cellarette'] });
+    await mintGitHubAppToken({ appId: '1', privateKey: PEM, installationId: '42', repositories: ['example-repo'], apiBase });
+    expect(requests[0]!.body).toEqual({ repositories: ['example-repo'] });
   });
 
   it('accepts a PEM with literal backslash-n escapes', async () => {

@@ -16,11 +16,9 @@ export const ADMIN_SESSION_COOKIE = 'splicedock_admin';
  * never attached automatically by the browser).
  */
 export const CSRF_HEADER = 'x-splicedock-csrf';
-export const LEGACY_CSRF_HEADER = 'x-cellarette-csrf';
 
-/** Edge (Caddy/Authelia) bypass header. The legacy name is accepted until the rename cleanup. */
+/** Edge (reverse proxy / Authelia) bypass header carrying the shared bypass secret. */
 export const AUTHELIA_HEADER = 'x-splicedock-authelia';
-export const LEGACY_AUTHELIA_HEADER = 'x-cellarette-authelia';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -101,7 +99,7 @@ export function buildAdminAuthHook(
       return;
     }
     if (presented.via === 'cookie' && !SAFE_METHODS.has((req.method ?? 'GET').toUpperCase())) {
-      const header = req.headers[CSRF_HEADER] ?? req.headers[LEGACY_CSRF_HEADER];
+      const header = req.headers[CSRF_HEADER];
       if (typeof header !== 'string' || header.length === 0) {
         reply.code(403).send({ error: { code: 'csrf', message: `Missing ${CSRF_HEADER} header` } });
         return;
