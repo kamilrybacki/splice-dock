@@ -15,10 +15,9 @@ concurrency:
 
 jobs:
   test:
-    # Private repo: self-hosted ARC pool (x64, dind sidecar shares the pod network, so
-    # service containers publish on localhost). Public repo: GitHub-hosted runners, so
-    # pull requests from forks never execute on self-hosted infrastructure.
-    runs-on: ${{ github.event.repository.private && 'homelab-ci' || 'ubuntu-latest' }}
+    # GitHub-hosted runners only: pull requests from forks must never execute on
+    # self-hosted infrastructure.
+    runs-on: ubuntu-latest
     # Throwaway Postgres for the real-Postgres race suites. The password is a
     # fixed test literal for this disposable container, not a secret.
     services:
@@ -83,7 +82,7 @@ jobs:
     needs: test
     # main publishes :latest; a release tag (vX.Y.Z) publishes :vX.Y.Z. Both get :<sha>.
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: ${{ github.event.repository.private && 'homelab-ci' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -99,7 +98,48 @@ jobs:
         with:
           context: .
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:latest', github.repository) || '' }}
             ${{ startsWith(github.ref, 'refs/tags/v') && format('ghcr.io/{0}:{1}', github.repository, github.ref_name) || '' }}
+
+  npm:
+    needs: test
+    # A release tag (vX.Y.Z) publishes the same version to the npm registry.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance; no long-lived token
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Tag must match package.json version
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${version}" >&2
+            exit 1
+          fi
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - run: npm install -g npm@11.21.3
+      - run: npm ci
+      - run: npm publish --provenance --access public
+
+  release:
+    needs: [image, npm]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes

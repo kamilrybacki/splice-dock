@@ -162,6 +162,9 @@ credential_defaults:
       value: { mint: vault_token }
 ```
 
+The `/app/scripts/mint/` paths are for the container image. With the npm
+package, the scripts are in `$(npm root -g)/splicedock/scripts/mint/`.
+
 A harness that rotates a backend credential must re-open the session: splicedock
 does this automatically when the resolved headers differ from the ones the
 session was opened with (`McpProxyDriver` compares a hash, never the value).
