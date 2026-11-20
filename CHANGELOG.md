@@ -13,8 +13,8 @@ First public release.
 - npm package `splicedock` with a `splicedock` command. Run it with
   `npx splicedock` or install it with `npm install -g splicedock`.
   `splicedock db migrate-sqlite-to-pg` runs the SQLite to PostgreSQL migration.
-- Container images on GHCR for each release tag, with an SBOM and build
-  provenance.
+- Container images on GHCR for `linux/amd64` and `linux/arm64` for each
+  release tag, with an SBOM and build provenance.
 - GitHub releases with generated notes for each `vX.Y.Z` tag.
 
 ### Changed
