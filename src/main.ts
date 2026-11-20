@@ -1,4 +1,3 @@
-import './config/env-compat.js';
 import { resolveDbTarget } from './ports/sql-db.js';
 import { readGrantConfig } from './domain/policy/grant-config.js';
 import { setApprovalWaitHandler } from './adapters/inbound/mcp/server.js';

@@ -29,7 +29,7 @@ is constant-time. `admin_tokens` is omitted from YAML exports.
 ## CSRF
 
 State-changing requests (anything other than GET/HEAD/OPTIONS) authenticated
-by the **session cookie** must send the header `x-cellarette-csrf: 1`;
+by the **session cookie** must send the header `x-splicedock-csrf: 1`;
 otherwise they get `403 {"code":"csrf"}`. Cross-site pages cannot set custom
 headers without a CORS preflight, which the server does not grant. The bundled
 WebUI adds the header automatically to same-origin fetches.
