@@ -1,0 +1,26 @@
+import {it,expect} from 'vitest';
+import Fastify from 'fastify';
+import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
+import {ConsentStore,hash} from '../../../src/application/approvals/consent-store.js';
+import {WebAuthnConsent} from '../../../src/adapters/inbound/consent/webauthn.js';
+import {registerEnrollmentRoutes,registerWeakConsentRoutes} from '../../../src/adapters/inbound/consent/server.js';
+it('configured weak issuance rotates, is single-use and requires the bound profile bearer',async()=>{
+ const db=await SplicedockStore.open(':memory:');const store=await ConsentStore.open(db.consentDatabase());
+ await db.insertProfileToken('A','p',hash('profile-A'));await db.insertProfileToken('B','p',hash('profile-B'));
+ const c=new WebAuthnConsent(store,{enabled:true,max_attempts:3,rate_limit_per_minute:10,weak:{enabled:false,ttl_seconds:120,max_attempts:3}});
+ let app=Fastify();registerEnrollmentRoutes(app,c);registerWeakConsentRoutes(app,c);
+ expect((await app.inject({method:'POST',url:'/api/v1/profile-tokens/A/consent-credential'})).statusCode).toBe(403);
+ await app.close();c.config.weak!.enabled=true;app=Fastify();registerEnrollmentRoutes(app,c);registerWeakConsentRoutes(app,c);
+ const issue=()=>app.inject({method:'POST',url:'/api/v1/profile-tokens/A/consent-credential'});
+ const old=(await issue()).json().data.credential;const issued=await issue();const credential=issued.json().data.credential;
+ expect(issued.headers['cache-control']).toBe('no-store');expect(credential).not.toBe(old);
+ expect(JSON.stringify(await store.db.prepare('SELECT * FROM consent_credentials').all())).not.toContain(credential);
+ const now=Date.now();for(const id of ['a','b'])await db.insertApproval({id,tool:'test',argv_hash:'x',argv_json:'[]',rule:'approval_subcommands',matched:'x',requested_at:now,expires_at:now+600000,profile:'p',token_id:'A',cwd:'/tmp'});
+ const approve=(id:string,secret:string,token='profile-A')=>app.inject({method:'POST',url:`/api/v1/consent/weak/${id}/approve`,headers:{authorization:`Bearer ${token}`},payload:{credential:secret}});
+ expect((await approve('a',credential,'profile-B')).statusCode).toBe(401);
+ expect((await approve('a',old)).statusCode).toBe(409);
+ expect((await approve('a',credential)).statusCode).toBe(200);
+ expect((await approve('b',credential)).statusCode).toBe(409);
+ expect((await store.get('a'))?.status).toBe('approved');expect((await store.get('b'))?.status).toBe('pending');
+ await app.close();await db.close();
+});

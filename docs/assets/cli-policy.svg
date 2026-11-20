@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="704" height="166" viewBox="0 0 704 166" role="img" aria-labelledby="title desc">
+  <title id="title">CLI passthrough policy decisions</title>
+  <desc id="desc">Splicedock checks the CLI argument array before running a process. A matching policy allows the call, requires approval, or denies it.</desc>
+  <path fill="#0d0d0d" d="M0 0h688l16 16v150H16L0 150z"/>
+  <path d="M28 47h186l12 12v64H28z" fill="#181818" stroke="#8c8c81" stroke-width="2"/>
+  <text x="127" y="80" fill="#f2f2f2" font-family="ui-monospace, monospace" font-size="23" font-weight="700" text-anchor="middle">CLI policy</text>
+  <text x="127" y="104" fill="#bdbdb5" font-family="ui-monospace, monospace" font-size="17" text-anchor="middle">CHECK ARGUMENTS</text>
+  <path d="M226 85h104m-47 0V33h47m-47 52v52h47" fill="none" stroke="#a4a49b" stroke-width="2"/>
+  <path fill="#c9d99a" d="M280 82h6v6h-6z"/>
+  <path fill="#a4a49b" d="m323 28 7 5-7 5zm0 52 7 5-7 5zm0 52 7 5-7 5z"/>
+  <path fill="#c9d99a" d="M334 14h326l10 10v28H334z"/>
+  <path d="M334 66h326l10 10v28H334zm0 52h326l10 10v28H334z" fill="#181818" stroke="#8c8c81" stroke-width="2"/>
+  <g font-family="ui-monospace, monospace" font-size="22" font-weight="700">
+    <text x="350" y="41" fill="#0d0d0d">✓  Allow</text>
+    <text x="350" y="93" fill="#c9d99a">?  Require approval</text>
+    <text x="350" y="145" fill="#f2f2f2">×  Deny</text>
+  </g>
+</svg>

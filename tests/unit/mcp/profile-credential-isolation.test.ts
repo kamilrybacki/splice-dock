@@ -1,0 +1,178 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ProfileService } from '../../../src/application/profiles/profile-service.js';
+import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
+import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
+import type { McpProxyDriver } from '../../../src/adapters/outbound/drivers/mcp-proxy.js';
+import type { McpProxyToolConfig } from '../../../src/config/types.js';
+
+const handlers = new Map<string, (req: unknown) => unknown>();
+const built = vi.hoisted(() => ({ configs: [] as Array<{ name: string; auth?: unknown }> }));
+
+vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
+  Server: vi.fn().mockImplementation(function () {
+    return {
+      setRequestHandler: vi.fn((schema: string, handler: (req: unknown) => unknown) => {
+        handlers.set(schema, handler);
+      }),
+      connect: vi.fn(),
+      getClientVersion: vi.fn(() => undefined),
+    };
+  }),
+}));
+
+vi.mock('@modelcontextprotocol/sdk/types.js', () => ({
+  ListToolsRequestSchema: 'ListToolsRequestSchema',
+  CallToolRequestSchema: 'CallToolRequestSchema',
+}));
+
+vi.mock('@modelcontextprotocol/sdk/server/sse.js', () => ({
+  SSEServerTransport: vi.fn(),
+}));
+
+vi.mock('../../../src/adapters/outbound/drivers/mcp-proxy.js', () => ({
+  proxyDriverKey: (namespace: string, profile?: string) =>
+    profile === undefined ? namespace : `${namespace}\u0000${profile}`,
+  proxyDriverNamespace: (key: string) => key.split('\u0000')[0],
+  McpProxyDriver: class {
+    constructor(public readonly config: { name: string; auth?: unknown }) {
+      built.configs.push(config);
+    }
+    async connect(): Promise<void> {}
+    async callTool(): Promise<unknown> {
+      return { content: [{ type: 'text', text: 'ok' }] };
+    }
+  },
+}));
+
+const { buildMcpServer } = await import('../../../src/adapters/inbound/mcp/server.js');
+
+const BASE_AUTH = { type: 'bearer' as const, token: { from: 'env:BASE_TOKEN' } };
+const WORKER_AUTH = { type: 'bearer' as const, token: { from: 'env:WORKER_TOKEN' } };
+
+function makeProxyConfig(): McpProxyToolConfig {
+  return {
+    type: 'mcp_proxy',
+    name: 'vault',
+    service_dns: 'vault-headless.default.svc.cluster.local',
+    port: 8000,
+    transport: 'streamable_http',
+    refresh_interval_ms: 600_000,
+    auth: BASE_AUTH,
+  };
+}
+
+function makeRegistry(): { profileService: ProfileService; toolRegistry: ToolRegistry } {
+  const toolRegistry = new ToolRegistry();
+  const proxyConfig = makeProxyConfig();
+  toolRegistry.addFileTool({
+    id: 'vault__read_secret',
+    driver: 'mcp_proxy',
+    source: 'file',
+    config: proxyConfig,
+    mcpDef: { name: 'vault__read_secret', description: 'read', inputSchema: { type: 'object' as const } },
+  });
+  const profileRegistry = new ProfileRegistry();
+  profileRegistry.addFileProfile('worker', { tools: ['vault__*'] });
+  profileRegistry.addFileProfile('plain', { tools: ['vault__*'] });
+  return { profileService: new ProfileService(profileRegistry, toolRegistry), toolRegistry };
+}
+
+function callHandler(): Promise<{ content: Array<{ text: string }>; isError?: boolean }> {
+  const handler = handlers.get('CallToolRequestSchema') as (
+    req: unknown,
+    extra: unknown,
+  ) => Promise<{ content: Array<{ text: string }>; isError?: boolean }>;
+  return handler({ params: { name: 'vault__read_secret', arguments: {} } }, { signal: undefined });
+}
+
+const resolver = { resolve: async () => ['10.0.0.1'] } as never;
+
+function build(profile: string, drivers: Map<string, McpProxyDriver>, profileAuth = (p: string, backend: string) =>
+  p === 'worker' && backend === 'vault' ? WORKER_AUTH : undefined) {
+  const { profileService, toolRegistry } = makeRegistry();
+  buildMcpServer(
+    profile,
+    profileService,
+    drivers,
+    toolRegistry,
+    [],
+    [makeProxyConfig()],
+    resolver,
+    null,
+    undefined,
+    profileAuth,
+  );
+}
+
+describe('per-profile mcp_proxy credentials', () => {
+  beforeEach(() => {
+    handlers.clear();
+    built.configs.length = 0;
+  });
+
+  it('gives a profile with an override its own driver and credential', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers);
+
+    await callHandler();
+
+    expect(drivers.has('vault\u0000worker')).toBe(true);
+    expect(drivers.has('vault')).toBe(false);
+    expect(built.configs).toHaveLength(1);
+    expect(built.configs[0]!.auth).toEqual(WORKER_AUTH);
+  });
+
+  it('keeps the shared tool-level credential for profiles without an override', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('plain', drivers);
+
+    await callHandler();
+
+    expect(drivers.has('vault')).toBe(true);
+    expect(built.configs[0]!.auth).toEqual(BASE_AUTH);
+  });
+
+  it('never sends one profile\'s credential to another profile', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers);
+    await callHandler();
+    build('plain', drivers);
+    await callHandler();
+
+    expect(built.configs.map(c => c.auth)).toEqual([WORKER_AUTH, BASE_AUTH]);
+    expect(drivers.has('vault\u0000worker')).toBe(true);
+    expect(drivers.has('vault')).toBe(true);
+  });
+
+  it('reuses an already-open profile-scoped connection', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers);
+    await callHandler();
+    await callHandler();
+
+    expect(built.configs).toHaveLength(1);
+  });
+
+  it('fails closed instead of falling back to a shared driver when it cannot honour the override', async () => {
+    const shared = { callTool: vi.fn() } as unknown as McpProxyDriver;
+    const drivers = new Map<string, McpProxyDriver>([['vault', shared]]);
+
+    // No proxyConfigs / resolver: an override cannot open its own connection.
+    const { profileService, toolRegistry } = makeRegistry();
+    buildMcpServer(
+      'worker',
+      profileService,
+      drivers,
+      toolRegistry,
+      [],
+      undefined,
+      undefined,
+      null,
+      undefined,
+      () => WORKER_AUTH,
+    );
+
+    await expect(callHandler()).rejects.toThrow(/No proxy driver/);
+    expect(shared.callTool).not.toHaveBeenCalled();
+  });
+});

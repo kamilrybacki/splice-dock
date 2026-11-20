@@ -1,0 +1,46 @@
+{
+  "snippet": "\nconst found = await tools.call(\"demo__find\", { title: \"Nightly report\" });\nif (found.isError) return { status: \"upstream-error\" };\nconst existing = found.structuredContent.ticket;\nconst ticket = existing ?? (await tools.call(\"demo__create\", {\n  title: \"Nightly report\", summary: found.structuredContent.summary\n})).structuredContent;\nconst read = (await tools.call(\"demo__read\", { id: ticket.id })).structuredContent;\nreturn { status: existing ? \"exists\" : \"created\", id: read.id, summary: read.summary };\n",
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/demo/tickets?title=Nightly+report",
+      "body": null,
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/demo/tickets",
+      "body": {
+        "title": "Nightly report",
+        "summary": "Nightly test report, batch 1, scenario missing."
+      },
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/demo/tickets/842",
+      "body": null,
+      "status": 200
+    }
+  ],
+  "answers": [
+    {
+      "task": "Summarize the existing nightly report. Do not create anything.",
+      "answer": [
+        {
+          "type": "text",
+          "text": "{\"model\":\"jev-1.14.0\",\"answers\":{\"outside_scope\":{\"type\":\"noul\",\"noul\":0.68}},\"usage\":{\"input_tokens\":568,\"output_tokens\":21}}"
+        }
+      ]
+    },
+    {
+      "task": "Find the nightly report. If there is no report, create it and verify it was saved.",
+      "answer": [
+        {
+          "type": "text",
+          "text": "{\"model\":\"jev-1.14.0\",\"answers\":{\"outside_scope\":{\"type\":\"noul\",\"noul\":0.11}},\"usage\":{\"input_tokens\":574,\"output_tokens\":21}}"
+        }
+      ]
+    }
+  ]
+}

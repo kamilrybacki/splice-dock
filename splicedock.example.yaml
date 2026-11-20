@@ -1,0 +1,131 @@
+server:
+  port: 8788
+  admin_port: 8789
+  admin_token_env: SPLICEDOCK_ADMIN_TOKEN
+  # Env var holding a bearer token that Prometheus must send to scrape /metrics.
+  # If the env var is unset or empty, /metrics stays unauthenticated.
+  metrics_token_env: SPLICEDOCK_METRICS_TOKEN
+  # Require a profile bearer token for MCP connections.
+  require_profile_token: true
+  # Optional named admin tokens. The matched name is recorded as the approver
+  # identity on approvals. Each entry sets exactly one of token_env/token_file.
+  # The name "admin" is reserved for the token configured in admin_token_env.
+  # admin_tokens:
+  #   - name: alice
+  #     token_env: SPLICEDOCK_ADMIN_TOKEN_ALICE
+  #   - name: bob
+  #     token_file: /path/to/bob-token-file
+  cli_whitelist: []
+
+# Minted credentials: instead of a pre-created secret, a provider can issue one
+# per profile on first use. The broker caches it (memory), persists it (Vault)
+# and refreshes it before expiry; deleting a profile revokes and purges it.
+# credential_providers:
+#   mint_example:
+#     type: command                    # any CLI that prints a credential
+#     command: /usr/local/bin/mint-credential
+#     args: ["--profile", "{profile}", "--agent", "{agent}"]
+#     timeout_ms: 10000
+#     ttl_seconds: 3600
+#     output: { format: json, secret_field: token, expires_in_field: expires_in }
+# credential_storage:
+#   type: vault                        # default; 'memory' for local experiments
+#   prefix: secret/data/example/splicedock/minted
+# Applies to every profile without its own entry for that tool — this is what
+# makes a profile created later (even at runtime) automatically credentialed.
+# credential_defaults:
+#   gh:
+#     env:
+#       - name: GH_TOKEN
+#         mint: mint_example
+
+profiles:
+  default:
+    tools:
+      - "*"
+
+  ops:
+    tools:
+      - "vault__*"
+      - "grafana__*"
+    # Optional per-profile credentials, keyed by tool name. Without them every
+    # profile shares the tool-level credential (one upstream connection / one
+    # CLI identity). Each entry sets exactly one of:
+    #   auth:  mcp_proxy backend — the profile gets its OWN upstream connection
+    #          with this credential instead of the shared one.
+    #   env:   cli_passthrough tool — replaces same-named env refs of the tool
+    #          for this profile's child process.
+    # Inside auth/env, use { from: "env:..." | "vault:..." } for an existing
+    # secret or { mint: <credential_providers name> } for one issued on demand.
+    # A key that names no tool, or refuses the matching shape, fails startup.
+    # Tool discovery at startup still uses the tool-level credential.
+    # credentials:
+    #   vault:
+    #     auth:
+    #       type: bearer
+    #       token: { from: vault:secret/data/example/splicedock#worker_vault_token }
+    #   gh:
+    #     env:
+    #       - name: GH_TOKEN
+    #         from: vault:secret/data/example/github#worker_pat
+
+tools:
+  # mcp_proxy backends. Replace each upstream with the address of your own MCP server.
+  - type: mcp_proxy
+    name: vault
+    description: "HashiCorp Vault secrets - read and write KV secrets"
+    upstream: "http://vault-mcp.example.internal:8000/sse"
+
+  - type: mcp_proxy
+    name: grafana
+    description: "Observability - Prometheus metrics, Loki logs, dashboards, alerts"
+    upstream: "http://grafana-mcp.example.internal:8000/sse"
+
+  - type: mcp_proxy
+    name: memory
+    description: "Structured knowledge graph - entities and relations for cross-session semantic memory"
+    upstream: "http://memory-mcp.example.internal:8000/sse"
+
+  - type: mcp_proxy
+    name: sequential_thinking
+    description: "Chain-of-thought scratchpad for step-by-step reasoning on complex problems"
+    upstream: "http://sequential-thinking-mcp.example.internal:8000/sse"
+
+  - type: mcp_proxy
+    name: context7
+    description: "Up-to-date library and framework documentation lookup"
+    upstream: "http://context7-mcp.example.internal:8000/sse"
+
+  - type: mcp_proxy
+    name: lightpanda
+    description: "Headless browser automation - navigate, click, fill forms, extract content from web pages"
+    upstream: "http://lightpanda-mcp.example.internal:8000/sse"
+
+  # CLI passthroughs — Splicedock provisions these at startup into $SPLICEDOCK_BIN.
+  # Each produces two tools: <name>__help (capability discovery) and <name>__run (invocation
+  # with a typed argv array, no shell parsing).
+  - type: cli_passthrough
+    name: gh
+    description: "GitHub CLI — repos, pull requests, issues, code search, releases, actions"
+    command: gh
+    deny_subcommands: ["auth", "config", "secret", "variable", "alias"]
+    env:
+      - GH_TOKEN
+    install:
+      env:
+        GH_VERSION: "2.102.0"  # keep in sync with PINNED_GH_VERSION
+      script: |
+        curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
+          | tar xz --strip-components=2 -C "$SPLICEDOCK_BIN" "gh_${GH_VERSION}_linux_amd64/bin/gh"
+        chmod +x "$SPLICEDOCK_BIN/gh"
+
+  - type: cli_passthrough
+    name: codex
+    description: "OpenAI Codex CLI — delegate coding tasks to an independent Codex agent"
+    command: codex
+    env:
+      - OPENAI_API_KEY
+    install:
+      script: |
+        npm install -g @openai/codex@latest
+        [ -f "$SPLICEDOCK_BIN/bin/codex" ] && ln -sf "$SPLICEDOCK_BIN/bin/codex" "$SPLICEDOCK_BIN/codex"

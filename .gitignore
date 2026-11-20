@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.js.map
+*.env
+.env*
+coverage/
+*.local
+splicedock.local.yaml
+splicedock.local.yaml
+.worktrees/
+
+# Generated public documentation
+_site/
+
+.docs-check/
+/graft/
+node_modules

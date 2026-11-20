@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="704" height="288" viewBox="0 0 704 288" role="img" aria-labelledby="title desc">
+  <title id="title">One MCP endpoint for three kinds of backend</title>
+  <desc id="desc">An MCP client sends a request to Splicedock. The gateway uses a profile and backend credentials to route the call to an MCP server, an HTTP API, or a CLI tool.</desc>
+  <defs>
+    <pattern id="grid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M0 0h2v2H0z" fill="#aaa99f" opacity=".2"/>
+    </pattern>
+  </defs>
+  <path fill="#0d0d0d" d="M0 0h684l20 20v268H20L0 268z"/>
+  <path fill="url(#grid)" d="M16 16h656l16 16v240H32l-16-16z"/>
+  <g fill="none" stroke="#c9d99a" stroke-width="3">
+    <path d="M183 144h54m218 0h57m-24 0V64h24m-24 80v80h24"/>
+  </g>
+  <path fill="#c9d99a" d="M228 138l9 6-9 6zm275-80 9 6-9 6zm0 80 9 6-9 6zm0 80 9 6-9 6z"/>
+  <path fill="#c9d99a" d="M485 141h6v6h-6z"/>
+
+  <path d="M24 112h149l10 10v54H24z" fill="#181818" stroke="#8c8c81" stroke-width="2"/>
+  <g font-family="ui-monospace, monospace" text-anchor="middle">
+    <text x="103" y="141" fill="#f2f2f2" font-size="23" font-weight="700">MCP client</text>
+    <text x="103" y="162" fill="#bdbdb5" font-size="15">PROFILE TOKEN</text>
+  </g>
+
+  <path d="M244 96h194l17 17v79H244z" fill="#080808" stroke="#c9d99a" stroke-width="2"/>
+  <path fill="#c9d99a" d="M238 90h194l17 17v79H238z"/>
+  <g fill="#0d0d0d" font-family="ui-monospace, monospace" text-anchor="middle">
+    <text x="343" y="126" font-size="30" font-weight="700">Splicedock</text>
+    <text x="343" y="150" font-size="18">POST /mcp</text>
+    <text x="343" y="173" font-size="15">PROFILE + CREDENTIALS</text>
+  </g>
+
+  <g fill="#181818" stroke="#8c8c81" stroke-width="2">
+    <path d="M521 37h145l10 10v44H521z"/>
+    <path d="M521 117h145l10 10v44H521z"/>
+    <path d="M521 197h145l10 10v44H521z"/>
+  </g>
+  <g fill="#c9d99a">
+    <path d="M519 61h6v6h-6zM519 141h6v6h-6zM519 221h6v6h-6z"/>
+  </g>
+  <g fill="#f2f2f2" font-family="ui-monospace, monospace" font-size="21" font-weight="700" text-anchor="middle">
+    <text x="599" y="71">MCP servers</text>
+    <text x="599" y="151">HTTP APIs</text>
+    <text x="599" y="231">CLI tools</text>
+  </g>
+</svg>

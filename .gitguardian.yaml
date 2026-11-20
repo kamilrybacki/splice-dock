@@ -1,0 +1,4 @@
+version: 2
+paths-ignore:
+  # Synthetic WebAuthn attestation fixtures used only by tests/unit/consent/webauthn.test.ts.
+  - tests/fixtures/attestation-only/**

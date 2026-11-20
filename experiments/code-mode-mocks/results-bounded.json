@@ -1,0 +1,1373 @@
+{
+  "workflow": "\nconst found = await tools.call(\"demo__find\", { title: \"Nightly report\" });\nif (found.isError) return { status: \"upstream-error\" };\nconst existing = found.structuredContent.ticket;\nconst ticket = existing ?? (await tools.call(\"demo__create\", {\n  title: \"Nightly report\", summary: found.structuredContent.summary\n})).structuredContent;\nconst read = (await tools.call(\"demo__read\", { id: ticket.id })).structuredContent;\nreturn { status: existing ? \"exists\" : \"created\", id: read.id, summary: read.summary };\n",
+  "bounded": true,
+  "trials": [
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 1,
+      "generationMs": 0,
+      "ms": 70,
+      "fixture": {
+        "summary": "Nightly demo batch 1 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 1 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 1,
+      "generationMs": 0,
+      "ms": 25,
+      "fixture": {
+        "summary": "Nightly demo batch 1 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 1,
+      "generationMs": 0,
+      "ms": 19,
+      "fixture": {
+        "summary": "Nightly demo batch 1 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 2,
+      "generationMs": 0,
+      "ms": 25,
+      "fixture": {
+        "summary": "Nightly demo batch 2 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 2 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 2,
+      "generationMs": 0,
+      "ms": 25,
+      "fixture": {
+        "summary": "Nightly demo batch 2 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 2,
+      "generationMs": 0,
+      "ms": 17,
+      "fixture": {
+        "summary": "Nightly demo batch 2 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 3,
+      "generationMs": 0,
+      "ms": 23,
+      "fixture": {
+        "summary": "Nightly demo batch 3 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 3 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 3,
+      "generationMs": 0,
+      "ms": 21,
+      "fixture": {
+        "summary": "Nightly demo batch 3 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 3,
+      "generationMs": 0,
+      "ms": 19,
+      "fixture": {
+        "summary": "Nightly demo batch 3 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 4,
+      "generationMs": 0,
+      "ms": 23,
+      "fixture": {
+        "summary": "Nightly demo batch 4 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 4 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 4,
+      "generationMs": 0,
+      "ms": 24,
+      "fixture": {
+        "summary": "Nightly demo batch 4 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 4,
+      "generationMs": 0,
+      "ms": 16,
+      "fixture": {
+        "summary": "Nightly demo batch 4 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 5,
+      "generationMs": 0,
+      "ms": 26,
+      "fixture": {
+        "summary": "Nightly demo batch 5 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 5 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 5,
+      "generationMs": 0,
+      "ms": 18,
+      "fixture": {
+        "summary": "Nightly demo batch 5 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 5,
+      "generationMs": 0,
+      "ms": 15,
+      "fixture": {
+        "summary": "Nightly demo batch 5 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "missing",
+      "seed": 6,
+      "generationMs": 0,
+      "ms": 23,
+      "fixture": {
+        "summary": "Nightly demo batch 6 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly demo batch 6 completed its sample checks."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "exists",
+      "seed": 6,
+      "generationMs": 0,
+      "ms": 19,
+      "fixture": {
+        "summary": "Nightly demo batch 6 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "template",
+      "scenario": "upstream-error",
+      "seed": 6,
+      "generationMs": 0,
+      "ms": 19,
+      "fixture": {
+        "summary": "Nightly demo batch 6 completed its sample checks."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 1,
+      "generationMs": 287,
+      "ms": 307,
+      "fixture": {
+        "summary": "Sample checks failed due to missing data in the dataset."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Sample checks failed due to missing data in the dataset."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 1,
+      "generationMs": 341,
+      "ms": 366,
+      "fixture": {
+        "summary": "Sample checks are performed, with a sample report of the results."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 1,
+      "generationMs": 422,
+      "ms": 449,
+      "fixture": {
+        "summary": "Sample checks for the upstream-error scenario were successful. The sample checks for the upstream-error scenario were: 1"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 2,
+      "generationMs": 463,
+      "ms": 488,
+      "fixture": {
+        "summary": "Sample checks: 100% complete, 100% of the test cases pass, and 20% of the test cases fail."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Sample checks: 100% complete, 100% of the test cases pass, and 20% of the test cases fail."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 2,
+      "generationMs": 281,
+      "ms": 299,
+      "fixture": {
+        "summary": "Sample checks for the scenario exist, and the results are as expected."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 2,
+      "generationMs": 575,
+      "ms": 592,
+      "fixture": {
+        "summary": "Sample checks: 100% of the test passes, 99% of the test fails, 80% of the test passes, 70% of the test fails, 60% of the"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 3,
+      "generationMs": 778,
+      "ms": 799,
+      "fixture": {
+        "summary": "Sample checks were performed in batch 3, scenario missing, with the following results: 100% accuracy, 50% accuracy, and "
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Sample checks were performed in batch 3, scenario missing, with the following results: 100% accuracy, 50% accuracy, and "
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 3,
+      "generationMs": 230,
+      "ms": 248,
+      "fixture": {
+        "summary": "Sample checks completed successfully for the given scenario."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 3,
+      "generationMs": 284,
+      "ms": 300,
+      "fixture": {
+        "summary": "Sample checks for the downstream error are successful. The sample report is ready for review."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 4,
+      "ms": 692,
+      "error": "SyntaxError: Unterminated string in JSON at position 105 (line 2 column 104)",
+      "ok": false
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 4,
+      "generationMs": 269,
+      "ms": 286,
+      "fixture": {
+        "summary": "Sample checks for the scenario exist, and the sample report is ready."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 4,
+      "ms": 835,
+      "error": "SyntaxError: Unterminated string in JSON at position 98 (line 2 column 97)",
+      "ok": false
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 5,
+      "generationMs": 337,
+      "ms": 360,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario missing. Please provide the required information for the test report."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 5, scenario missing. Please provide the required information for the test report."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 5,
+      "generationMs": 423,
+      "ms": 442,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario exists. The sample checks performed successfully. The results are as follows: 100"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 5,
+      "generationMs": 716,
+      "ms": 733,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario upstream-error. Sample checks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "missing",
+      "seed": 6,
+      "generationMs": 341,
+      "ms": 368,
+      "fixture": {
+        "summary": "Sample checks failed due to missing test case details. Please ensure all test cases are complete and well-documented."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Sample checks failed due to missing test case details. Please ensure all test cases are complete and well-documented."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "exists",
+      "seed": 6,
+      "generationMs": 478,
+      "ms": 495,
+      "fixture": {
+        "summary": "Sample checks, batch 6, scenario exists. Nightly test report, batch 6, scenario exists. Nightly test report, batch 6, is"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "smol",
+      "scenario": "upstream-error",
+      "seed": 6,
+      "generationMs": 410,
+      "ms": 427,
+      "fixture": {
+        "summary": "Sample checks for the upstream error were successful. The sample checks were performed on the following files: 1. /home/"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 1,
+      "generationMs": 1001,
+      "ms": 1020,
+      "fixture": {
+        "summary": "Nightly test report, batch 1, scenario missing. Sample checks are missing. Please provide additional details for further"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 1, scenario missing. Sample checks are missing. Please provide additional details for further"
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 1,
+      "generationMs": 917,
+      "ms": 936,
+      "fixture": {
+        "summary": "Nightly test report, batch 1, scenario exists. Sample checks indicate that the system is functioning as expected."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 1,
+      "generationMs": 1358,
+      "ms": 1375,
+      "fixture": {
+        "summary": "Nightly test report, batch 1, scenario upstream-error. Sample checks included: 1. Verify that the error message is clear"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 2,
+      "generationMs": 1571,
+      "ms": 1625,
+      "fixture": {
+        "summary": "Nightly test report, batch 2, scenario missing. Sample checks are not included."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 2, scenario missing. Sample checks are not included."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 2,
+      "generationMs": 2935,
+      "ms": 2954,
+      "fixture": {
+        "summary": "Nightly test report, batch 2, scenario exists. Sample checks have been conducted to ensure the system operates as per 2."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 2,
+      "generationMs": 975,
+      "ms": 991,
+      "fixture": {
+        "summary": "Sample checks for the nightly test report, batch 2, found an upstream error."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 3,
+      "generationMs": 1105,
+      "ms": 1128,
+      "fixture": {
+        "summary": "Nightly test report, batch 3, scenario missing. Sample checks include basic functionality checks and error handling."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 3, scenario missing. Sample checks include basic functionality checks and error handling."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 3,
+      "generationMs": 1051,
+      "ms": 1070,
+      "fixture": {
+        "summary": "Nightly test report, batch 3, scenario exists. Sample checks are completed successfully."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 3,
+      "generationMs": 1272,
+      "ms": 1288,
+      "fixture": {
+        "summary": "Nightly test report, batch 3, scenario upstream-error. Sample checks have identified a potential issue with the upstream"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 4,
+      "generationMs": 1084,
+      "ms": 1110,
+      "fixture": {
+        "summary": "Nightly test report, batch 4, scenario missing. Sample checks are not included in this report."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 4, scenario missing. Sample checks are not included in this report."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 4,
+      "generationMs": 1019,
+      "ms": 1039,
+      "fixture": {
+        "summary": "Nightly test report, batch 4, scenario exists. Sample checks have been performed successfully."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 4,
+      "generationMs": 876,
+      "ms": 893,
+      "fixture": {
+        "summary": "Sample checks for batch 4, scenario upstream-error, have been completed."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 5,
+      "generationMs": 906,
+      "ms": 928,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario missing. Sample checks are not performed due to missing data."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 5, scenario missing. Sample checks are not performed due to missing data."
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 5,
+      "generationMs": 1364,
+      "ms": 1383,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario exists. Sample checks are being conducted to ensure all necessary conditions are "
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 5,
+      "generationMs": 1077,
+      "ms": 1095,
+      "fixture": {
+        "summary": "Nightly test report, batch 5, scenario upstream-error. Sample checks identified an issue with a specific component."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "missing",
+      "seed": 6,
+      "generationMs": 1116,
+      "ms": 1136,
+      "fixture": {
+        "summary": "Nightly test report, batch 6, scenario missing. Sample checks are not included. Please provide additional information to"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "POST",
+          "path": "/demo/tickets",
+          "body": {
+            "title": "Nightly report",
+            "summary": "Nightly test report, batch 6, scenario missing. Sample checks are not included. Please provide additional information to"
+          },
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/842",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "exists",
+      "seed": 6,
+      "generationMs": 827,
+      "ms": 847,
+      "fixture": {
+        "summary": "Nightly test report, batch 6, scenario exists. Sample checks are successful."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "path": "/demo/tickets/41",
+          "body": null,
+          "status": 200
+        }
+      ],
+      "ok": true
+    },
+    {
+      "provider": "qwen",
+      "scenario": "upstream-error",
+      "seed": 6,
+      "generationMs": 1084,
+      "ms": 1099,
+      "fixture": {
+        "summary": "Nightly test report, batch 6, scenario upstream-error. Sample checks show issues with the upstream error detection."
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/demo/tickets?title=Nightly+report",
+          "body": null,
+          "status": 503
+        }
+      ],
+      "ok": true
+    }
+  ]
+}

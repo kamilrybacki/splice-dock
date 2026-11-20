@@ -1,0 +1,102 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    # Private repo: self-hosted ARC pool (x64, dind sidecar shares the pod network, so
+    # service containers publish on localhost). Public repo: GitHub-hosted runners, so
+    # pull requests from forks never execute on self-hosted infrastructure.
+    runs-on: ${{ github.event.repository.private && 'homelab-ci' || 'ubuntu-latest' }}
+    # Throwaway Postgres for the real-Postgres race suites. The password is a
+    # fixed test literal for this disposable container, not a secret.
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:e0e53cfa0884f3cc216a621033e4f38dceb49e52218ac77facc8e48f02973093
+        env:
+          POSTGRES_PASSWORD: splicedock-ci-throwaway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install pinned GitHub CLI for help-table checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=2.102.0
+          # Digests from gh_2.102.0_checksums.txt, cross-checked with a second download.
+          case "$(uname -m)" in
+            x86_64)
+              arch=amd64
+              sha256=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386
+              ;;
+            aarch64|arm64)
+              arch=arm64
+              sha256=7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484
+              ;;
+            *) echo 'Unsupported runner architecture' >&2; exit 1 ;;
+          esac
+          archive="gh_${version}_linux_${arch}.tar.gz"
+          install_dir="${RUNNER_TEMP}/gh-${version}"
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+          base_url="https://github.com/cli/cli/releases/download/v${version}"
+          curl --fail --silent --show-error --location --retry 3 -o "$archive" "$base_url/$archive"
+          printf '%s  %s\n' "$sha256" "$archive" | sha256sum --check --strict
+          tar -xzf "$archive"
+          bin_dir="$install_dir/gh_${version}_linux_${arch}/bin"
+          "$bin_dir/gh" --version | grep -F "gh version ${version} "
+          echo "$bin_dir" >> "$GITHUB_PATH"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Build and validate user documentation
+        run: npm run docs:build && npm run docs:check
+      - run: npm run lint
+      - name: Layer rules
+        run: npm run lint:layers
+      - run: npm test
+        env:
+          SPLICEDOCK_TEST_PG_DSN: postgres://postgres:splicedock-ci-throwaway@localhost:5432/postgres
+          # Fail, rather than skip, the real-Postgres suites if the DSN is missing.
+          SPLICEDOCK_REQUIRE_PG_TESTS: '1'
+
+  image:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ${{ github.event.repository.private && 'homelab-ci' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}

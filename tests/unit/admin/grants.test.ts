@@ -1,0 +1,22 @@
+import {it,expect} from 'vitest';
+import Fastify from 'fastify';
+import {buildAdminAuthHook,ADMIN_SESSION_COOKIE,CSRF_HEADER} from '../../../src/adapters/inbound/admin/auth.js';
+import {registerApprovalRoutes} from '../../../src/adapters/inbound/admin/routes/approvals.js';
+import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
+import {ApprovalService} from '../../../src/application/approvals/approval-service.js';
+it('protects grant controls with admin authentication, CSRF and authenticated actor',async()=>{
+  const store=await SplicedockStore.open(':memory:');const svc=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0});
+  const app=Fastify();app.decorateRequest('adminIdentity',undefined);
+  await app.register(async scoped=>{scoped.addHook('preHandler',buildAdminAuthHook('fixture'));registerApprovalRoutes(scoped,svc);});
+  expect((await app.inject({url:'/api/v1/grants'})).statusCode).toBe(401);
+  expect((await app.inject({method:'POST',url:'/api/v1/grants/all/revoke',headers:{cookie:`${ADMIN_SESSION_COOKIE}=fixture`}})).statusCode).toBe(403);
+  const headers={authorization:'Bearer fixture',[CSRF_HEADER]:'1'};
+  expect((await app.inject({url:'/api/v1/grants',headers})).json().enabled).toBe(true);
+  expect((await app.inject({method:'POST',url:'/api/v1/grant-exceptions',headers,payload:{tool:'kubectl',verb_path:'delete'}})).statusCode).toBe(200);
+  expect(await svc.grants.exception('kubectl','delete',false)).toBe(true);
+  expect(await store.consentDatabase().prepare("SELECT added_by FROM grant_exceptions WHERE tool='kubectl' AND verb_path='delete'").get()).toEqual({added_by:'admin'});
+  expect((await app.inject({method:'POST',url:'/api/v1/grant-exceptions',headers,payload:{tool:'kubectl',verb_path:'delete',remove:true}})).statusCode).toBe(200);
+  expect(await svc.grants.exception('kubectl','delete',false)).toBe(false);
+  expect((await app.inject({method:'POST',url:'/api/v1/grants/all/revoke',headers})).statusCode).toBe(200);
+  await app.close();await store.close();
+});

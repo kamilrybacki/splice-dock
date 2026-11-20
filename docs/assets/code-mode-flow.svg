@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="704" height="208" viewBox="0 0 704 208" role="img" aria-labelledby="title desc">
+  <title id="title">Code Mode runs tool calls from one script</title>
+  <desc id="desc">A JavaScript function in the gateway sandbox can run two independent tool calls in parallel. Code Mode returns the script result with a call summary.</desc>
+  <defs>
+    <pattern id="grid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M0 0h2v2H0z" fill="#aaa99f" opacity=".2"/>
+    </pattern>
+  </defs>
+  <path fill="#0d0d0d" d="M0 0h684l20 20v188H20L0 188z"/>
+  <path fill="url(#grid)" d="M16 16h656l16 16v160H32l-16-16z"/>
+  <g fill="none" stroke="#c9d99a" stroke-width="3">
+    <path d="M210 104h24V64h24m-24 40v40h24m186-80h24v80h-24m24-40h24"/>
+  </g>
+  <path fill="#c9d99a" d="M229 101h7v6h-7zm24-43 9 6-9 6zm0 80 9 6-9 6zm232-40 9 6-9 6zM465 101h7v6h-7z"/>
+  <path fill="#c9d99a" d="M24 68h173l13 13v59H24z"/>
+  <g fill="#181818" stroke="#8c8c81" stroke-width="2">
+    <path d="M266 37h167l11 11v43H266z"/>
+    <path d="M266 117h167l11 11v43H266z"/>
+    <path d="M500 68h168l12 12v60H500z"/>
+  </g>
+  <g font-family="ui-monospace, monospace" text-anchor="middle">
+    <text x="117" y="101" fill="#0d0d0d" font-size="28" font-weight="700">One script</text>
+    <text x="117" y="124" fill="#0d0d0d" font-size="17">QUICKJS SANDBOX</text>
+    <text x="355" y="72" fill="#f2f2f2" font-size="23" font-weight="700">Tool call A</text>
+    <text x="355" y="152" fill="#f2f2f2" font-size="23" font-weight="700">Tool call B</text>
+    <text x="590" y="101" fill="#f2f2f2" font-size="28" font-weight="700">Result</text>
+    <text x="590" y="124" fill="#c9d99a" font-size="17">+ CALL SUMMARY</text>
+  </g>
+</svg>

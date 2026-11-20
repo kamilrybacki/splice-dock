@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="704" height="108" viewBox="0 0 704 108" role="img" aria-labelledby="title desc">
+  <title id="title">Example Quickstart result</title>
+  <desc id="desc">The demo__version tool returns v22.23.5. Your output reflects the Node.js version on the gateway.</desc>
+  <path fill="#0d0d0d" d="M0 0h688l16 16v92H16L0 92z"/>
+  <path fill="#181818" d="M2 2h685l15 15v22H2z"/>
+  <path d="M2 39h700" stroke="#56564d" stroke-width="2"/>
+  <g fill="#c9d99a">
+    <path d="M20 16h6v6h-6zm11 0h6v6h-6zm11 0h6v6h-6z"/>
+    <path d="M20 68h7v7h-7z"/>
+  </g>
+  <g font-family="ui-monospace, monospace">
+    <text x="62" y="26" fill="#bdbdb5" font-size="17">EXAMPLE OUTPUT</text>
+    <text x="43" y="82" fill="#f2f2f2" font-size="28" font-weight="700">demo__version: <tspan fill="#c9d99a">v22.23.5</tspan></text>
+  </g>
+</svg>
