@@ -2,6 +2,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
     branches: [main]
 
@@ -80,7 +81,8 @@ jobs:
 
   image:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    # main publishes :latest; a release tag (vX.Y.Z) publishes :vX.Y.Z. Both get :<sha>.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ github.event.repository.private && 'homelab-ci' || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -98,5 +100,6 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+            ${{ startsWith(github.ref, 'refs/tags/v') && format('ghcr.io/{0}:{1}', github.repository, github.ref_name) || '' }}
