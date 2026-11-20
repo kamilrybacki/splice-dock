@@ -201,6 +201,7 @@ public user guide in [`site/`](site/). The
 [architecture decisions](docs/adrs/), [token and metrics authentication](docs/profile-token-and-metrics-auth.md),
 and [admin identity and CSRF](docs/admin-identity-and-csrf.md) notes document the design.
 Check the [CI runs](https://github.com/kamilrybacki/splice-dock/actions/workflows/ci.yml) for build and test results.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how pull requests and releases work.
 
 ## License
 
