@@ -19,7 +19,7 @@ import { callHttpTool, type HttpExchange } from '../../../tools/adapters/http/dr
 import { callCliTool } from '../../../tools/adapters/cli/static.js';
 import { callCliPassthrough, callReviewedCliPassthrough } from '../../../tools/adapters/cli/passthrough.js';
 import { logger } from '../../../../common/logger.js';
-import { PACKAGE_VERSION } from '../../../../common/version.js';
+import { PACKAGE_VERSION } from '../../../../version.js';
 import { createQueryFallbackWarner, type ProfileSelectionSource } from './profiles/selection.js';
 import { randomUUID } from 'node:crypto';
 import type { HttpToolConfig, CliToolConfig, CliPassthroughToolConfig, McpProxyToolConfig } from '../../../../config/types.js';

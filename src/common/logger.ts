@@ -10,6 +10,16 @@ export interface LogFields {
   [key: string]: unknown;
 }
 
+/** Receives one finished JSON line (with trailing newline). The composition root supplies the real destination. */
+export type LogSink = (line: string) => void;
+
+let sink: LogSink = () => {};
+
+/** Installs the process-wide log destination. Until called, log lines are discarded. */
+export function setLogSink(next: LogSink): void {
+  sink = next;
+}
+
 function write(level: Level, message: string, fields: LogFields = {}): void {
   const entry = {
     timestamp: new Date().toISOString(),
@@ -17,7 +27,7 @@ function write(level: Level, message: string, fields: LogFields = {}): void {
     message,
     ...fields,
   };
-  process.stdout.write(JSON.stringify(entry) + '\n');
+  sink(JSON.stringify(entry) + '\n');
 }
 
 export const logger = {

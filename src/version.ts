@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 
-// package.json sits in the package root, two levels above both src/common/
-// (tests) and dist/common/ (build, and the installed npm package).
-const PACKAGE_JSON_URL = new URL('../../package.json', import.meta.url);
+// package.json sits in the package root, one level above both src/
+// (tests) and dist/ (build, and the installed npm package).
+const PACKAGE_JSON_URL = new URL('../package.json', import.meta.url);
 
 function readPackageVersion(): string {
   const parsed: unknown = JSON.parse(readFileSync(PACKAGE_JSON_URL, 'utf8'));

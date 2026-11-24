@@ -6,6 +6,7 @@ import { ProfileService } from '../../../src/services/profiles/base.js';
 import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { loadRuntimeProfiles } from '../../../src/services/profiles/runtime/loader.js';
+import { yamlManifestCodec } from '../../../src/services/profiles/adapters/yaml.js';
 
 const log = { info: () => {}, warn: () => {} };
 
@@ -59,7 +60,7 @@ describe('profile routes persist runtime profiles to the store', () => {
     await app.inject({ method: 'POST', url: '/api/v1/profiles', payload: { name: 'ops', tools: ['grafana__*', 'exa__*'] } });
     // Simulate a pod restart: a fresh registry reloaded from the same store.
     const rebooted = new ProfileRegistry();
-    await loadRuntimeProfiles(store, rebooted, log);
+    await loadRuntimeProfiles(store, rebooted, log, yamlManifestCodec);
     expect(rebooted.getProfile('ops')).toMatchObject({ tools: ['grafana__*', 'exa__*'], source: 'runtime' });
   });
 });

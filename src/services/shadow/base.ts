@@ -11,14 +11,16 @@ export class ShadowObserver {
  private running=false;
  private stuck=false;
  /** The constructor does no I/O; create() migrates the shadow log first. */
- constructor(readonly db:SqlDb,readonly config:Config,private provider:Provider=unavailable,private event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{}){}
- static async create(db:SqlDb,config:Config,provider:Provider=unavailable,event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{}):Promise<ShadowObserver>{
+ constructor(readonly db:SqlDb,readonly config:Config,private provider:Provider=unavailable,private event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{},private off:()=>boolean=()=>false){}
+ static async create(db:SqlDb,config:Config,provider:Provider=unavailable,event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{},off:()=>boolean=()=>false):Promise<ShadowObserver>{
  await db.ensureSchema();
- return new ShadowObserver(db,config,provider,event);
+ return new ShadowObserver(db,config,provider,event,off);
  }
+ /** Applies reloaded settings in place; the operator kill switch (off) stays injected. */
+ reconfigure(next:Config):void{Object.assign(this.config,next);}
  submit(o:Observation,decision:string):void {
  try{
- if(!this.config.enabled||process.env.SPLICEDOCK_SHADOW==='off'||Math.random()>=this.config.sample_rate)return;
+ if(!this.config.enabled||this.off()||Math.random()>=this.config.sample_rate)return;
  if(this.stuck||this.queue.length>=this.config.queue_max){this.emit('dropped',0);return;}
  const f=features(o);
  this.queue.push({f,decision:['allow','deny','approval_required','approved'].includes(decision)?decision:'deny'});
@@ -28,7 +30,7 @@ export class ShadowObserver {
  private emit(outcome:string,latency:number,agreement?:string){try{this.event(outcome,latency,this.queue.length,agreement);}catch{/* telemetry cannot affect requests */}}
  private async drain():Promise<void>{
  try{while(this.queue.length){
- if(!this.config.enabled||process.env.SPLICEDOCK_SHADOW==='off'){this.queue=[];break;}
+ if(!this.config.enabled||this.off()){this.queue=[];break;}
  const job=this.queue.shift()!;const start=Date.now();const controller=new AbortController();
  let timer:ReturnType<typeof setTimeout>|undefined;let settled=false;
  // A provider ignoring cancellation can leave at most ONE promise alive. Stop dispatch until it settles.

@@ -59,15 +59,17 @@ describe('check-layers', () => {
     expect(result.out).toContain("contracts: contracts/outbound/x.ts imports package '@modelcontextprotocol/sdk'");
   });
 
-  it('rejects process.env outside the allowed files, but not in comments', () => {
+  it('rejects process.env in every core file, but not in comments', () => {
     file('services/x/base.ts', "export const on = process['env'].FLAG === '1';\n");
     file('services/y/base.ts', '// reads process.env.FLAG upstream\nexport const y = 1;\n');
     file('config/loader.ts', 'export const kube = process.env.KUBECONFIG;\n');
+    file('main.ts', 'export const root = process.env.FLAG;\n');
     const result = run();
     expect(result.code).toBe(1);
     expect(result.out).toContain('services: services/x/base.ts reads process.env');
     expect(result.out).not.toContain('services/y/base.ts');
-    expect(result.out).not.toContain('config/loader.ts');
+    expect(result.out).toContain('config: config/loader.ts reads process.env');
+    expect(result.out).not.toContain('main.ts');
   });
 
   it('still rejects a relative import into a forbidden layer', () => {

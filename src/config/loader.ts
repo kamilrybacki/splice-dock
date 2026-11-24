@@ -1,27 +1,31 @@
-import { readFileSync } from 'node:fs';
-import yaml from 'js-yaml';
 import { splicedockConfigSchema, type SplicedockConfig } from './schema.js';
 import { compilePolicy, PolicyCompileError } from '../services/policy/cli/rules.js';
 import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../services/policy/cli/kubeconfig/path.js';
 
+/** Environment lookup the config rules consult (process.env is passed in by the caller). */
+export type ConfigEnv = Readonly<Record<string, string | undefined>>;
+
 /** Every KUBECONFIG value a tool would pass that can be read without a live
  *  call: bare names and env: refs. vault: refs are checked at call time. All
  *  matching refs are returned, so a duplicate declaration cannot hide one. */
-function declaredKubeconfigs(tool: Extract<SplicedockConfig['tools'][number], { type: 'cli_passthrough' }>): readonly (string | undefined)[] {
+function declaredKubeconfigs(
+  tool: Extract<SplicedockConfig['tools'][number], { type: 'cli_passthrough' }>,
+  env: ConfigEnv,
+): readonly (string | undefined)[] {
   return tool.env.flatMap(ref => {
-    if (typeof ref === 'string') return ref === KUBECONFIG_VAR ? [process.env[KUBECONFIG_VAR]] : [];
+    if (typeof ref === 'string') return ref === KUBECONFIG_VAR ? [env[KUBECONFIG_VAR]] : [];
     if (ref.name !== KUBECONFIG_VAR || !('from' in ref) || !ref.from.startsWith('env:')) return [];
-    return [process.env[ref.from.slice('env:'.length)]];
+    return [env[ref.from.slice('env:'.length)]];
   });
 }
 
 /** Fold the legacy top-level `deny_subcommands` on cli_passthrough tools into
  *  `policy.deny_subcommands` and pre-compile policies so bad regex / mutually-
  *  exclusive rules fail at config-load time rather than on first __run. */
-function normalizeCliPassthroughPolicy(config: SplicedockConfig): SplicedockConfig {
+function normalizeCliPassthroughPolicy(config: SplicedockConfig, env: ConfigEnv): SplicedockConfig {
   for (const tool of config.tools) {
     if (tool.type !== 'cli_passthrough') continue;
-    if (declaredKubeconfigs(tool).some(kubeconfigIsRelative)) {
+    if (declaredKubeconfigs(tool, env).some(kubeconfigIsRelative)) {
       throw new Error(`cli_passthrough '${tool.name}': ${KUBECONFIG_RELATIVE_MESSAGE}`);
     }
     const legacy = tool.deny_subcommands ?? [];
@@ -136,20 +140,12 @@ function validateCredentialBindings(config: SplicedockConfig): SplicedockConfig 
   return config;
 }
 
-export function parseConfig(raw: string): SplicedockConfig {
-  const parsed = yaml.load(raw, { schema: yaml.JSON_SCHEMA });
+/** Validate an already-parsed config document. Parsing (YAML) and reading the
+ *  file live in the composition root; `env` is the process environment. */
+export function validateConfig(parsed: unknown, env: ConfigEnv): SplicedockConfig {
   if (parsed === null || parsed === undefined) {
     throw new Error('Config is empty or contains only comments');
   }
   const config = splicedockConfigSchema.parse(parsed);
-  return validateCredentialBindings(normalizeCliPassthroughPolicy(config));
-}
-
-export function loadConfig(path: string): SplicedockConfig {
-  try {
-    const raw = readFileSync(path, 'utf8');
-    return parseConfig(raw);
-  } catch (err) {
-    throw new Error(`Failed to load config from ${path}: ${(err as Error).message}`, { cause: err });
-  }
+  return validateCredentialBindings(normalizeCliPassthroughPolicy(config, env));
 }

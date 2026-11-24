@@ -1,4 +1,3 @@
-import yaml from 'js-yaml';
 import { z } from 'zod';
 import { profileSchema } from '../../config/schema.js';
 import type { ProfileConfig } from '../../config/types.js';
@@ -6,10 +5,24 @@ import type { ProfileConfig } from '../../config/types.js';
 export const PROFILE_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 export const MAX_PROFILE_MANIFEST_BYTES = 64 * 1024;
 
-const DUMP_OPTS: yaml.DumpOptions = { indent: 2, lineWidth: 120, noRefs: true };
 const namedProfileSchema = profileSchema.extend({
   name: z.string().regex(PROFILE_NAME_PATTERN, 'profile name must be 1-64 alphanumeric/underscore/hyphen characters'),
 });
+
+/** Text format of a manifest (YAML in production). Parsing must yield plain JSON types. */
+export interface ProfileManifestCodec {
+  /** Throws ManifestSyntaxError on malformed text. */
+  parse(text: string): unknown;
+  dump(value: unknown): string;
+}
+
+/** Malformed manifest text, with the 1-based position when the codec knows it. */
+export class ManifestSyntaxError extends Error {
+  constructor(message: string, readonly position?: { line: number; column: number }) {
+    super(message);
+    this.name = 'ManifestSyntaxError';
+  }
+}
 
 export interface ParsedProfileManifest {
   name: string;
@@ -26,14 +39,14 @@ export class ProfileManifestError extends Error {
   }
 }
 
-export function dumpProfileManifest(profile: ProfileConfig, name?: string): string {
+export function dumpProfileManifest(codec: ProfileManifestCodec, profile: ProfileConfig, name?: string): string {
   const value = name === undefined ? profile : { name, ...profile };
-  return yaml.dump(value, DUMP_OPTS);
+  return codec.dump(value);
 }
 
 /** Parse one profile document. Existing-profile documents omit `name`; creation
- * documents include it. JSON_SCHEMA keeps YAML values to plain JSON types. */
-export function parseProfileManifest(manifest: string, expectedName?: string): ParsedProfileManifest {
+ * documents include it. The codec keeps values to plain JSON types. */
+export function parseProfileManifest(codec: ProfileManifestCodec, manifest: string, expectedName?: string): ParsedProfileManifest {
   if (Buffer.byteLength(manifest, 'utf8') > MAX_PROFILE_MANIFEST_BYTES) {
     throw new ProfileManifestError(`profile manifest exceeds ${MAX_PROFILE_MANIFEST_BYTES} bytes`);
   }
@@ -41,11 +54,11 @@ export function parseProfileManifest(manifest: string, expectedName?: string): P
 
   let document: unknown;
   try {
-    document = yaml.load(manifest, { schema: yaml.JSON_SCHEMA });
+    document = codec.parse(manifest);
   } catch (error) {
-    const mark = error instanceof yaml.YAMLException ? error.mark : undefined;
-    throw new ProfileManifestError(error instanceof Error ? error.message : 'invalid YAML', mark
-      ? [{ path: [], message: `line ${mark.line + 1}, column ${mark.column + 1}` }]
+    const position = error instanceof ManifestSyntaxError ? error.position : undefined;
+    throw new ProfileManifestError(error instanceof Error ? error.message : 'invalid YAML', position
+      ? [{ path: [], message: `line ${position.line}, column ${position.column}` }]
       : []);
   }
 

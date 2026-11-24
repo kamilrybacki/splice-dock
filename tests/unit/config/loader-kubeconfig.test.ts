@@ -9,7 +9,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { parseConfig } from '../../../src/config/loader.js';
+import yaml_ from 'js-yaml';
+import { parseConfig } from '../../../src/config-file.js';
+import { validateConfig } from '../../../src/config/loader.js';
 import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
@@ -40,9 +42,22 @@ tools:
     env:
 ${envBlock}
 `;
+const yamlLoad = (text: string): unknown => yaml_.load(text, { schema: yaml_.JSON_SCHEMA });
 const BARE = yaml('      - KUBECONFIG');
 const FROM_ENV = yaml('      - name: KUBECONFIG\n        from: "env:SPLICEDOCK_TEST_KCFG"');
 const FROM_VAULT = yaml('      - name: KUBECONFIG\n        from: "vault:secret/data/example/kube#config"');
+
+describe('loader: environment is injected, not read from process.env', () => {
+  it('validateConfig takes KUBECONFIG from the supplied env only', () => {
+    process.env['KUBECONFIG'] = '/abs/ok';
+    const parsed = yamlLoad(BARE);
+    expect(() => validateConfig(parsed, { KUBECONFIG: 'relative' })).toThrow(/KUBECONFIG must be an absolute path/);
+    expect(() => validateConfig(parsed, { KUBECONFIG: '/abs/ok' })).not.toThrow();
+  });
+  it('validateConfig rejects an empty document', () => {
+    expect(() => validateConfig(null, {})).toThrow(/empty/);
+  });
+});
 
 describe('loader: KUBECONFIG must be absolute', () => {
   it.each(['kubeconfig', './kube/config', '../config', 'a/b'])('a relative bare KUBECONFIG %s is rejected', value => {

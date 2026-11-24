@@ -36,8 +36,7 @@ it('timeout on cancellation-ignoring provider bounds outstanding work; kill swit
  for(let i=0;i<1000;i++)o.submit(observation,'allow');
  await wait();expect(calls).toBe(1);
  expect((await o.summary()).outcomes).toEqual([{outcome:'timeout',count:1}]);
- process.env.SPLICEDOCK_SHADOW='off';
- try{(await ShadowObserver.create(sqliteDb(db),config,async()=>{calls++;throw new Error();})).submit(observation,'allow');await wait();expect(calls).toBe(1);}finally{delete process.env.SPLICEDOCK_SHADOW;}
+ (await ShadowObserver.create(sqliteDb(db),config,async()=>{calls++;throw new Error();},undefined,()=>true)).submit(observation,'allow');await wait();expect(calls).toBe(1);
 });
 it('provider failure and retention are isolated',async()=>{
  const db=new Database(':memory:');const o=await ShadowObserver.create(sqliteDb(db),config,async()=>{throw new Error('CANARY');});

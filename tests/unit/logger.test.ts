@@ -29,3 +29,32 @@ describe('logger', () => {
     expect(calls[3]).toHaveProperty('error', 'oops');
   });
 });
+
+describe('logger sink', () => {
+  it('delivers each JSON line to the injected sink instead of stdout', async () => {
+    const { logger, setLogSink } = await import('../../src/common/logger.js');
+    const { stdoutLogSink } = await import('../../src/stdout-log-sink.js');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const lines: string[] = [];
+    setLogSink(line => { lines.push(line); });
+    try {
+      logger.warn('captured', { tool: 't' });
+    } finally {
+      setLogSink(stdoutLogSink);
+      const wrote = stdout.mock.calls.length;
+      stdout.mockRestore();
+      expect(wrote).toBe(0);
+    }
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.endsWith('\n')).toBe(true);
+    expect(JSON.parse(lines[0]!)).toMatchObject({ level: 'warn', message: 'captured', tool: 't' });
+  });
+
+  it('the stdout sink writes the line unchanged to process.stdout', async () => {
+    const { stdoutLogSink } = await import('../../src/stdout-log-sink.js');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    stdoutLogSink('x\n');
+    expect(stdout).toHaveBeenCalledWith('x\n');
+    stdout.mockRestore();
+  });
+});
