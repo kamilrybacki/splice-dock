@@ -154,16 +154,16 @@ describe('callCliPassthrough — policy', () => {
 
 describe('callCliPassthrough — policy decision metric sink', () => {
   it('reports allow and deny with rule category only', async () => {
-    const { setPolicyDecisionSink } = await import('../../../src/services/tools/adapters/cli/passthrough.js');
+    const { configurePassthrough } = await import('../../../src/services/tools/adapters/cli/passthrough.js');
     const { runWithCaller } = await import('../../../src/common/request/context.js');
     const seen: unknown[] = [];
-    setPolicyDecisionSink(e => seen.push(e));
+    configurePassthrough({policyDecisionSink: e => seen.push(e)});
     const cfg = mkConfig({ policy: { deny_subcommands: ['bad'], max_args: 32, on_violation: 'deny', audit: false } });
     await runWithCaller({ profile: 'p1', tokenId: 't1', authenticated: true }, async () => {
       await callCliPassthrough(cfg, 'run', { args: ['ok'] }, ['echo']);
       await callCliPassthrough(cfg, 'run', { args: ['bad', 'secret-value'] }, ['echo']);
     });
-    setPolicyDecisionSink(null);
+    configurePassthrough({});
     expect(seen).toEqual([
       { tool: 'echo_pass', profile: 'p1', decision: 'allow', rule: 'none' },
       { tool: 'echo_pass', profile: 'p1', decision: 'deny', rule: 'deny_subcommands' },

@@ -1,3 +1,4 @@
+import { builtinShapes } from '../../../src/services/policy/builtin.js';
 import { describe, it, expect, vi } from 'vitest';
 import { baseShapeKey, kubectlBaseShape, kubectlShape } from '../../../src/services/policy/shape/kubectl.js';
 import { contextSimilarity } from '../../../src/services/policy/context/similarity.js';
@@ -43,7 +44,7 @@ describe('standing grants lifecycle', () => {
   async function setup(enabled=true) {
     let now=1000000;
     const store=await SplicedockStore.open(':memory:');
-    const svc=new ApprovalService({store,grantsEnabled:enabled,sweepIntervalMs:0,now:()=>now});
+    const svc=new ApprovalService({store,grantsEnabled:enabled,sweepIntervalMs:0,shapes:builtinShapes,now:()=>now});
     const request=(name:string,ctx:string|undefined=context,who=caller,tool='kubectl',verb='delete',strong=false)=>svc.makeHook(tool,'/workspace',who,strong,ctx)({tool,argv:[verb,'job',name,'-n','batch'],rule:'approval_subcommands',matched:verb});
     const execute=async (name:string)=>{const out=await request(name);await svc.approve(out.id!,'operator');const approved=await request(name);expect(approved.approved).toBe(true);await svc.finalize(approved.id!);await svc.executionResult(approved.id!,true);};
     return {store,svc,request,execute,advance:()=>{now+=7*86400000+1;}};
@@ -171,7 +172,7 @@ describe('standing grants lifecycle', () => {
   });
   it('release expires a grant reservation after the flag is disabled',async ()=>{
     const {store,svc,request,execute}=await setup();await execute('one');await execute('two');const out=await request('three');
-    const disabled=new ApprovalService({store,grantsEnabled:false,sweepIntervalMs:0});
+    const disabled=new ApprovalService({store,grantsEnabled:false,sweepIntervalMs:0,shapes:builtinShapes});
     expect(await disabled.release(out.id!)).toBe(true);expect((await svc.get(out.id!))?.status).toBe('expired');await store.close();
   });
   it('supersedes pending approvals atomically on grant match',async ()=>{
@@ -180,7 +181,7 @@ describe('standing grants lifecycle', () => {
   });
   it('does not count pre-flag successes after enabling',async ()=>{
     const {store,svc,execute}=await setup(false);await execute('one');await execute('two');
-    const enabled=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,now:()=>1000000});
+    const enabled=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,shapes:builtinShapes,now:()=>1000000});
     const run=async (name:string)=>{const hook=enabled.makeHook('kubectl','/workspace',caller,false,context);const input={argv:['delete','job',name,'-n','batch'],rule:'approval_subcommands' as const,matched:'delete'};const out=await hook(input);await enabled.approve(out.id!,'operator');await enabled.finalize((await hook(input)).id!);await enabled.executionResult(out.id!,true);};
     await run('fresh-one');expect(await enabled.listGrants()).toHaveLength(0);await run('fresh-two');expect(await enabled.listGrants()).toHaveLength(1);expect(await svc.listGrants()).toHaveLength(1);await store.close();
   });
@@ -192,7 +193,7 @@ describe('standing grants lifecycle', () => {
   });
   it('config exceptions can be removed in WebUI and strong tools remain exceptions',async ()=>{
     const store=await SplicedockStore.open(':memory:');
-    const svc=new ApprovalService({store,grantsEnabled:true,grantExceptions:[{tool:'kubectl',verb_path:'delete'}],sweepIntervalMs:0});
+    const svc=new ApprovalService({store,grantsEnabled:true,grantExceptions:[{tool:'kubectl',verb_path:'delete'}],sweepIntervalMs:0,shapes:builtinShapes});
     expect(await svc.grants.exception('kubectl','delete',false)).toBe(true);
     await svc.grants.setException('kubectl','delete',false,'operator');expect(await svc.grants.exception('kubectl','delete',false)).toBe(false);
     expect(await svc.grants.exception('kubectl','delete',true)).toBe(true);await store.close();

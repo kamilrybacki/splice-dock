@@ -24,7 +24,7 @@ import { ToolService } from '../../src/services/tools/base.js';
 import { createMcpExpressApp } from '../../src/services/mcp/adapters/express/server.js';
 import { SplicedockStore } from '../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../src/services/approvals/base.js';
-import { setApprovalHookFactory, setApprovalSettler } from '../../src/services/tools/adapters/cli/passthrough.js';
+import { configurePassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../src/config/types.js';
 
 const TOOL_NAME = 'echo_approval';
@@ -97,8 +97,7 @@ describe('E2E approval flow — live MCP HTTP path', () => {
       ttlMs: 60_000,
       sweepIntervalMs: 0,
     });
-    setApprovalHookFactory((tool, { cwd }) => approvalService.makeHook(tool, cwd));
-    setApprovalSettler(approvalService);
+    configurePassthrough({approvalHookFactory: (tool, { cwd }) => approvalService.makeHook(tool, cwd), approvalSettler: approvalService});
 
     const app = createMcpExpressApp(profileService, toolRegistry, new Map(), ['echo'], {
       lookupProfileByToken: t => (t === E2E_TOKEN ? 'default' : null),
@@ -110,8 +109,7 @@ describe('E2E approval flow — live MCP HTTP path', () => {
   }, 30_000);
 
   afterAll(async () => {
-    setApprovalHookFactory(null);
-    setApprovalSettler(null);
+    configurePassthrough({});
     approvalService?.stop();
     if (mcpServer) {
       await new Promise<void>((resolve, reject) => {

@@ -94,7 +94,8 @@ export function createPrometheusMetrics() {
 
   const auth = new Counter({ name: 'splicedock_auth_total', help: 'Authentication outcomes', labelNames: ['result'], registers: [registry] });
   const tokenLifecycle = new Counter({ name: 'splicedock_token_lifecycle_total', help: 'Token lifecycle events', labelNames: ['event'], registers: [registry] });
-  const vaultRequests = new Counter({ name: 'splicedock_vault_requests_total', help: 'Secret resolution outcomes', labelNames: ['outcome'], registers: [registry] });
+  // Metric name keeps the historical "vault" wording: dashboards and alerts query it.
+  const secretRequests = new Counter({ name: 'splicedock_vault_requests_total', help: 'Secret resolution outcomes', labelNames: ['outcome'], registers: [registry] });
   const failclosedActive = new Gauge({ name: 'splicedock_failclosed_active', help: 'Last secret resolution failed closed', registers: [registry] });
   let countActiveTokens: () => number | Promise<number> = () => 0;
   const tokensActive = new Gauge({ name: 'splicedock_tokens_active', help: 'Active profile tokens', registers: [registry], async collect() { this.set(await countActiveTokens()); } });
@@ -117,7 +118,7 @@ export function createPrometheusMetrics() {
   return {shadowPSI,setShadowPSICollector:(f:()=>Record<string,number>|Promise<Record<string,number>>)=>{shadowPSICollector=f;},shadowTotal,shadowLatency,shadowDepth,shadowAgreement,breakerTransitions,breakerWouldTrip,breakerForced,breakerEscalations,breakerEvents,breakerState,
     consent,consentLatency,approvalsPending,setPendingApprovalCollector:(f:()=>number|Promise<number>)=>{pendingCount=f;},
     setActiveTokenCollector: (collect: () => number | Promise<number>) => { countActiveTokens = collect; },
-    auth, tokenLifecycle, vaultRequests, failclosedActive, tokensActive,
+    auth, tokenLifecycle, secretRequests, failclosedActive, tokensActive,
     registry,
     exposition: () => registry.metrics(),
     contentType: registry.contentType,

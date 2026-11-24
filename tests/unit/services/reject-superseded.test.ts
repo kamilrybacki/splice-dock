@@ -1,3 +1,4 @@
+import { builtinShapes } from '../../../src/services/policy/builtin.js';
 import { describe, it, expect } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
@@ -8,7 +9,7 @@ const context = 'Clean up completed batch jobs after investigating failed schedu
 describe('rejecting an approval already superseded by a grant', () => {
   it('still revokes and blocks the grant that superseded it', async () => {
     const store = await SplicedockStore.open(':memory:');
-    const svc = new ApprovalService({ store, grantsEnabled: true, sweepIntervalMs: 0 });
+    const svc = new ApprovalService({ store, grantsEnabled: true, sweepIntervalMs: 0, shapes: builtinShapes });
     const request = (name: string) =>
       svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
     const execute = async (name: string) => {

@@ -3,7 +3,7 @@ let metrics: MetricsPort | undefined;
 export function setLifecycleMetrics(value: MetricsPort): void { metrics = value; }
 export function tokenEvent(event: string): void { metrics?.tokenLifecycle.inc({ event }); }
 export function authEvent(result: string): void { metrics?.auth.inc({ result }); }
-export function vaultEvent(outcome: string): void {
-  metrics?.vaultRequests.inc({ outcome });
+export function secretResolutionEvent(outcome: string): void {
+  metrics?.secretRequests.inc({ outcome });
   metrics?.failclosedActive.set(outcome === 'ok' ? 0 : 1);
 }

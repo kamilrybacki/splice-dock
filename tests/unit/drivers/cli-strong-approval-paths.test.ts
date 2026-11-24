@@ -9,12 +9,7 @@ import { delimiter, join } from 'node:path';
 import { CircuitBreaker } from '../../../src/services/policy/breaker/index.js';
 import { compilePolicy } from '../../../src/services/policy/cli/rules.js';
 import type { CliToolPolicy } from '../../../src/config/schema.js';
-import {
-  callCliPassthrough,
-  setApprovalHookFactory,
-  setCircuitBreaker,
-  type ApprovalHookFactory,
-} from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough, type ApprovalHookFactory } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
 import { sqliteDb } from '../../helpers/sqlite.js';
 
@@ -57,7 +52,7 @@ describe('gh repo delete as a YAML tool', () => {
 
   it('a gh tool whose policy does not route repo delete to approval refuses it and counts a denial', async () => {
     const breaker = await CircuitBreaker.create(sqliteDb(new Database(':memory:')), breakerConfig);
-    setCircuitBreaker(breaker);
+    configurePassthrough({circuitBreaker: breaker});
     try {
       const out = await runWithCaller(caller, () =>
         callCliPassthrough(tool(), 'run', { args: ['repo', 'delete', 'owner/repo', '--yes'] }, ['gh']));
@@ -66,7 +61,7 @@ describe('gh repo delete as a YAML tool', () => {
       expect(out.content[0]!.text).not.toContain('fake gh');
       expect((await breaker.list())[0]?.state).toBe('open');
     } finally {
-      setCircuitBreaker(null);
+      configurePassthrough({});
     }
   });
 
@@ -84,7 +79,7 @@ describe('gh repo delete as a YAML tool', () => {
       seen.push({ tool: toolName, requireStrong: ctx.requireStrong });
       return () => ({ approved: false, id: 'pending-1', expires_at: Date.now() + 60_000 });
     };
-    setApprovalHookFactory(factory);
+    configurePassthrough({approvalHookFactory: factory});
     try {
       const out = await runWithCaller(caller, () =>
         callCliPassthrough(tool(repoDeletePolicy), 'run', { args: ['repo', 'delete', 'owner/repo', '--yes'] }, ['gh']));
@@ -93,22 +88,22 @@ describe('gh repo delete as a YAML tool', () => {
       expect(out.content[0]!.text).toContain('pending-1');
       expect(out.content[0]!.text).not.toContain('fake gh');
     } finally {
-      setApprovalHookFactory(null);
+      configurePassthrough({});
     }
   });
 
   it('other gh commands keep weak consent', async () => {
     const seen: Array<boolean | undefined> = [];
-    setApprovalHookFactory((_t, ctx) => {
+    configurePassthrough({approvalHookFactory: (_t, ctx) => {
       seen.push(ctx.requireStrong);
       return () => ({ approved: false, id: 'pending-2', expires_at: Date.now() + 60_000 });
-    });
+    }});
     try {
       await runWithCaller(caller, () =>
         callCliPassthrough(tool({ approval_subcommand_paths: [['pr', 'merge']] }), 'run', { args: ['pr', 'merge', '1'] }, ['gh']));
       expect(seen).toEqual([false]);
     } finally {
-      setApprovalHookFactory(null);
+      configurePassthrough({});
     }
   });
 });

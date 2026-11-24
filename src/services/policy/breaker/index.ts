@@ -1,4 +1,4 @@
-import {breakerReadonly} from './readonly.js';
+import {NO_READONLY_PROBES,type ReadonlyProbes} from './readonly.js';
 import type { SqlDb } from '../../database/base.js';
 import {createHash} from 'node:crypto';
 import type {SplicedockConfig} from '../../../config/types.js';
@@ -11,10 +11,10 @@ type Row={scope:string; family:string; state:string; opened_at:number; cooldown_
  * created with an upsert that also locks it. Counters saturate and no argv is retained. */
 export class CircuitBreaker {
  /** The constructor does no I/O; create() migrates the breaker tables first. */
- constructor(readonly db:SqlDb,readonly config:Config,readonly event:(event:string,family:string,state?:string)=>void=()=>{}){}
- static async create(db:SqlDb,config:Config,event:(event:string,family:string,state?:string)=>void=()=>{}):Promise<CircuitBreaker>{
+ constructor(readonly db:SqlDb,readonly config:Config,readonly event:(event:string,family:string,state?:string)=>void=()=>{},private readonly probes:ReadonlyProbes=NO_READONLY_PROBES){}
+ static async create(db:SqlDb,config:Config,event:(event:string,family:string,state?:string)=>void=()=>{},probes:ReadonlyProbes=NO_READONLY_PROBES):Promise<CircuitBreaker>{
  await db.ensureSchema();
- return new CircuitBreaker(db,config,event);
+ return new CircuitBreaker(db,config,event,probes);
  }
  /** Applies a reloaded configuration in place, recording an operator audit row first. */
  async reconfigure(next:Config):Promise<void>{
@@ -76,7 +76,7 @@ export class CircuitBreaker {
  if(r.state!=='closed')active=true;
  await this.save(r);
  }}).immediate();
- const force=active&&this.config.mode==='enforce'&&!this.config.read_allowlist.some(a=>breakerReadonly(a.tool,a.argv)&&a.tool===tool&&JSON.stringify(a.argv)===JSON.stringify(argv));
+ const force=active&&this.config.mode==='enforce'&&!this.config.read_allowlist.some(a=>this.probes.isReadonly(a.tool,a.argv)&&a.tool===tool&&JSON.stringify(a.argv)===JSON.stringify(argv));
  if(force)this.event('forced','configured');
  return force;
  }

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { callCliPassthrough, setProfileEnvResolver } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
@@ -30,7 +30,7 @@ function readToken(profile: string): Promise<{ content: Array<{ text: string }>;
 
 describe('per-profile cli_passthrough env', () => {
   afterEach(() => {
-    setProfileEnvResolver(null);
+    configurePassthrough({});
     delete process.env['BASE_TOKEN'];
     delete process.env['WORKER_TOKEN'];
   });
@@ -44,11 +44,10 @@ describe('per-profile cli_passthrough env', () => {
   it('replaces the credential for a profile with an override', async () => {
     process.env['BASE_TOKEN'] = 'base-token';
     process.env['WORKER_TOKEN'] = 'worker-token';
-    setProfileEnvResolver((tool, profile) =>
+    configurePassthrough({profileEnvResolver: (tool, profile) =>
       tool === 'gh' && profile === 'worker'
         ? [{ name: 'GH_TOKEN', from: 'env:WORKER_TOKEN' }]
-        : undefined,
-    );
+        : undefined,});
 
     expect((await readToken('worker')).content[0]!.text).toBe('worker-token');
     expect((await readToken('plain')).content[0]!.text).toBe('base-token');
@@ -56,14 +55,13 @@ describe('per-profile cli_passthrough env', () => {
 
   it('can add an env var the tool-level list does not declare', async () => {
     process.env['WORKER_TOKEN'] = 'worker-token';
-    setProfileEnvResolver((tool, profile) =>
+    configurePassthrough({profileEnvResolver: (tool, profile) =>
       tool === 'gh' && profile === 'worker'
         ? [
             { name: 'GH_TOKEN', from: 'env:WORKER_TOKEN' },
             { name: 'GH_HOST', from: 'env:WORKER_TOKEN' },
           ]
-        : undefined,
-    );
+        : undefined,});
 
     const result = await runWithCaller({ profile: 'worker', tokenId: 'tok-worker', authenticated: true }, () =>
       callCliPassthrough(

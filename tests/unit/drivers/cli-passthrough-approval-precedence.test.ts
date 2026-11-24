@@ -8,11 +8,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  callCliPassthrough,
-  setApprovalHookFactory,
-  setApprovalSettler,
-} from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
@@ -31,8 +27,7 @@ describe('bound approval vs narrower deny/require rules', () => {
 
   beforeEach(async () => {
     svc = new ApprovalService({ store: await SplicedockStore.open(':memory:'), sweepIntervalMs: 0 });
-    setApprovalHookFactory((tool, ctx) => svc.makeHook(tool, ctx.cwd));
-    setApprovalSettler(svc);
+    configurePassthrough({approvalHookFactory: (tool, ctx) => svc.makeHook(tool, ctx.cwd), approvalSettler: svc});
     root = realpathSync(mkdtempSync(join(tmpdir(), 'splicedock-r3-')));
     work = join(root, 'work');
     mkdirSync(work);
@@ -43,8 +38,7 @@ describe('bound approval vs narrower deny/require rules', () => {
   });
 
   afterEach(() => {
-    setApprovalHookFactory(null);
-    setApprovalSettler(null);
+    configurePassthrough({});
     rmSync(root, { recursive: true, force: true });
   });
 

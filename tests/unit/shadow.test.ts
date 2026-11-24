@@ -13,7 +13,7 @@ import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import ts from 'typescript';
 import { sqliteDb } from "../helpers/sqlite.js";
-import {callCliPassthrough,setObservationSink} from '../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 const config={enabled:true,queue_max:2,timeout_ms:10,retention_days:30,sample_rate:1};
 const observation={tool:'gh',profile:'test',argv:['delete','CANARY_SECRET','--force'],cwd:'/CANARY_SECRET'};
 const wait=()=>new Promise(r=>setTimeout(r,40));
@@ -46,13 +46,13 @@ it('provider failure and retention are isolated',async()=>{
  expect((db.prepare('SELECT count(*) n FROM s1_shadow_log').get() as {n:number}).n).toBe(1);
 });
 it('actual CLI decision unaffected by a failing observation sink',async()=>{
- setObservationSink(()=>{throw new Error('provider');});
+ configurePassthrough({observationSink: ()=>{throw new Error('provider');}});
  try{
  const c={type:'cli_passthrough' as const,name:'echo',description:'test',command:'echo',deny_subcommands:['delete'],env:[],timeout_ms:5000};
  const allowed=await callCliPassthrough(c,'run',{args:['hello']},['echo']);
  const denied=await callCliPassthrough(c,'run',{args:['delete']},['echo']);
  expect(allowed.isError).toBeFalsy();expect(denied.isError).toBe(true);
- }finally{setObservationSink(null);}
+ }finally{configurePassthrough({});}
 });
 /** Exhaustive transitive local import walk, including re-exports and literal dynamic imports. */
 function reachesShadow(entry:string,seen=new Set<string>()):boolean {

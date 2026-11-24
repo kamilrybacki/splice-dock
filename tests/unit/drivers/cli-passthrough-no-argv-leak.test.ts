@@ -2,13 +2,7 @@
 // policy-decision counter). Only tool, rule id and decision are recorded.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  callCliPassthrough,
-  setApprovalHookFactory,
-  setAuditSink,
-  setMetricsSink,
-  setPolicyDecisionSink,
-} from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
@@ -39,17 +33,12 @@ describe('no raw argv in any sink', () => {
       captured.push(String(chunk));
       return true;
     });
-    setAuditSink(e => captured.push(JSON.stringify(e)));
-    setMetricsSink(e => captured.push(JSON.stringify(e)));
-    setPolicyDecisionSink(e => captured.push(JSON.stringify(e)));
+    configurePassthrough({auditSink: e => captured.push(JSON.stringify(e)), metricsSink: e => captured.push(JSON.stringify(e)), policyDecisionSink: e => captured.push(JSON.stringify(e))});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    setAuditSink(null);
-    setMetricsSink(null);
-    setPolicyDecisionSink(null);
-    setApprovalHookFactory(null);
+    configurePassthrough({});
   });
 
   const expectNoLeak = (): void => {
@@ -87,7 +76,7 @@ describe('no raw argv in any sink', () => {
   it('approval pending and approval bypass (consumed)', async () => {
     const store = await SplicedockStore.open(':memory:');
     const svc = new ApprovalService({ store, sweepIntervalMs: 0 });
-    setApprovalHookFactory((name, { cwd }) => svc.makeHook(name, cwd));
+    configurePassthrough({approvalHookFactory: (name, { cwd }) => svc.makeHook(name, cwd)});
     const cfg = mkConfig('leak_approval', { on_violation: 'approval', approval_subcommands: [SECRET] });
     const caller = { profile: 'p', tokenId: 'tok-a', authenticated: true };
 
