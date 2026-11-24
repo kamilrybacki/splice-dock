@@ -27,7 +27,14 @@ The same tag publishes the `splicedock` npm package with provenance through npm
 trusted publishing (the `npm` job in `.github/workflows/ci.yml`, GitHub
 environment `npm`), then creates a GitHub release with generated notes. If the
 tag does not match `version` in `package.json`, the test job fails and nothing
-is published.
+is published. Trusted publishing can only be set up for a package that already
+exists, so the first version was published by hand; the `npm` job skips any
+version that is already on the registry.
+
+The user guide is built from `site/` and deployed to GitHub Pages
+(`https://kamilrybacki.github.io/splice-dock/`) by `.github/workflows/pages.yml`
+on every push to `main` that changes it.
+
 Record user-visible changes in [CHANGELOG.md](CHANGELOG.md) before tagging.
 
 ## Security issues

@@ -194,7 +194,7 @@ function renderAddToolCard(): string {
           <span><strong>MCP server</strong><small>Proxy every tool of an upstream MCP server (host must be in <code>server.mcp_upstream_allowlist</code>).</small></span>
         </label>
       </div>
-      <p class="muted">CLI passthrough is configured in the <a href="https://kamilrybacki.github.io/splicedock/tools.html#drivers">gateway YAML</a>.</p>
+      <p class="muted">CLI passthrough is configured in the <a href="https://kamilrybacki.github.io/splice-dock/tools.html#drivers">gateway YAML</a>.</p>
     </section>
 
     <section x-show="step === 1" aria-labelledby="tool-details-heading">

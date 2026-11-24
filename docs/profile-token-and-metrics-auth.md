@@ -7,7 +7,7 @@ profile and send it as `Authorization: Bearer <profile-token>` on requests
 to `POST /mcp`. The token selects its bound profile. The gateway returns
 HTTP 401 when the token is missing or invalid.
 
-See [MCP clients and tokens](https://kamilrybacki.github.io/splicedock/connect.html#create-token)
+See [MCP clients and tokens](https://kamilrybacki.github.io/splice-dock/connect.html#create-token)
 for a token-creation example.
 
 ## `server.metrics_token_env` (default `SPLICEDOCK_METRICS_TOKEN`)

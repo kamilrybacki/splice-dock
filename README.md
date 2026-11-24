@@ -10,9 +10,9 @@
 <p align="center"><code>v1.0.0</code></p>
 
 <p align="center">
-  <a href="https://kamilrybacki.github.io/splicedock/start.html"><strong>Quickstart</strong></a> ·
-  <a href="https://kamilrybacki.github.io/splicedock/tools.html#drivers">Integration examples</a> ·
-  <a href="https://kamilrybacki.github.io/splicedock/">User guide</a>
+  <a href="https://kamilrybacki.github.io/splice-dock/start.html"><strong>Quickstart</strong></a> ·
+  <a href="https://kamilrybacki.github.io/splice-dock/tools.html#drivers">Integration examples</a> ·
+  <a href="https://kamilrybacki.github.io/splice-dock/">User guide</a>
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ Splicedock and answers from the result. This replay comes from a local run.
 </picture>
 
 [Read the final frame](docs/assets/agent-demo.png) ·
-[Connect your own MCP client](https://kamilrybacki.github.io/splicedock/connect.html)
+[Connect your own MCP client](https://kamilrybacki.github.io/splice-dock/connect.html)
 
 ## <img src="docs/assets/section-terminal.svg" width="30" height="24" alt="">Quickstart
 
@@ -94,8 +94,8 @@ The example creates a short-lived profile token, lists tools, calls
 </picture>
 
 To leave the demo running and connect your own client, follow the
-[Quickstart guide](https://kamilrybacki.github.io/splicedock/start.html) and
-[issue a profile token](https://kamilrybacki.github.io/splicedock/connect.html#create-token).
+[Quickstart guide](https://kamilrybacki.github.io/splice-dock/start.html) and
+[issue a profile token](https://kamilrybacki.github.io/splice-dock/connect.html#create-token).
 
 ## <img src="docs/assets/section-build.svg" width="30" height="24" alt="">Install
 
@@ -146,23 +146,23 @@ configuration file.
 
 Start with the [annotated configuration](splicedock.example.yaml). Add the tool
 to the gateway configuration, then add its exposed MCP name to the client’s
-[profile manifest](https://kamilrybacki.github.io/splicedock/profiles.html#manifest).
+[profile manifest](https://kamilrybacki.github.io/splice-dock/profiles.html#manifest).
 
 | Driver | Use it to | Example |
 | --- | --- | --- |
-| `mcp_proxy` | Forward calls to an existing MCP server | [Look up a product with `catalog__lookup_product`](https://kamilrybacki.github.io/splicedock/tools.html#mcp) |
-| `http` | Wrap one HTTP API operation as a tool | [Map an argument into a URL with `catalog__product`](https://kamilrybacki.github.io/splicedock/tools.html#http) |
-| `cli` | Run a fixed executable with a declared argument template | [Read the Node.js version with `demo__version`](https://kamilrybacki.github.io/splicedock/tools.html#fixed-cli) |
-| `cli_passthrough` | Run an allowlisted executable with a caller-supplied argument array | [Allow `git version` and deny `git status` with `git__run`](https://kamilrybacki.github.io/splicedock/tools.html#cli) |
+| `mcp_proxy` | Forward calls to an existing MCP server | [Look up a product with `catalog__lookup_product`](https://kamilrybacki.github.io/splice-dock/tools.html#mcp) |
+| `http` | Wrap one HTTP API operation as a tool | [Map an argument into a URL with `catalog__product`](https://kamilrybacki.github.io/splice-dock/tools.html#http) |
+| `cli` | Run a fixed executable with a declared argument template | [Read the Node.js version with `demo__version`](https://kamilrybacki.github.io/splice-dock/tools.html#fixed-cli) |
+| `cli_passthrough` | Run an allowlisted executable with a caller-supplied argument array | [Allow `git version` and deny `git status` with `git__run`](https://kamilrybacki.github.io/splice-dock/tools.html#cli) |
 
 CLI passthrough checks its policy before running the command. A rule can allow
 the call, deny it, or require an
-[approval](https://kamilrybacki.github.io/splicedock/policies.html#approval).
+[approval](https://kamilrybacki.github.io/splice-dock/policies.html#approval).
 
 ![CLI policy decisions after checking the argument array: allow, require approval, or deny](docs/assets/cli-policy.svg)
 
 For backends that need credentials, configure a
-[gateway credential binding](https://kamilrybacki.github.io/splicedock/credentials.html)
+[gateway credential binding](https://kamilrybacki.github.io/splice-dock/credentials.html)
 separately from the client’s profile token.
 
 ## <img src="docs/assets/section-code.svg" width="30" height="24" alt="">Run a Code Mode workflow
@@ -200,7 +200,7 @@ Send this request through an initialized MCP client using the Quickstart profile
 The workflow returns the tool result and a call summary. Each call uses the
 same profile and policies as a direct MCP call. The JavaScript runs in QuickJS
 with tool calls mediated by the gateway. See the
-[Code Mode guide](https://kamilrybacki.github.io/splicedock/code-mode.html)
+[Code Mode guide](https://kamilrybacki.github.io/splice-dock/code-mode.html)
 for parallel calls, resource limits, and optional preflight review.
 
 ![One script runs two independent tool calls in parallel and returns a result with a call summary](docs/assets/code-mode-flow.svg)
@@ -221,10 +221,10 @@ listed the available tools, and then ran the three reads in parallel.
 ## <img src="docs/assets/section-controls.svg" width="30" height="24" alt="">Operate the gateway
 
 - **Access.** Require profile tokens with `server.require_profile_token: true`.
-  [Create, rotate, or revoke a token](https://kamilrybacki.github.io/splicedock/connect.html).
+  [Create, rotate, or revoke a token](https://kamilrybacki.github.io/splice-dock/connect.html).
 - **Admin UI.** Manage profile YAML, review approvals, and inspect the audit log.
   The admin listener defaults to port `8789` and exposes Prometheus metrics
-  at `/metrics`. [Admin UI and observability](https://kamilrybacki.github.io/splicedock/webui.html).
+  at `/metrics`. [Admin UI and observability](https://kamilrybacki.github.io/splice-dock/webui.html).
 - **Storage.** Run a single replica with SQLite or use shared PostgreSQL for
   multiple replicas. [Storage configuration and migration](docs/operations.md#storage-backend).
 - **Approvals.** Review [learned grants and phone approvals](docs/operations.md)
