@@ -22,7 +22,10 @@ First public release.
 ### Changed
 
 - `better-sqlite3` upgraded to 13, which ships prebuilt binaries for current
-  Node.js versions, so installs no longer need a compiler.
+  Node.js versions. npm still starts a `node-gyp` build for it
+  ([npm/cli#9837](https://github.com/npm/cli/issues/9837)); the image skips
+  it, and on a machine without Python and a C++ compiler
+  `npm install -g splicedock --ignore-scripts` works.
 - CI runs only on GitHub-hosted runners.
 
 ### Removed

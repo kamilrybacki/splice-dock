@@ -122,6 +122,11 @@ export SPLICEDOCK_DB_PATH="$HOME/splicedock/splicedock.db"
 splicedock
 ```
 
+If the install fails with `node-gyp rebuild` and "Could not find any Python
+installation", add `--ignore-scripts`. `better-sqlite3` ships prebuilt binaries
+and does not need the build, but npm still starts it
+([npm/cli#9837](https://github.com/npm/cli/issues/9837)).
+
 To try it without installing, run `npx splicedock`. The package includes the
 Quickstart configuration at `$(npm root -g)/splicedock/site/examples/quickstart.yaml`
 and the annotated example at `$(npm root -g)/splicedock/splicedock.example.yaml`.
