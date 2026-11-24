@@ -80,7 +80,13 @@ const SHORT_BREACHES: Readonly<Record<string, ConfinementBreach>> = {
   k: { flag: '--kustomize', reason: 'manifest-source' },
 };
 
-const KUBECTL = flagTableFor('kubectl');
+// Resolved on first use: the kubectl profile imports this module, so a
+// top-level lookup would read the profile registry before it is initialised.
+let kubectlTable: FlagTable | undefined;
+function kubectl(): FlagTable {
+  kubectlTable ??= flagTableFor('kubectl');
+  return kubectlTable;
+}
 
 /** The flag name of a long option, normalized the way kubectl does it. */
 function longName(tok: string): string {
@@ -93,7 +99,7 @@ function shortBreach(tok: string): ConfinementBreach | undefined {
     const hit = SHORT_BREACHES[c];
     if (hit) return hit;
     // A value flag takes the rest of the cluster as its value (-nkube-system).
-    if (KUBECTL.short.get(c) === 'value') return undefined;
+    if (kubectl().short.get(c) === 'value') return undefined;
   }
   return undefined;
 }
@@ -101,10 +107,10 @@ function shortBreach(tok: string): ConfinementBreach | undefined {
 /** Whether pflag might take the token after `tok` as its value. */
 function mayConsumeNext(tok: string): boolean {
   if (!tok.startsWith('-') || tok === '-') return false;
-  if (tok.startsWith('--')) return !tok.includes('=') && KUBECTL.long.get(longName(tok)) !== 'bool';
+  if (tok.startsWith('--')) return !tok.includes('=') && kubectl().long.get(longName(tok)) !== 'bool';
   const chars = tok.slice(1);
   for (let j = 0; j < chars.length; j++) {
-    const arity = KUBECTL.short.get(chars[j]!);
+    const arity = kubectl().short.get(chars[j]!);
     if (arity === undefined) return true;
     if (arity === 'value') return j === chars.length - 1;
   }
@@ -190,7 +196,7 @@ const sameList = (a: readonly string[], b: readonly string[]): boolean =>
 /** Every namespace value kubectl would read from argv, in order, or null when
  *  argv is ambiguous. Uses kubectl's built-in arity table unless one is given.
  *  Values are returned for comparison only; never echo them. */
-export function kubectlNamespaceValues(argv: readonly string[], table: FlagTable = KUBECTL): readonly string[] | null {
+export function kubectlNamespaceValues(argv: readonly string[], table: FlagTable = kubectl()): readonly string[] | null {
   const memo = new Map<number, readonly string[] | null>();
   const from = (start: number): readonly string[] | null => {
     let i = start;

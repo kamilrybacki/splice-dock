@@ -1,16 +1,10 @@
 import type { CallerIdentity } from '../../../common/request/context.js';
-export interface OperationShape {
-  profile: string; token_id: string; tool: string; verb_path: string;
-  resource_kind: string; namespace: string; object_count_max: number; flags_allowed: readonly string[];
-}
+import type { OperationShape } from './base.js';
 const ALLOWED = ['-n', '--namespace', '--wait'] as const;
 export const GRANTABLE_KUBECTL_PAIRS: Readonly<Record<string, Readonly<Record<string,string>>>> = {
   delete: {pod:'pod',po:'pod',pods:'pod',job:'job',jobs:'job'},
 };
 function kind(value:string):string {return GRANTABLE_KUBECTL_PAIRS.delete[value] ?? value;}
-export function baseShapeKey(shape: Pick<OperationShape, 'profile' | 'token_id' | 'tool' | 'verb_path' | 'resource_kind' | 'namespace'>): string {
-  return JSON.stringify([shape.profile,shape.token_id,shape.tool,shape.verb_path,shape.resource_kind,shape.namespace]);
-}
 /** Rejections apply to the base operation even when extra flags make it ungrantable.
  * This extractor can only deny/reset evidence; it never authorizes execution. */
 export function kubectlBaseShape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null {

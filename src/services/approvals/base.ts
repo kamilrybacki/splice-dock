@@ -1,6 +1,6 @@
 import { runSweepExclusive } from '../database/sweep/lock.js';
 import { StandingGrants, type GrantException } from './grants/standing.js';
-import { baseShapeKey } from '../policy/shape/kubectl.js';
+import { baseShapeKey } from '../policy/shape/base.js';
 import { NO_SHAPES, type ShapeRegistry } from '../policy/shape/registry.js';
 // Approval flow for policies with on_violation: approval.
 //

@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import sensible from '@fastify/sensible';
 import rateLimit from '@fastify/rate-limit';
 import formbody from '@fastify/formbody';
+import { renderToolMetrics } from '../../../metrics/adapters/prometheus/tool-metrics.js';
 import { buildAdminAuthHook, buildAdminTokenSet } from './auth.js';
 import { resolveNamedAdminTokens } from './tokens.js';
 import { registerMcpUpstreamRoutes } from './routes/mcp/upstreams.js';
@@ -117,7 +118,7 @@ export async function createAdminServer(
     if (extras?.toolMetrics) {
       const legacy = metrics ? await metrics.exposition() : '';
       reply.header('Content-Type', metrics?.contentType ?? 'text/plain; version=0.0.4');
-      return legacy + extras.toolMetrics.prometheus();
+      return legacy + renderToolMetrics(extras.toolMetrics.localCounters());
     }
     if (!metrics) {
       reply.status(503).send('metrics not configured');

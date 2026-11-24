@@ -7,7 +7,7 @@
 // Two views of the counts:
 //   metrics (get/list)  — cluster-wide totals adopted from the DB after each
 //                         flush; for the WebUI / API.
-//   local (prometheus)  — this process's own monotonic counters since start.
+//   local (localCounters) — this process's own monotonic counters since start.
 //                         Every replica is scraped separately and Prometheus
 //                         sums the series; exporting cluster totals would make
 //                         N replicas report N× the real count.
@@ -41,6 +41,15 @@ export interface ToolMetric {
   buckets_1h: number[];    // length 24, oldest first after rollForward()
   bucket_60s_anchor: number;  // minute index at index 0
   bucket_1h_anchor: number;   // hour index at index 0
+}
+
+/** Process-local counters of one tool, as handed to exposition adapters. */
+export interface ToolLocalCounters {
+  readonly tool: string;
+  readonly allow: number;
+  readonly deny: number;
+  readonly rule_denies: Readonly<Record<string, number>>;
+  readonly last_duration_ms: number | null;
 }
 
 function freshMetric(tool: string): ToolMetric {
@@ -163,28 +172,13 @@ export class ToolMetrics {
     return out.sort((a, b) => a.tool.localeCompare(b.tool));
   }
 
-  /** Prometheus exposition of this process's own counters (see header). */
-  prometheus(): string {
-    const lines: string[] = [];
-    lines.push('# HELP splicedock_cli_calls_total Cumulative CLI passthrough call count');
-    lines.push('# TYPE splicedock_cli_calls_total counter');
-    lines.push('# HELP splicedock_cli_deny_total Cumulative CLI passthrough deny count');
-    lines.push('# TYPE splicedock_cli_deny_total counter');
-    lines.push('# HELP splicedock_cli_last_duration_ms Last observed duration of a CLI passthrough run');
-    lines.push('# TYPE splicedock_cli_last_duration_ms gauge');
-    for (const m of this.list()) {
-      const tool = quote(m.tool);
+  /** This process's own monotonic counters, one entry per known tool (see header),
+   *  for exposition adapters. Never reflects cluster-wide DB totals. */
+  localCounters(): readonly ToolLocalCounters[] {
+    return this.list().map(m => {
       const l = this.local.get(m.tool) ?? { allow: 0, deny: 0, rule_denies: {} };
-      lines.push(`splicedock_cli_calls_total{tool=${tool},decision="allow"} ${l.allow}`);
-      lines.push(`splicedock_cli_calls_total{tool=${tool},decision="deny"} ${l.deny}`);
-      for (const [rule, count] of Object.entries(l.rule_denies)) {
-        lines.push(`splicedock_cli_deny_total{tool=${tool},rule=${quote(rule)}} ${count}`);
-      }
-      if (m.last_duration_ms !== null) {
-        lines.push(`splicedock_cli_last_duration_ms{tool=${tool}} ${m.last_duration_ms}`);
-      }
-    }
-    return lines.join('\n') + '\n';
+      return { tool: m.tool, allow: l.allow, deny: l.deny, rule_denies: { ...l.rule_denies }, last_duration_ms: m.last_duration_ms };
+    });
   }
 
   /**
@@ -286,9 +280,4 @@ function padToLength(arr: number[], len: number): number[] {
   if (arr.length > len) return arr.slice(arr.length - len);
   const out = new Array(len - arr.length).fill(0).concat(arr);
   return out;
-}
-
-function quote(s: string): string {
-  // Prometheus label values: surrounded by ", escape " and \
-  return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }

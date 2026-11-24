@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import {builtinReadonlyProbes} from '../services/policy/builtin.js';
 
 const authFromSchema = z
   .string()
@@ -360,7 +359,7 @@ export const splicedockConfigSchema = z.object({
         cooldown_seconds:z.number().int().positive().max(86400).default(1800),
         half_open_probes:z.number().int().positive().max(100).default(3),
         scopes:z.array(z.string().regex(/^(global|profile:[a-zA-Z0-9_-]+|token)$/)).max(100).default(['global']),
-        read_allowlist:z.array(z.object({tool:z.string(),argv:z.array(z.string())}).strict().refine(a=>builtinReadonlyProbes.isReadonly(a.tool,a.argv),'unsupported breaker read exemption')).max(100).default([]),
+        read_allowlist:z.array(z.object({tool:z.string(),argv:z.array(z.string())}).strict()).max(100).default([]),
       }).strict().prefault({}),
       consent: z.object({
         enabled:z.boolean().default(true),

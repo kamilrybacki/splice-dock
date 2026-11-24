@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ToolMetrics } from '../../../src/services/metrics/base.js';
+import { renderToolMetrics } from '../../../src/services/metrics/adapters/prometheus/tool-metrics.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 
 describe('ToolMetrics', () => {
@@ -40,7 +41,7 @@ describe('ToolMetrics', () => {
   it('prometheus exposition contains the expected labels', () => {
     metrics.record({ tool: 'gh', decision: 'allow' });
     metrics.record({ tool: 'gh', decision: 'deny', rule: 'deny_subcommands' });
-    const out = metrics.prometheus();
+    const out = renderToolMetrics(metrics.localCounters());
     expect(out).toContain('splicedock_cli_calls_total{tool="gh",decision="allow"} 1');
     expect(out).toContain('splicedock_cli_calls_total{tool="gh",decision="deny"} 1');
     expect(out).toContain('splicedock_cli_deny_total{tool="gh",rule="deny_subcommands"} 1');
@@ -60,7 +61,7 @@ describe('ToolMetrics', () => {
   it('quote escapes label values', () => {
     const m = new ToolMetrics(null);
     m.record({ tool: 'weird"name', decision: 'allow' });
-    expect(m.prometheus()).toContain('splicedock_cli_calls_total{tool="weird\\"name"');
+    expect(renderToolMetrics(m.localCounters())).toContain('splicedock_cli_calls_total{tool="weird\\"name"');
   });
 });
 
@@ -112,7 +113,7 @@ describe('ToolMetrics multi-replica flush', () => {
     const b = new ToolMetrics(store, 0);
     await a.start(); await b.start();
     expect(a.get('gh')!.total).toBe(10); // UI view is hydrated
-    expect(a.prometheus()).toContain('splicedock_cli_calls_total{tool="gh",decision="allow"} 0');
+    expect(renderToolMetrics(a.localCounters())).toContain('splicedock_cli_calls_total{tool="gh",decision="allow"} 0');
 
     a.record({ tool: 'gh', decision: 'allow' });
     a.record({ tool: 'gh', decision: 'deny', rule: 'r1' });
@@ -123,8 +124,8 @@ describe('ToolMetrics multi-replica flush', () => {
     await b.flush();
     await a.flush();
 
-    const pa = a.prometheus();
-    const pb = b.prometheus();
+    const pa = renderToolMetrics(a.localCounters());
+    const pb = renderToolMetrics(b.localCounters());
     expect(pa).toContain('splicedock_cli_calls_total{tool="gh",decision="allow"} 1');
     expect(pa).toContain('splicedock_cli_calls_total{tool="gh",decision="deny"} 1');
     expect(pa).toContain('splicedock_cli_deny_total{tool="gh",rule="r1"} 1');

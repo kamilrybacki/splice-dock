@@ -1,6 +1,7 @@
 // kubectl profile (tables taken from kubectl 1.32 offline help).
 
 import { knownCommandTable } from '../commands/table.js';
+import { kubectlNamespaceConfinement } from '../kubectl/namespace-confinement.js';
 import { flagTable } from '../flags/table.js';
 import type { CliProfile } from './types.js';
 
@@ -65,5 +66,5 @@ export const kubectlProfile: CliProfile = {
   // KUBECTL_KUBERC=false the feature gate), so no planted file or operator env
   // can rewrite a confined argv.
   envPins: { KUBERC: 'off', KUBECTL_KUBERC: 'false' },
-  namespaceConfinement: true,
+  namespaceConfinement: kubectlNamespaceConfinement,
 };

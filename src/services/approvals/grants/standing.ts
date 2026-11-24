@@ -1,6 +1,6 @@
 import type { SqlDb } from '../../database/base.js';
 import { createHash, randomUUID } from 'node:crypto';
-import { baseShapeKey, type OperationShape } from '../../policy/shape/kubectl.js';
+import { baseShapeKey, type OperationShape } from '../../policy/shape/base.js';
 import { NO_SHAPES, type ShapeRegistry } from '../../policy/shape/registry.js';
 import { contextSimilarity } from '../../policy/context/similarity.js';
 import { logger } from '../../../common/logger.js';

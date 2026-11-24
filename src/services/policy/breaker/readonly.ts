@@ -14,3 +14,17 @@ export function createReadonlyProbes(entries: Readonly<Record<string, ReadonlyPr
 
 /** Nothing is exempt. */
 export const NO_READONLY_PROBES: ReadonlyProbes = createReadonlyProbes({});
+
+/** Rejects any `read_allowlist` entry the injected probes do not recognise as read-only.
+ *  Run wherever a breaker config is adopted (startup and reload), so an unsupported
+ *  exemption refuses the config instead of silently never matching. */
+export function assertSupportedReadAllowlist(
+  probes: ReadonlyProbes,
+  allowlist: readonly { readonly tool: string; readonly argv: readonly string[] }[],
+): void {
+  allowlist.forEach((entry, index) => {
+    if (!probes.isReadonly(entry.tool, entry.argv)) {
+      throw new Error(`unsupported breaker read exemption: server.breaker.read_allowlist[${index}] (tool ${JSON.stringify(entry.tool)})`);
+    }
+  });
+}

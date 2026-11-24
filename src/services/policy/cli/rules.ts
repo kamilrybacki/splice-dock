@@ -33,7 +33,7 @@ export interface ApprovalPayload { approval_id:string; op_hash:string; canonical
 import type { CliToolPolicy } from '../../../config/types.js';
 import { extractSubcommandPaths, flagTableFor, invocationFlagTable, type FlagTable } from './flags/arity.js';
 import { cliProfileFor } from './profiles/index.js';
-import { kubectlConfinementBreach, kubectlNamespaceValues, type ConfinementReason } from './kubectl/confinement.js';
+import type { NamespaceConfinement } from './profiles/types.js';
 import { ArgvCanonicalizationError, canonicalizeArgv } from '../operation.js';
 import {
   canonicalizeCommandPath,
@@ -214,18 +214,19 @@ function assertSatisfiableRequirements(
 /** A Kubernetes namespace name (RFC 1123 label). */
 const NAMESPACE_NAME = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
 
-/** Compile-time checks for a confined kubectl policy (one that requires a
- *  namespace). The namespace gate scans argv with kubectl's own arity table,
+/** Compile-time checks for a namespace-confined policy (one that requires a
+ *  namespace). The namespace gate scans argv with the CLI's own arity table,
  *  so an operator arity override for the namespace flag could only make the
  *  two readings disagree; reject it. A required namespace must be a real
- *  namespace name, and a requirement that kubectl would read as a namespace
+ *  namespace name, and a requirement that the CLI would read as a namespace
  *  must be spelled so the gate recognises it (`--namespace=x` or `-n=x`). */
-function assertKubectlConfinement(
+function assertNamespaceConfinement(
   p: CliToolPolicy,
   command: string | undefined,
   aliases: Readonly<Record<string, string>>,
 ): void {
-  if (!hasNamespaceConfinement(command)) return;
+  const confinement = namespaceConfinementOf(command);
+  if (!confinement) return;
   const fields = [['require_args', p.require_args ?? []], ['require_any_of', (p.require_any_of ?? []).flat()]] as const;
   let confined = false;
   for (const [field, list] of fields) {
@@ -239,7 +240,7 @@ function assertKubectlConfinement(
         }
         continue;
       }
-      if (r.startsWith('-') && (kubectlNamespaceValues([r])?.length ?? 0) > 0) {
+      if (r.startsWith('-') && (confinement.namespaceValues([r])?.length ?? 0) > 0) {
         throw new PolicyCompileError(
           `policy.${field}: ${JSON.stringify(r)} sets the namespace; spell it "--namespace=<name>"`,
         );
@@ -252,7 +253,7 @@ function assertKubectlConfinement(
       const name = f.startsWith('--') ? `--${f.slice(2).replaceAll('_', '-')}` : f;
       if ((aliases[name] ?? name) === '--namespace') {
         throw new PolicyCompileError(
-          `policy.${field}: ${JSON.stringify(f)} overrides the arity of the namespace flag, which a namespace-confined kubectl policy reads with kubectl's own table`,
+          `policy.${field}: ${JSON.stringify(f)} overrides the arity of the namespace flag, which a namespace-confined ${confinement.label} policy reads with ${confinement.label}'s own table`,
         );
       }
     }
@@ -334,7 +335,7 @@ export function compilePolicy(raw: CliToolPolicy | undefined, opts: CompileOptio
   });
   const optionAliases = optionAliasesFor(opts.command);
   assertSatisfiableRequirements(p, flagTable, optionAliases);
-  assertKubectlConfinement(p, opts.command, optionAliases);
+  assertNamespaceConfinement(p, opts.command, optionAliases);
 
   return {
     allowSubcommands:
@@ -554,33 +555,12 @@ function evaluatePath(subPath: readonly string[], policy: CompiledCliPolicy): Pa
   return { kind: 'ok' };
 }
 
-const CONFINEMENT_REASON_TEXT: Readonly<Record<ConfinementReason, string>> = {
-  target: 're-addresses the request (another URI, server, cluster or context)',
-  scope: 'widens the request past the namespace',
-  identity: 'changes the identity the request is made as',
-  'client-config': 'replaces the client config, its trust roots or caches',
-  'local-file': 'writes caller-chosen local files',
-  'manifest-source': 'reads manifests that carry their own namespace (files, URLs, kustomizations)',
-};
-
-/** Why argv escapes a required kubectl namespace, or undefined. Never echoes values. */
-function confinementEscape(argv: readonly string[], policy: CompiledCliPolicy): string | undefined {
-  const breach = kubectlConfinementBreach(argv);
-  if (breach?.flag === '--all-namespaces') return 'conflicts with --all-namespaces, which ignores the namespace';
-  if (breach) return `confines kubectl to a namespace; ${breach.flag} ${CONFINEMENT_REASON_TEXT[breach.reason]}`;
-  const paths = extractSubcommandPaths(argv, policy.flagTable);
-  if (paths === null) return 'confines kubectl to a namespace; argv is too ambiguous to check';
-  if (paths.some(p => p[0] === 'config')) {
-    return 'confines kubectl to a namespace; the config subcommand reads and rewrites the kubeconfig';
-  }
-  return undefined;
-}
-
 /** Does the CLI's profile confine namespaced policies to their namespace? */
-const hasNamespaceConfinement = (command: string | undefined): boolean =>
-  cliProfileFor(command)?.namespaceConfinement === true;
+const namespaceConfinementOf = (command: string | undefined): NamespaceConfinement | undefined =>
+  cliProfileFor(command)?.namespaceConfinement;
+const hasNamespaceConfinement = (command: string | undefined): boolean => namespaceConfinementOf(command) !== undefined;
 
-/** Whether a requirement names the kubectl namespace (`--namespace=x`, `-n=x`). */
+/** Whether a requirement names the namespace (`--namespace=x`, `-n=x`). */
 function isNamespaceRequirement(needed: string, aliases: Readonly<Record<string, string>> | undefined): boolean {
   if (!needed.startsWith('-')) return false;
   const name = needed.split('=')[0]!;
@@ -589,13 +569,13 @@ function isNamespaceRequirement(needed: string, aliases: Readonly<Record<string,
 
 const requiredValue = (needed: string): string => needed.slice(needed.indexOf('=') + 1);
 
-/** The effective-namespace gate of a confined kubectl policy.
+/** The effective-namespace gate of a namespace-confined policy.
  *
- *  A kubectl policy that requires a namespace anywhere (require_args, or any
+ *  A policy that requires a namespace anywhere (require_args, or any
  *  alternative of a require_any_of group) is a confinement boundary:
  *  - the allowed namespaces are every namespace value named in those
  *    requirements;
- *  - argv is scanned with kubectl's built-in arity table only, so operator
+ *  - argv is scanned with the CLI's built-in arity table only, so operator
  *    value_flags / boolean_flags can never hide a namespace. If the operator's
  *    table reads the namespace differently, the call is refused;
  *  - at least one namespace must be given (the kubeconfig default is not a
@@ -606,12 +586,13 @@ const requiredValue = (needed: string): string => needed.slice(needed.indexOf('=
  *  this. Denials never echo the namespace given. */
 interface NamespaceGate {
   readonly denial?: PolicyDecision;
-  /** Namespaces kubectl will read, in order (set when there is no denial). */
+  /** Namespaces the CLI will read, in order (set when there is no denial). */
   readonly namespaces?: readonly string[];
 }
 
-function kubectlNamespaceGate(argv: readonly string[], policy: CompiledCliPolicy): NamespaceGate | undefined {
-  if (!hasNamespaceConfinement(policy.command)) return undefined;
+function namespaceGate(argv: readonly string[], policy: CompiledCliPolicy): NamespaceGate | undefined {
+  const confinement = namespaceConfinementOf(policy.command);
+  if (!confinement) return undefined;
   const isNamespace = (needed: string): boolean => isNamespaceRequirement(needed, policy.optionAliases);
   const required = policy.requireArgs?.find(isNamespace);
   const group = required === undefined ? policy.requireAnyOf?.find(g => g.some(isNamespace)) : undefined;
@@ -625,23 +606,23 @@ function kubectlNamespaceGate(argv: readonly string[], policy: CompiledCliPolicy
         : { ok: false, rule: 'require_any_of', message, matched: group.join('|') },
     };
   };
-  const escape = confinementEscape(argv, policy);
+  const escape = confinement.breachMessage(argv, policy.flagTable);
   if (escape !== undefined) return deny(escape);
   const allowed = new Set(
     [...(policy.requireArgs ?? []), ...(policy.requireAnyOf ?? []).flat()].filter(isNamespace).map(requiredValue),
   );
-  const namespaces = kubectlNamespaceValues(argv);
-  if (namespaces === null) return deny('confines kubectl to a namespace; argv is too ambiguous to find the namespace');
-  const operatorReading = kubectlNamespaceValues(argv, policy.flagTable);
+  const namespaces = confinement.namespaceValues(argv);
+  if (namespaces === null) return deny(`confines ${confinement.label} to a namespace; argv is too ambiguous to find the namespace`);
+  const operatorReading = confinement.namespaceValues(argv, policy.flagTable);
   if (operatorReading === null || operatorReading.length !== namespaces.length
     || operatorReading.some((v, k) => v !== namespaces[k])) {
-    return deny('confines kubectl to a namespace; value_flags / boolean_flags read the namespace differently from kubectl');
+    return deny(`confines ${confinement.label} to a namespace; value_flags / boolean_flags read the namespace differently from ${confinement.label}`);
   }
   if (namespaces.length === 0) {
-    return deny('confines kubectl to a namespace; no namespace was given (the kubeconfig default is not allowed)');
+    return deny(`confines ${confinement.label} to a namespace; no namespace was given (the kubeconfig default is not allowed)`);
   }
   if (namespaces.some(v => !allowed.has(v))) {
-    return deny('confines kubectl to a namespace; a namespace outside the allowed set was given');
+    return deny(`confines ${confinement.label} to a namespace; a namespace outside the allowed set was given`);
   }
   return { namespaces };
 }
@@ -821,8 +802,8 @@ function evaluateCore(
   // Parse option occurrences, excluding values and everything after --.
   // Duplicate options fail requirements conservatively rather than guessing
   // whether the executable uses first/last wins or accumulates values.
-  // A confined kubectl policy judges its namespace requirements with the
-  // namespace gate below (step 8b), which reads argv exactly as kubectl does.
+  // A confined policy judges its namespace requirements with the
+  // namespace gate below (step 8b), which reads argv exactly as the CLI does.
   // This arity pre-check then only guards the remaining requirements.
   const gateHandles = (needed: string): boolean =>
     hasNamespaceConfinement(policy.command) && isNamespaceRequirement(needed, policy.optionAliases);
@@ -838,8 +819,8 @@ function evaluateCore(
       if(eq<0 && arity==='value')i++;
     }
   }
-  // 8b. kubectl namespace confinement (cli-kubectl-confinement.ts).
-  const gate = kubectlNamespaceGate(argv, policy);
+  // 8b. namespace confinement (profile.namespaceConfinement).
+  const gate = namespaceGate(argv, policy);
   if (gate?.denial) return gate.denial;
 
   const options = new Map<string, Array<string | undefined>>();
@@ -862,7 +843,7 @@ function evaluateCore(
   }
   const argHasRequirement = (needed: string): boolean => {
     if (!needed.startsWith('-')) return positionals.has(needed);
-    // Confined kubectl: every namespace kubectl reads must be this one.
+    // Confined policy: every namespace the CLI reads must be this one.
     // Repeating the same namespace is fine; the gate already refused the rest.
     if (gate?.namespaces && gateHandles(needed)) {
       const value = requiredValue(needed);
