@@ -6,6 +6,17 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-24
+
+### Changed
+
+- The MCP endpoint runs on Express 5 (was 4) and the admin server rate limiter
+  on `@fastify/rate-limit` 11 (was 10).
+- Dependency updates: fastify 5.12, `@simplewebauthn/server` 14.1.0,
+  `@fastify/sensible` 6.0.8 and minimatch 11.0.9.
+- CI uses actions/checkout 7, actions/setup-node 7 and current Docker
+  actions.
+
 ## [1.1.0] - 2026-11-24
 
 ### Added
@@ -58,6 +69,7 @@ First public release.
   `X-Cellarette-CSRF` or `X-Cellarette-Authelia` headers. Use `SPLICEDOCK_*`,
   `X-Splicedock-CSRF` and `X-Splicedock-Authelia`.
 
-[Unreleased]: https://github.com/kamilrybacki/splice-dock/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/kamilrybacki/splice-dock/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/kamilrybacki/splice-dock/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/kamilrybacki/splice-dock/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/kamilrybacki/splice-dock/releases/tag/v1.0.0
