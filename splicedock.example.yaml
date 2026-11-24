@@ -16,6 +16,15 @@ server:
   #   - name: bob
   #     token_file: /path/to/bob-token-file
   cli_whitelist: []
+  # Strong (WebAuthn passkey) consent for approvals. It is enabled by default and
+  # the gateway refuses to start without rp_id and origin. rp_id is the WebAuthn
+  # relying-party ID (the domain passkeys are bound to); origin is the HTTPS
+  # origin the admin UI is served from, on rp_id or a subdomain of it. Set
+  # enabled: false only for local use without passkey approvals.
+  consent:
+    enabled: true
+    rp_id: splicedock.example.com
+    origin: https://splicedock.example.com
 
 # Minted credentials: instead of a pre-created secret, a provider can issue one
 # per profile on first use. The broker caches it (memory), persists it (Vault)
@@ -70,36 +79,49 @@ profiles:
     #         from: vault:secret/data/example/github#worker_pat
 
 tools:
-  # mcp_proxy backends. Replace each upstream with the address of your own MCP server.
+  # mcp_proxy backends. Replace each service_dns/port with the host and port of
+  # your own MCP server; transport is streamable_http (default) or sse.
   - type: mcp_proxy
     name: vault
     description: "HashiCorp Vault secrets - read and write KV secrets"
-    upstream: "http://vault-mcp.example.internal:8000/sse"
+    service_dns: vault-mcp.example.internal
+    port: 8000
+    transport: sse
 
   - type: mcp_proxy
     name: grafana
     description: "Observability - Prometheus metrics, Loki logs, dashboards, alerts"
-    upstream: "http://grafana-mcp.example.internal:8000/sse"
+    service_dns: grafana-mcp.example.internal
+    port: 8000
+    transport: sse
 
   - type: mcp_proxy
     name: memory
     description: "Structured knowledge graph - entities and relations for cross-session semantic memory"
-    upstream: "http://memory-mcp.example.internal:8000/sse"
+    service_dns: memory-mcp.example.internal
+    port: 8000
+    transport: sse
 
   - type: mcp_proxy
     name: sequential_thinking
     description: "Chain-of-thought scratchpad for step-by-step reasoning on complex problems"
-    upstream: "http://sequential-thinking-mcp.example.internal:8000/sse"
+    service_dns: sequential-thinking-mcp.example.internal
+    port: 8000
+    transport: sse
 
   - type: mcp_proxy
     name: context7
     description: "Up-to-date library and framework documentation lookup"
-    upstream: "http://context7-mcp.example.internal:8000/sse"
+    service_dns: context7-mcp.example.internal
+    port: 8000
+    transport: sse
 
   - type: mcp_proxy
     name: lightpanda
     description: "Headless browser automation - navigate, click, fill forms, extract content from web pages"
-    upstream: "http://lightpanda-mcp.example.internal:8000/sse"
+    service_dns: lightpanda-mcp.example.internal
+    port: 8000
+    transport: sse
 
   # CLI passthroughs — Splicedock provisions these at startup into $SPLICEDOCK_BIN.
   # Each produces two tools: <name>__help (capability discovery) and <name>__run (invocation

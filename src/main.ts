@@ -256,7 +256,7 @@ async function main() {
       Object.assign(shadow.config,next.server.shadow);
       approvalService.reconfigureStrongTools(next.server.consent.strong_default_tools);
       logger.info('breaker/shadow configuration reloaded');
-    }catch{logger.warn('breaker/shadow reload refused');}
+    }catch(err){logger.warn('breaker/shadow reload refused',{error:err instanceof Error?err.message:String(err)});}
   })();});
   const pushStore = new PushSubscriptionStore(store.consentDatabase());
   const vapid = vapidFromEnv(process.env);

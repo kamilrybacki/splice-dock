@@ -10,6 +10,7 @@ import { resolveCredentialSource } from '../../../application/credentials/broker
 import type { McpProxyToolConfig } from '../../../config/types.js';
 import type { McpToolDef } from '../../../application/registry/tool-registry.js';
 import { retry } from './shared.js';
+import { PACKAGE_VERSION } from '../../../common/version.js';
 import type { McpCallResult } from './shared.js';
 export type { McpCallResult } from './shared.js';
 
@@ -106,7 +107,7 @@ export class McpProxyDriver {
 
   async connect(): Promise<void> {
     const host = this.pinnedPodIp ?? this.config.service_dns;
-    const client = new Client({ name: 'splicedock', version: '2.0.0' }, { capabilities: {} });
+    const client = new Client({ name: 'splicedock', version: PACKAGE_VERSION }, { capabilities: {} });
     const hasAuth = this.config.auth !== undefined && this.config.auth.type !== 'none';
     // The upstream child is spawned per HTTP session and reads its credential
     // from the initialize request, so the session is bound to one credential

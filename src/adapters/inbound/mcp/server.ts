@@ -4,7 +4,7 @@ import {
   APPROVAL_WAIT_TOOL, approvalWaitTool, builtinTool, listedBuiltinTools, registerBuiltinTool,
   unregisterBuiltinTool, type ApprovalWaitHandler,
 } from './builtin-tools.js';
-import express, { type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, type CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -16,6 +16,7 @@ import { callHttpTool, type HttpExchange } from '../../outbound/drivers/http-wra
 import { callCliTool } from '../../outbound/drivers/cli-wrapper.js';
 import { callCliPassthrough, callReviewedCliPassthrough } from '../../outbound/drivers/cli-passthrough-wrapper.js';
 import { logger } from '../../../common/logger.js';
+import { PACKAGE_VERSION } from '../../../common/version.js';
 import { createQueryFallbackWarner, type ProfileSelectionSource } from './profile-selection.js';
 import { randomUUID } from 'node:crypto';
 import type { HttpToolConfig, CliToolConfig, CliPassthroughToolConfig, McpProxyToolConfig } from '../../../config/types.js';
@@ -57,7 +58,7 @@ export function buildMcpServer(
   profileAuth?: (profile: string, backend: string) => McpProxyToolConfig['auth'] | undefined,
 ): Server {
   const server = new Server(
-    { name: 'splicedock', version: '1.0.0' },
+    { name: 'splicedock', version: PACKAGE_VERSION },
     { capabilities: { tools: {} } },
   );
 
@@ -308,6 +309,7 @@ export function createMcpExpressApp(
     logger.warn('profile selected via ?profile= query; use a profile token', { profile }),
   );
   const app = express();
+  app.disable('x-powered-by');
 
   // Stateless Streamable HTTP endpoint — one server per request, no session to lose.
   // `sessionIdGenerator: undefined` disables session validation entirely, so this
@@ -369,16 +371,68 @@ export function createMcpExpressApp(
       profileAuth,
     );
     // Closing the HTTP response must abort SDK request handlers, including waits.
-    const onDisconnect = () => { void server.close().catch(() => {}); };
+    const onDisconnect = () => { void server.close().catch(logCloseFailure); };
     res.once('close', onDisconnect);
     try {
       await server.connect(transport);
       const authenticated = boundProfile !== null && tokenId !== LEGACY_QUERY_TOKEN_ID;
       await runWithCaller({ profile, tokenId, authenticated, agent }, () => transport.handleRequest(req, res, req.body));
     } finally {
-      server.close().catch(() => {});
+      server.close().catch(logCloseFailure);
     }
   });
 
+  // The gateway is stateless: it offers no SSE stream on GET and no session to
+  // end on DELETE. The MCP Streamable HTTP transport expects 405 for both.
+  app.all('/mcp', (_req: Request, res: Response) => {
+    res
+      .status(405)
+      .set('Allow', 'POST')
+      .json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed' }, id: null });
+  });
+
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: 'not_found' });
+  });
+
+  // Final error handler: without it Express answers with an HTML page that, when
+  // NODE_ENV is unset, includes the stack trace. Never echo the exception.
+  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const status = errorStatus(err);
+    logger.warn('mcp request failed', { status, error_type: errorType(err) });
+    res.status(status).json({ jsonrpc: '2.0', error: jsonRpcError(status), id: null });
+  });
+
   return app;
+}
+
+function logCloseFailure(err: unknown): void {
+  logger.debug('mcp server close failed', { error: err instanceof Error ? err.message : String(err) });
+}
+
+/** HTTP status carried by an Express/body-parser error, or 500. */
+function errorStatus(err: unknown): number {
+  const e = (typeof err === 'object' && err !== null ? err : {}) as { status?: unknown; statusCode?: unknown };
+  for (const candidate of [e.status, e.statusCode]) {
+    if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) return candidate;
+  }
+  return 500;
+}
+
+/** The error's `type` (body-parser) or class name — safe to log, unlike its message. */
+function errorType(err: unknown): string {
+  const e = (typeof err === 'object' && err !== null ? err : {}) as { type?: unknown; name?: unknown };
+  if (typeof e.type === 'string') return sanitizeForLog(e.type);
+  return typeof e.name === 'string' ? sanitizeForLog(e.name) : 'unknown';
+}
+
+function jsonRpcError(status: number): { code: number; message: string } {
+  if (status === 400) return { code: -32700, message: 'Parse error' };
+  if (status === 413) return { code: -32600, message: 'Request body too large' };
+  if (status < 500) return { code: -32600, message: 'Invalid request' };
+  return { code: -32603, message: 'Internal error' };
 }
