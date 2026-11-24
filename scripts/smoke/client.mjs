@@ -18,6 +18,8 @@ const admin = `http://${host}:8789`;
 const mcpUrl = new URL(`http://${host}:8788/mcp`);
 const MCP_ACCEPT = 'application/json, text/event-stream';
 const EXPECTED_TOOLS = ['approvals__wait', 'code_mode__execute', 'demo__version'];
+const checkInstaller = process.env.SD_CHECK_INSTALLER === '1';
+if (checkInstaller) EXPECTED_TOOLS.push('smoke_probe__help', 'smoke_probe__run');
 
 const pass = (message) => console.log('PASS', message);
 const fail = (message) => {
@@ -67,6 +69,14 @@ async function exerciseMcp(token) {
     const version = direct.content?.[0]?.text?.trim() ?? '';
     if (direct.isError || !/^v\d+/.test(version)) fail(`demo__version: ${JSON.stringify(direct)}`);
     pass(`demo__version = ${version}`);
+
+    if (checkInstaller) {
+      const installed = await client.callTool({ name: 'smoke_probe__run', arguments: { args: [] } });
+      if (installed.isError || installed.content?.[0]?.text?.trim() !== 'smoke-probe-ok') {
+        fail(`smoke_probe__run: ${JSON.stringify(installed)}`);
+      }
+      pass('installed CLI tool called through MCP');
+    }
 
     const code = [
       'const [a, b] = await Promise.all([tools.call("demo__version", {}), tools.call("demo__version", {})]);',

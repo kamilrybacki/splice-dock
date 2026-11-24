@@ -49,4 +49,27 @@ describe('cli_passthrough install script environment', () => {
       `npm_config_prefix=${binDir}`,
     ]);
   });
+
+  it('completes an install that writes more than a pipe buffer to stdout', async () => {
+    const { installCliPassthroughTools } = await import('../../../src/adapters/outbound/installer/cli-installer.js');
+    const tool = toolSchema.parse({
+      type: 'cli_passthrough',
+      name: 'stdoutprobe',
+      description: 'Writes to stdout before installing the executable',
+      command: 'stdoutprobe',
+      install: {
+        script: [
+          'head -c 1048576 /dev/zero',
+          'printf "#!/bin/sh\\n" > "$SPLICEDOCK_BIN/stdoutprobe"',
+          'chmod +x "$SPLICEDOCK_BIN/stdoutprobe"',
+        ].join('\n'),
+        timeout_ms: 3000,
+      },
+    });
+
+    if (tool.type !== 'cli_passthrough') throw new Error('expected a cli_passthrough tool');
+
+    const [result] = await installCliPassthroughTools([tool]);
+    expect(result?.status).toBe('available');
+  });
 });

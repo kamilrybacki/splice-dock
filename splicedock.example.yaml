@@ -128,8 +128,9 @@ tools:
     transport: sse
 
   # CLI passthroughs — Splicedock provisions these at startup into $SPLICEDOCK_BIN.
-  # The install scripts below need curl and tar (gh) and npm (codex) on the host. A
-  # failed install is logged and the tool is skipped unless `install.required: true`.
+  # The install scripts below need curl, tar and sha256sum (gh on Linux) and npm
+  # (codex). A failed install is logged and the tool is skipped unless
+  # `install.required: true`.
   # Each produces two tools: <name>__help (capability discovery) and <name>__run (invocation
   # with a typed argv array, no shell parsing).
   - type: cli_passthrough
@@ -143,9 +144,22 @@ tools:
       env:
         GH_VERSION: "2.102.0"  # keep in sync with PINNED_GH_VERSION
       script: |
-        curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
-          | tar xz --strip-components=2 -C "$SPLICEDOCK_BIN" "gh_${GH_VERSION}_linux_amd64/bin/gh"
-        chmod +x "$SPLICEDOCK_BIN/gh"
+        case "$(uname -sm)" in
+          "Linux x86_64")
+            arch=amd64
+            sha256=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386 ;;
+          "Linux aarch64"|"Linux arm64")
+            arch=arm64
+            sha256=7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484 ;;
+          *) echo "Install gh manually on this platform" >&2; exit 1 ;;
+        esac
+        release="gh_${GH_VERSION}_linux_${arch}"
+        archive="$(mktemp)"
+        trap 'unlink "$archive"' EXIT
+        curl -fsSL -o "$archive" "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${release}.tar.gz"
+        printf '%s  %s\n' "$sha256" "$archive" | sha256sum -c -
+        tar xzf "$archive" --strip-components=2 -C "$SPLICEDOCK_BIN" "$release/bin/gh"
+        "$SPLICEDOCK_BIN/gh" --version
 
   - type: cli_passthrough
     name: codex

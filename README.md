@@ -117,6 +117,8 @@ endpoint listens on port `8788` and the admin UI on port `8789`.
 Requires Node.js 22 or later.
 
 ```bash
+export NPM_CONFIG_PREFIX="$HOME/.local"
+export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
 npm install -g splicedock
 mkdir -p "$HOME/splicedock"
 cp "$(npm root -g)/splicedock/splicedock.example.yaml" "$HOME/splicedock/splicedock.yaml"
@@ -133,8 +135,9 @@ installation", add `--ignore-scripts`. `better-sqlite3` ships prebuilt binaries
 and does not need the build, but npm still starts it
 ([npm/cli#9837](https://github.com/npm/cli/issues/9837)).
 
-To try it without installing, run `npx splicedock`. The package includes the
-Quickstart configuration at `$(npm root -g)/splicedock/site/examples/quickstart.yaml`
+With the same configuration and environment, `npx splicedock` also works without
+a global install. The package includes the Quickstart configuration at
+`$(npm root -g)/splicedock/site/examples/quickstart.yaml`
 and the annotated example at `$(npm root -g)/splicedock/splicedock.example.yaml`.
 To move an existing SQLite database to PostgreSQL, run
 `splicedock db migrate-sqlite-to-pg --sqlite <path>` with `SPLICEDOCK_DB_DSN` set.
