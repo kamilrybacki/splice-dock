@@ -1,7 +1,7 @@
 import { type CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { HttpExchange, HttpRequest } from '../../../contracts/outbound/http/exchange.js';
-import type { McpToolDef } from '../../tools/registry.js';
-import type { ObservedOperation, OperationExchange } from '../../../contracts/outbound/operation/exchange.js';
+import type { HttpExchange, HttpRequest } from '../../contracts/outbound/http/exchange.js';
+import type { McpToolDef } from '../tools/registry.js';
+import type { ObservedOperation, OperationExchange } from '../../contracts/outbound/operation/exchange.js';
 import type { CodeExecutor } from './base.js';
 
 type Result = CompatibilityCallToolResult;

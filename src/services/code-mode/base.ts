@@ -1,4 +1,4 @@
-import type { McpToolDef } from '../../../contracts/internal/mcp/tool.js';
+import type { McpToolDef } from '../../contracts/internal/mcp/tool.js';
 import type { CompatibilityCallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 export const codeModeDef: Tool = {
