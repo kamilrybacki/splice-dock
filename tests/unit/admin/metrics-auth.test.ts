@@ -4,7 +4,7 @@ import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ToolService } from '../../../src/services/tools/base.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { createMetrics } from '../../../src/common/metrics.js';
+import { createPrometheusMetrics } from '../../../src/services/metrics/adapters/prometheus/index.js';
 import type { SplicedockConfig } from '../../../src/config/schema.js';
 
 type Admin = Awaited<ReturnType<typeof createAdminServer>>;
@@ -23,7 +23,7 @@ async function build(metricsToken?: string): Promise<Admin> {
     },
     profiles: {}, tools: [],
   } as SplicedockConfig;
-  app = await createAdminServer(tr, pr, new ToolService(tr), new ProfileService(pr, tr), new Map(), config, createMetrics());
+  app = await createAdminServer(tr, pr, new ToolService(tr), new ProfileService(pr, tr), new Map(), config, createPrometheusMetrics());
   return app;
 }
 

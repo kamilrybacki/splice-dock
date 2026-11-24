@@ -1,4 +1,4 @@
-import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
 import type { CircuitBreaker } from '../../../policy/breaker/index.js';
 import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flags/arity.js';
@@ -212,28 +212,28 @@ export async function callReviewedCliPassthrough(
   whitelist: string[],
   exchange: OperationExchange,
   signal: AbortSignal,
-): Promise<CompatibilityCallToolResult> {
-  if (!whitelist.includes(config.command)) return errorResult('Command is not in cli_whitelist') as CompatibilityCallToolResult;
+): Promise<ToolResult> {
+  if (!whitelist.includes(config.command)) return errorResult('Command is not in cli_whitelist') as ToolResult;
   const approvalContext = args.approval_context;
   if (approvalContext !== undefined && (typeof approvalContext !== 'string' || approvalContext.length > 500)) {
-    return errorResult('approval_context must be at most 500 characters') as CompatibilityCallToolResult;
+    return errorResult('approval_context must be at most 500 characters') as ToolResult;
   }
   let argv: readonly string[];
   try {
     if (kind === 'help') {
       const parts = (typeof args.subcommand === 'string' ? args.subcommand : '').trim().split(/\s+/).filter(Boolean);
-      if (parts.some(part => !/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(part))) return errorResult('Help subcommand must contain command words only') as CompatibilityCallToolResult;
+      if (parts.some(part => !/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(part))) return errorResult('Help subcommand must contain command words only') as ToolResult;
       argv = ['--help', ...parts];
     } else {
       argv = canonicalizeArgv(args.args);
     }
   } catch (err) {
     if (!(err instanceof ArgvCanonicalizationError)) throw err;
-    return errorResult(argvErrorMessage(err)) as CompatibilityCallToolResult;
+    return errorResult(argvErrorMessage(err)) as ToolResult;
   }
   const cwd = kind === 'run' ? resolveRunCwd(args.cwd) : process.cwd();
   return exchange({ driver: 'cli_passthrough', command: config.command, argv, cwd, approvalContext }, async () =>
-    await callCliPassthrough(config, kind, args, whitelist, { argv, cwd, signal }) as CompatibilityCallToolResult);
+    await callCliPassthrough(config, kind, args, whitelist, { argv, cwd, signal }) as ToolResult);
 }
 
 export async function callCliPassthrough(

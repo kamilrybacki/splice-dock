@@ -47,7 +47,7 @@ import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } fr
 import { createInvalidationBus } from './services/database/adapters/invalidation/bus.js';
 import { CacheSync } from './services/runtime/base.js';
 import { hashProfileToken } from './services/authentication/base.js';
-import { createMetrics } from './common/metrics.js';
+import { createPrometheusMetrics } from './services/metrics/adapters/prometheus/index.js';
 import { drainHttpServer } from './common/http/drain.js';
 
 const CONFIG_PATH = process.env['SPLICEDOCK_CONFIG'] ?? '/etc/splicedock/splicedock.yaml';
@@ -80,7 +80,7 @@ async function main() {
   const credentialFor = (profileName: string, tool: string) =>
     profileRegistry.getProfile(profileName)?.credentials?.[tool] ?? config.credential_defaults[tool];
   setProfileEnvResolver((tool, profileName) => credentialFor(profileName, tool)?.env);
-  const metrics = createMetrics();
+  const metrics = createPrometheusMetrics();
   setLifecycleMetrics(metrics);
 
   const passthroughConfigs = config.tools.filter(t => t.type === 'cli_passthrough');

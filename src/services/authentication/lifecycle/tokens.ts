@@ -1,10 +1,10 @@
 import type { ProfileTokenRepository } from '../../../contracts/outbound/repositories.js';
 import type { SplicedockConfig } from '../../../config/schema.js';
-import type { Metrics } from '../../../common/metrics.js';
+import type { MetricsPort } from '../../../contracts/outbound/metrics.js';
 import { logger } from '../../../common/logger.js';
 import { runSweepExclusive } from '../../database/sweep/lock.js';
 /** Returns cleanup so shutdown cannot sweep a closed database. No legacy-query row exists. */
-export function startTokenSweep(store: ProfileTokenRepository, policy: SplicedockConfig['server']['token_policy'], metrics: Metrics): () => void {
+export function startTokenSweep(store: ProfileTokenRepository, policy: SplicedockConfig['server']['token_policy'], metrics: MetricsPort): () => void {
   store.configureTokenTouch(policy.touch_interval_seconds);
   const sweep = async () => {
     // One replica sweeps per tick; the rest skip (no double revoke counts/logs).

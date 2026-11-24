@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
-import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -188,7 +188,7 @@ export class McpProxyDriver {
   /** Returns the cached tool definitions. Useful for refresh-service callers that connect, list, then disconnect. */
   async listTools(): Promise<McpToolDef[]> { return this.toolDefs; }
 
-  async callReviewedTool(namespacedName: string, args: Record<string, unknown>, exchange: OperationExchange, signal: AbortSignal): Promise<CompatibilityCallToolResult> {
+  async callReviewedTool(namespacedName: string, args: Record<string, unknown>, exchange: OperationExchange, signal: AbortSignal): Promise<ToolResult> {
     const name = namespacedName.replace(`${this.config.name}__`, '');
     const client = this.client;
     if (this.config.transport === 'sse' || !client || !this.knownTools.has(name)) {
@@ -205,7 +205,7 @@ export class McpProxyDriver {
       const context = { url, params, sent: false };
       const result = await this.reviewedCall.run(context, () => client.callTool(params, undefined, { signal }));
       if (!context.sent) throw Error('MCP reviewed call did not reach the checked transport');
-      return result as CompatibilityCallToolResult;
+      return result as ToolResult;
     });
   }
 

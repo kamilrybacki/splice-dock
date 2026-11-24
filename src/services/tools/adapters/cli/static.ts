@@ -1,4 +1,4 @@
-import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
 import { spawn } from 'node:child_process';
 import type { CliToolConfig } from '../../../../config/types.js';
@@ -11,7 +11,7 @@ export async function callCliTool(
   whitelist: string[],
   exchange?: OperationExchange,
   signal?: AbortSignal,
-): Promise<CompatibilityCallToolResult> {
+): Promise<ToolResult> {
   if (!whitelist.includes(config.command)) {
     return { content: [{ type: 'text', text: `Command '${config.command}' is not in whitelist` }], isError: true };
   }
@@ -29,8 +29,8 @@ export async function callCliTool(
     }
   };
   return exchange
-    ? exchange({ driver: 'cli', command: config.command, argv: resolvedArgs, cwd: cwd! }, async () => await invoke() as CompatibilityCallToolResult)
-    : await invoke() as CompatibilityCallToolResult;
+    ? exchange({ driver: 'cli', command: config.command, argv: resolvedArgs, cwd: cwd! }, async () => await invoke() as ToolResult)
+    : await invoke() as ToolResult;
 }
 
 function substituteArg(template: string, args: Record<string, string>, params: CliToolConfig['params']): string {
