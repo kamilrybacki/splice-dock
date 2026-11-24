@@ -21,6 +21,18 @@ export interface InvocationContext {
   readonly table: FlagTable;
 }
 
+/** Namespace confinement for a CLI whose policies may require a namespace. */
+export interface NamespaceConfinement {
+  /** CLI name used in confinement denial messages. */
+  readonly label: string;
+  /** Every namespace value the CLI reads from argv, in order (null when ambiguous).
+   *  Uses the CLI's built-in flag table unless one is given. */
+  namespaceValues(argv: readonly string[], table?: FlagTable): readonly string[] | null;
+  /** Full denial text when argv escapes the namespace (re-targets the request,
+   *  swaps identity or config, ...), or undefined. Never echoes values. */
+  breachMessage(argv: readonly string[], table: FlagTable): string | undefined;
+}
+
 export interface CliProfile {
   /** Executable basename this profile applies to. */
   readonly name: string;
@@ -47,5 +59,5 @@ export interface CliProfile {
    *  for the same CLI is refused. */
   strongApprovalPaths?(path: readonly string[]): boolean;
   /** Policies that require a namespace are confined to it by the namespace gate. */
-  readonly namespaceConfinement?: boolean;
+  readonly namespaceConfinement?: NamespaceConfinement;
 }

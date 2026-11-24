@@ -1,4 +1,4 @@
-import {NO_READONLY_PROBES,type ReadonlyProbes} from './readonly.js';
+import {assertSupportedReadAllowlist,NO_READONLY_PROBES,type ReadonlyProbes} from './readonly.js';
 import type { SqlDb } from '../../database/base.js';
 import {createHash} from 'node:crypto';
 import type {SplicedockConfig} from '../../../config/types.js';
@@ -11,13 +11,14 @@ type Row={scope:string; family:string; state:string; opened_at:number; cooldown_
  * created with an upsert that also locks it. Counters saturate and no argv is retained. */
 export class CircuitBreaker {
  /** The constructor does no I/O; create() migrates the breaker tables first. */
- constructor(readonly db:SqlDb,readonly config:Config,readonly event:(event:string,family:string,state?:string)=>void=()=>{},private readonly probes:ReadonlyProbes=NO_READONLY_PROBES){}
+ constructor(readonly db:SqlDb,readonly config:Config,readonly event:(event:string,family:string,state?:string)=>void=()=>{},private readonly probes:ReadonlyProbes=NO_READONLY_PROBES){assertSupportedReadAllowlist(probes,config.read_allowlist);}
  static async create(db:SqlDb,config:Config,event:(event:string,family:string,state?:string)=>void=()=>{},probes:ReadonlyProbes=NO_READONLY_PROBES):Promise<CircuitBreaker>{
  await db.ensureSchema();
  return new CircuitBreaker(db,config,event,probes);
  }
  /** Applies a reloaded configuration in place, recording an operator audit row first. */
  async reconfigure(next:Config):Promise<void>{
+ assertSupportedReadAllowlist(this.probes,next.read_allowlist);
  await this.db.prepare('INSERT INTO breaker_audit(ts,scope,event,actor) VALUES(?,?,?,?)').run(Date.now(),'configured',`config_${next.enabled?next.mode:'disabled'}`,'operator_signal');
  Object.assign(this.config,next);
  }

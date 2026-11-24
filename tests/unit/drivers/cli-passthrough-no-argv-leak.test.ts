@@ -76,7 +76,14 @@ describe('no raw argv in any sink', () => {
   it('approval pending and approval bypass (consumed)', async () => {
     const store = await SplicedockStore.open(':memory:');
     const svc = new ApprovalService({ store, sweepIntervalMs: 0 });
-    configurePassthrough({approvalHookFactory: (name, { cwd }) => svc.makeHook(name, cwd)});
+    // Install the sinks together with the approval hook, as the real wiring does.
+    const audit: string[] = [], metrics: string[] = [], decisions: string[] = [];
+    configurePassthrough({
+      auditSink: e => { audit.push(JSON.stringify(e)); captured.push(JSON.stringify(e)); },
+      metricsSink: e => { metrics.push(JSON.stringify(e)); captured.push(JSON.stringify(e)); },
+      policyDecisionSink: e => { decisions.push(JSON.stringify(e)); captured.push(JSON.stringify(e)); },
+      approvalHookFactory: (name, { cwd }) => svc.makeHook(name, cwd),
+    });
     const cfg = mkConfig('leak_approval', { on_violation: 'approval', approval_subcommands: [SECRET] });
     const caller = { profile: 'p', tokenId: 'tok-a', authenticated: true };
 
@@ -86,6 +93,10 @@ describe('no raw argv in any sink', () => {
     expect(await svc.approve(id, 'op')).toBe(true);
     const ran = await runWithCaller(caller, () => callCliPassthrough(cfg, 'run', { args: [SECRET] }, ['echo']));
     expect(ran.isError).toBeFalsy();
+    // The assertion below is only meaningful if every sink actually saw the approval flow.
+    expect(audit.length).toBeGreaterThan(0);
+    expect(metrics.length).toBeGreaterThan(0);
+    expect(decisions.length).toBeGreaterThan(0);
     expectNoLeak();
     svc.stop();
     await store.close();

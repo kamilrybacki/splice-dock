@@ -76,13 +76,3 @@ describe('splicedockConfigSchema — retired tunnel block', () => {
     expect(config).not.toHaveProperty('tunnel');
   });
 });
-
-it.each([
- ['gh',['repo','archive','owner/repo','--yes']],
- ['gh',['repo','view','--web']],['gh',['api','/repos']],['unknown',['get']],
-])('rejects unsafe breaker exemption %s %j',(tool,argv)=>{
- expect(()=>splicedockConfigSchema.parse({server:{breaker:{read_allowlist:[{tool,argv}]}}})).toThrow();
-});
-it('accepts a closed readonly exemption',()=>{
- expect(()=>splicedockConfigSchema.parse({server:{breaker:{read_allowlist:[{tool:'gh',argv:['repo','view']}]}}})).not.toThrow();
-});

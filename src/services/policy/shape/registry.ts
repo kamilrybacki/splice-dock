@@ -1,5 +1,5 @@
 import type { CallerIdentity } from '../../../common/request/context.js';
-import type { OperationShape } from './kubectl.js';
+import type { OperationShape } from './base.js';
 
 /** Shape functions for one tool, as the standing-grant machinery consumes them. */
 export interface ToolShapes {
