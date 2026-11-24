@@ -7,7 +7,7 @@
 
 <p align="center">Connect MCP servers, HTTP APIs, and command-line tools through one MCP endpoint.</p>
 
-<p align="center"><code>v1.0.0</code></p>
+<p align="center"><code>v1.1.0</code></p>
 
 <p align="center">
   <a href="https://kamilrybacki.github.io/splice-dock/start.html"><strong>Quickstart</strong></a> ·
@@ -140,14 +140,14 @@ docker run --rm \
   -p 8788:8788 -p 8789:8789 \
   -v "$PWD/splicedock.yaml:/etc/splicedock/splicedock.yaml:ro" \
   -v splicedock-data:/var/splicedock/data \
-  ghcr.io/kamilrybacki/splice-dock:v1.0.0
+  ghcr.io/kamilrybacki/splice-dock:v1.1.0
 ```
 
 Each tagged release publishes a multi-architecture image with an SBOM and
 build provenance. Pass secrets with `-e` or `--env-file`, never in the
 configuration file.
 
-Images built after v1.0.0 run the gateway as the `node` user (UID 1000). On
+From v1.1.0 the image runs the gateway as the `node` user (UID 1000). On
 start the entrypoint gives `/var/splicedock/data` and `/var/splicedock/bin` to
 that user, which also covers volumes written by v1.0.0. Files you mount, such
 as SSH keys or a kubeconfig, must be readable by UID 1000. With `--user` or a

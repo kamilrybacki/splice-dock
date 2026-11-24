@@ -112,7 +112,7 @@ export function makePages(config, quickstart) {
       'Connect your agents to one gateway and manage which tools each agent can use.', [
       ['flow', 'One path to your tools', paragraph('Agents connect over MCP. Splicedock routes calls to MCP servers, HTTP APIs, and CLI tools.')],
       ['features', 'Get started', '<ul class="checklist"><li><a href="start.html">Run a local example</a></li><li><a href="connect.html">Connect an MCP client</a></li><li><a href="profiles.html">Configure access profiles</a></li><li><a href="code-mode.html">Run a Code Mode workflow</a></li></ul>'],
-      ['name', 'Version 1.0', paragraph('This guide describes Splicedock 1.0 and its MCP, HTTP, and CLI integrations.')],
+      ['name', 'Version 1.1', paragraph('This guide describes Splicedock 1.1 and its MCP, HTTP, and CLI integrations.')],
       ['boundary', 'Where policy applies', paragraph('Gateway policies apply to calls routed through Splicedock. Local files, a client shell, and permissions within backend services need their own controls.')],
     ]),
     page('start', 'Quickstart', 'Start Splicedock locally, authenticate, and verify your first tool result.', 'From configuration to your first call.', 'terminal-80.svg',
