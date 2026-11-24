@@ -52,7 +52,7 @@
     "test:functional": "vitest run tests/functional",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "lint": "eslint src/ tests/",
-    "lint:layers": "node scripts/check-layers.mjs",
+    "lint:layers": "depcruise src --config .dependency-cruiser.cjs",
     "docs:build": "node scripts/build-docs.mjs",
     "docs:check": "node scripts/check-docs.mjs"
   },
@@ -95,6 +95,7 @@
     "@types/web-push": "^3.6.4",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
+    "dependency-cruiser": "^18.9.0",
     "eslint": "^10.15.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
