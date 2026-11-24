@@ -15,7 +15,11 @@ server:
   #     token_env: SPLICEDOCK_ADMIN_TOKEN_ALICE
   #   - name: bob
   #     token_file: /path/to/bob-token-file
-  cli_whitelist: []
+  # Commands that cli and cli_passthrough tools may run. A tool whose command is
+  # not listed here is refused. Entries match the tool's `command` exactly.
+  cli_whitelist:
+    - gh
+    - codex
   # Strong (WebAuthn passkey) consent for approvals. It is enabled by default and
   # the gateway refuses to start without rp_id and origin. rp_id is the WebAuthn
   # relying-party ID (the domain passkeys are bound to); origin is the HTTPS
@@ -124,6 +128,8 @@ tools:
     transport: sse
 
   # CLI passthroughs — Splicedock provisions these at startup into $SPLICEDOCK_BIN.
+  # The install scripts below need curl and tar (gh) and npm (codex) on the host. A
+  # failed install is logged and the tool is skipped unless `install.required: true`.
   # Each produces two tools: <name>__help (capability discovery) and <name>__run (invocation
   # with a typed argv array, no shell parsing).
   - type: cli_passthrough

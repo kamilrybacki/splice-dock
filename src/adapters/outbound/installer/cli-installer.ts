@@ -8,6 +8,9 @@ import { logger } from '../../../common/logger.js';
 /** Where splicedock self-installs cli_passthrough binaries. Writable by the splicedock user. */
 export const SPLICEDOCK_BIN = process.env['SPLICEDOCK_BIN'] ?? '/var/splicedock/bin';
 
+/** npm settings the installer sets itself; inherited copies in any letter case are dropped. */
+const NPM_SETTINGS_SET_BY_INSTALLER: ReadonlySet<string> = new Set(['npm_config_prefix', 'npm_config_cache']);
+
 export interface InstallResult {
   name: string;
   status: 'available' | 'failed';
@@ -139,9 +142,14 @@ function runInstallScript(config: CliPassthroughToolConfig): Promise<void> {
   // writable bin dir (root fs is read-only, so default HOME=/home/node is not writable), plus
   // npm-specific overrides so `npm install -g` targets SPLICEDOCK_BIN and npm's cache/logs
   // go to a writable location. User-declared install.env takes precedence.
+  // npm reads these settings under any letter case, so an inherited NPM_CONFIG_PREFIX would
+  // compete with the npm_config_prefix set here. Drop the inherited ones first.
   const basePath = process.env['PATH'] ?? '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+  const inherited = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !NPM_SETTINGS_SET_BY_INSTALLER.has(key.toLowerCase())),
+  );
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...inherited,
     SPLICEDOCK_BIN,
     PATH: `${SPLICEDOCK_BIN}:${basePath}`,
     HOME: SPLICEDOCK_BIN,

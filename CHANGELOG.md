@@ -23,7 +23,16 @@ All notable changes to this project are recorded here. The format follows
   entries use `service_dns`, `port` and `transport` instead of the unsupported
   `upstream`, and a `consent` block with `rp_id` and `origin` is included.
 - The README install commands for npm and the container set
-  `SPLICEDOCK_ADMIN_TOKEN`, without which the gateway does not start.
+  `SPLICEDOCK_ADMIN_TOKEN`, without which the gateway does not start. The npm
+  commands also copy the example configuration into place and set
+  `SPLICEDOCK_BIN` to a directory the user can write to; the default
+  `/var/splicedock/bin` stopped startup with `EACCES` for a non-root user.
+- The example configuration lists `gh` and `codex` in `cli_whitelist`. With the
+  empty list every call to its two CLI tools was refused.
+- `cli_passthrough` install scripts no longer inherit `NPM_CONFIG_PREFIX` or
+  `NPM_CONFIG_CACHE` from the gateway's environment. With either set,
+  `npm install -g` in a script could install outside `SPLICEDOCK_BIN` and the
+  tool was reported as failed.
 - The MCP endpoint answers malformed, oversized and unknown requests with JSON
   instead of Express's HTML error page, which could include a stack trace, and
   no longer sends the `X-Powered-By` header.

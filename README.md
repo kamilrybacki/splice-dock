@@ -118,8 +118,12 @@ Requires Node.js 22 or later.
 
 ```bash
 npm install -g splicedock
+mkdir -p "$HOME/splicedock"
+cp "$(npm root -g)/splicedock/splicedock.example.yaml" "$HOME/splicedock/splicedock.yaml"
+# Edit splicedock.yaml for your tools, then:
 export SPLICEDOCK_CONFIG="$HOME/splicedock/splicedock.yaml"
 export SPLICEDOCK_DB_PATH="$HOME/splicedock/splicedock.db"
+export SPLICEDOCK_BIN="$HOME/splicedock/bin"
 export SPLICEDOCK_ADMIN_TOKEN="$(node -e 'console.log(require("node:crypto").randomBytes(32).toString("hex"))')"
 splicedock
 ```
