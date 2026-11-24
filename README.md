@@ -244,7 +244,8 @@ listed the available tools, and then ran the three reads in parallel.
 | Start the compiled gateway | `npm start` |
 | Lint | `npm run lint` |
 | Run tests | `npm test` |
-| Run one test suite | `npm run test:unit`, `npm run test:integration`, or `npm run test:e2e` |
+| Run one test suite | `npm run test:unit`, `npm run test:functional`, or `npm run test:e2e` |
+| Smoke-test the image and npm package | `IMG=<image> scripts/smoke/run-image.sh`, `scripts/smoke/run-npm.sh` |
 | Build and check the docs | `npm run docs:build && npm run docs:check` |
 
 Gateway code lives in [`src/`](src/), tests in [`tests/`](tests/), and the
