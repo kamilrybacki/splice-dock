@@ -8,6 +8,11 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # typescript-eslint peers typescript <6.1, so TypeScript 7 (native
+      # compiler) cannot install yet. Revisit when typescript-eslint supports it.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
