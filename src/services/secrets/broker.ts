@@ -25,8 +25,7 @@ interface CacheEntry {
 let providerConfigs = new Map<string, CredentialProviderConfig>();
 let providers = new Map<string, CredentialProvider>();
 let store: CredentialStore = new MemoryCredentialStore();
-let storagePrefix = '';
-/** L1 the request path reads; L2 is `store` (Vault by default). */
+/** L1 the request path reads; L2 is `store`, chosen by the composition root. */
 const cache = new Map<string, CacheEntry>();
 /** Single-flight: one mint per key however many callers race for it. */
 const inflight = new Map<string, Promise<string>>();
@@ -46,10 +45,7 @@ export function configureCredentialBroker(config: {
   for (const [name, providerConfig] of providerConfigs) {
     providers.set(name, adapters.provider(providerConfig));
   }
-  storagePrefix = config.storage.type === 'vault' ? config.storage.prefix : '';
-  store = config.storage.type === 'vault'
-    ? adapters.vaultStore(config.storage.prefix)
-    : new MemoryCredentialStore();
+  store = adapters.store(config.storage);
   resetCredentialCache();
 }
 
@@ -65,7 +61,6 @@ export function resetCredentialBroker(): void {
   providerConfigs = new Map();
   providers = new Map();
   store = new MemoryCredentialStore();
-  storagePrefix = '';
   resetCredentialCache();
 }
 
@@ -112,7 +107,7 @@ export async function revokeProfileCredentials(profile: string): Promise<void> {
     cache.delete(key);
   }
   try {
-    const removed = await store.deletePrefix(`${storagePrefix === '' ? '' : `${storagePrefix}/`}${sanitize(profile)}`);
+    const removed = await store.deletePrefix(sanitize(profile));
     if (removed > 0) logger.info('purged profile credentials', { profile, removed });
   } catch (err) {
     logger.warn('credential store purge failed', { profile, error: err instanceof Error ? err.message : String(err) });
@@ -229,7 +224,7 @@ function cacheKey(providerName: string, target: MintTarget): string {
 
 function entryPath(providerName: string, target: MintTarget): string {
   const segments = [target.profile, target.backend, target.agent ?? '_', providerName].map(sanitize);
-  return storagePrefix === '' ? segments.join('/') : `${storagePrefix}/${segments.join('/')}`;
+  return segments.join('/');
 }
 
 function sanitize(segment: string): string {
