@@ -56,12 +56,13 @@ RUN mkdir -p /opt/operator-bin \
     && ln -s /usr/bin/ssh-keygen /opt/operator-bin/ssh-keygen \
     && chmod 0755 /opt/operator-bin/ssh
 
-# uv (for serena) + uvx
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:/usr/local/bin:${PATH}"
+# uv and uvx (for Python MCP servers such as serena), pinned by index digest.
+COPY --from=ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /uvx /usr/local/bin/
 
-# codex CLI (OpenAI)
-RUN npm install -g @openai/codex@latest || true
+# codex CLI (OpenAI), pinned so a rebuild of the same tag installs the same CLI.
+ARG CODEX_VERSION=0.172.0
+RUN npm install -g --no-fund --no-audit "@openai/codex@${CODEX_VERSION}" \
+    && npm cache clean --force
 
 WORKDIR /app
 COPY --from=build-node /app/node_modules ./node_modules

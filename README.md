@@ -147,6 +147,13 @@ Each tagged release publishes a multi-architecture image with an SBOM and
 build provenance. Pass secrets with `-e` or `--env-file`, never in the
 configuration file.
 
+Images built after v1.0.0 run the gateway as the `node` user (UID 1000). On
+start the entrypoint gives `/var/splicedock/data` and `/var/splicedock/bin` to
+that user, which also covers volumes written by v1.0.0. Files you mount, such
+as SSH keys or a kubeconfig, must be readable by UID 1000. With `--user` or a
+Kubernetes `runAsUser`, the image runs as that user and leaves ownership to
+you.
+
 ## <img src="docs/assets/section-plug.svg" width="30" height="24" alt="">Connect your tools
 
 Start with the [annotated configuration](splicedock.example.yaml). Add the tool

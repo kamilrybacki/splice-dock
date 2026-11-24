@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Smoke-test a container image end to end on an isolated Docker network.
 #
-#   IMG=ghcr.io/kamilrybacki/splice-dock:v1.0.0 scripts/smoke/run-image.sh
+#   IMG=ghcr.io/kamilrybacki/splice-dock:latest scripts/smoke/run-image.sh
 #
 # 1. SQLite: start the image with the Quickstart config and a data volume on a
-#    network with no egress, run client.mjs, restart, check health again.
+#    network with no egress, check the gateway does not run as root, run
+#    client.mjs, restart, check health again.
 # 2. PostgreSQL: migrate that SQLite database into PostgreSQL 16, start two
 #    gateways on the same database and run client.mjs against each.
 # Fails on the first failed check or if a gateway logs an error.
@@ -69,6 +70,13 @@ wait_healthy() { # name
 
 echo "## SQLite: $IMG on an internal network"
 start_gateway "${GATEWAYS[0]}" -v "$VOLUME:/var/splicedock/data"
+wait_healthy "${GATEWAYS[0]}"
+gateway_uid="$(docker top "${GATEWAYS[0]}" -o pid,uid,args | awk '/dist\/main\.js/ { print $2; exit }')"
+if [ -z "$gateway_uid" ] || [ "$gateway_uid" = 0 ]; then
+  echo "gateway runs as uid '${gateway_uid}', expected the node user" >&2
+  exit 1
+fi
+echo "PASS gateway runs as uid $gateway_uid"
 run_client "${GATEWAYS[0]}"
 docker restart "${GATEWAYS[0]}" >/dev/null
 wait_healthy "${GATEWAYS[0]}"

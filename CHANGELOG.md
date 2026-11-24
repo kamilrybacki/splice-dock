@@ -12,6 +12,19 @@ All notable changes to this project are recorded here. The format follows
   package in a fresh container and runs the Quickstart against it, and on pull
   requests starts the built image with SQLite and with PostgreSQL.
 
+### Changed
+
+- The image runs the gateway as the `node` user (UID 1000) instead of root.
+  When started as root, the entrypoint gives `/var/splicedock/data` and
+  `/var/splicedock/bin` to that user, including volumes written by v1.0.0,
+  then drops privileges. Files mounted into the container must be readable by
+  UID 1000. Without `CAP_SETUID` and `CAP_SETGID` (for example
+  `--cap-drop ALL`) it logs a warning and keeps running as root. `--user` and
+  Kubernetes `runAsUser` work as before.
+- The image pins uv 0.13.9 by digest and the codex CLI to 0.172.0; it used to
+  install the latest of each and ignore a failed codex install.
+  `/root/.local/bin` is no longer on `PATH`.
+
 ## [1.0.0] - 2026-11-24
 
 First public release.
