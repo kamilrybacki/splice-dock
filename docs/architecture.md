@@ -43,12 +43,16 @@ admin and MCP services.
 | service core | `common`, `config`, `contracts`, service cores |
 | service adapters and composition root | any layer |
 
-`npm run lint:layers` enforces these dependency directions in CI. Wire
-concrete adapters in `main.ts` and keep provider imports out of the service
-core.
+`npm run lint:layers` runs [dependency-cruiser](https://github.com/sverweij/dependency-cruiser)
+with `.dependency-cruiser.cjs` and enforces these dependency directions in CI.
+A file under `src/` that is neither a root file nor in one of these layers
+(for example `src/services/stray.ts`) fails the `unknown-layer` rule.
+Wire concrete adapters in `main.ts` and keep provider imports out of the
+service core. Type-only imports count, as do dynamic `import()` calls.
 
-Outside adapters and the composition root, the same check also limits package
-imports to pure, backend-free libraries:
+Outside adapters and the composition root, the same rules limit package
+imports to pure, backend-free libraries (Node builtins match with or without
+the `node:` prefix):
 
 | Location | Allowed packages |
 |---|---|
@@ -57,13 +61,22 @@ imports to pure, backend-free libraries:
 | `config` | `zod` |
 | service core | `node:crypto`, `node:path`, `node:timers/promises`, `zod`, `minimatch` |
 
-It also rejects `process.env` reads there, with no exceptions: the environment
-is mapped onto configuration only in the composition root (`src/*.ts`, e.g.
-`env-config.ts`, `config-file.ts`) and in adapters. The check uses
-the TypeScript AST rather than a text match. Existing violations are listed in
-`scripts/layers-baseline.json`. The baseline only shrinks: a new violation
-fails CI, and so does an entry that has been fixed. After fixing one, run
-`node scripts/check-layers.mjs --prune` to drop it from the list.
+Code that is not an import is checked by ESLint (`npm run lint`), in a block of
+`eslint.config.js` scoped to everything below `src/` except adapters and the
+root files `src/*.ts`. It works on the AST, so comments
+never count:
+
+- `process`, `globalThis` and `global` may not be referenced at all, so
+  aliases and casts cannot reach the process object either: the
+  environment is mapped onto configuration only in the composition root
+  (`src/*.ts`, e.g. `env-config.ts`, `config-file.ts`) and in adapters.
+- No SQL-backend-specific code: string or template literals containing
+  `FOR UPDATE`, `SKIP LOCKED`, `pg_advisory` or `hashtextextended`, the
+  identifier `isPostgres`, and `.dialect` access.
+- `import()` needs a string literal, so the import rules can see it.
+
+There is no baseline: the rules have no known violations, and a new one fails
+CI. `tests/unit/architecture-rules.test.ts` holds fixtures for each rule.
 
 ## Extension points
 
