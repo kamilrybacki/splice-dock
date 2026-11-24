@@ -5,12 +5,11 @@ import type { CredentialStore, StoredCredential } from '../../base.js';
 const VAULT_TIMEOUT_MS = 3_000;
 const MAX_LIST_DEPTH = 4;
 
-export { MemoryCredentialStore } from '../../memory/store.js';
-
 /**
  * Vault KV v2 store. `prefix` is a KV v2 *data* path
- * (e.g. `secret/data/splicedock/minted`); list and delete swap `data`
- * for `metadata`, which is where KV v2 keeps keys and versions.
+ * (e.g. `secret/data/splicedock/minted`) and every relative key the broker
+ * passes is resolved under it; list and delete swap `data` for `metadata`,
+ * which is where KV v2 keeps keys and versions.
  *
  * Never logs values or Vault tokens. Every failure surfaces as an exception so
  * the broker can decide whether to degrade to memory or fail closed.
@@ -19,7 +18,7 @@ export class VaultCredentialStore implements CredentialStore {
   constructor(private readonly prefix: string) {}
 
   async get(path: string): Promise<StoredCredential | undefined> {
-    const body = await this.request('GET', path);
+    const body = await this.request('GET', this.dataPath(path));
     if (body === undefined) return undefined;
     const data = (body as { data?: { data?: Record<string, unknown> } }).data?.data;
     if (!data || typeof data['value'] !== 'string' || data['value'] === '') return undefined;
@@ -33,7 +32,7 @@ export class VaultCredentialStore implements CredentialStore {
   }
 
   async put(path: string, value: StoredCredential): Promise<void> {
-    await this.request('POST', path, {
+    await this.request('POST', this.dataPath(path), {
       data: {
         value: value.value,
         ...(value.expiresAt !== undefined && { expires_at: value.expiresAt }),
@@ -45,11 +44,11 @@ export class VaultCredentialStore implements CredentialStore {
   }
 
   async delete(path: string): Promise<void> {
-    await this.request('DELETE', this.metadataPath(path));
+    await this.request('DELETE', this.metadataPath(this.dataPath(path)));
   }
 
   async deletePrefix(prefix: string): Promise<number> {
-    return this.deleteTree(this.metadataPath(prefix), 0);
+    return this.deleteTree(this.metadataPath(this.dataPath(prefix)), 0);
   }
 
   private async deleteTree(folder: string, depth: number): Promise<number> {
@@ -72,6 +71,10 @@ export class VaultCredentialStore implements CredentialStore {
     const body = await this.request('LIST', folder);
     const keys = (body as { data?: { keys?: unknown } } | undefined)?.data?.keys;
     return Array.isArray(keys) ? keys.filter((k): k is string => typeof k === 'string') : [];
+  }
+
+  private dataPath(key: string): string {
+    return key === '' ? this.prefix : `${this.prefix}/${key}`;
   }
 
   private metadataPath(path: string): string {

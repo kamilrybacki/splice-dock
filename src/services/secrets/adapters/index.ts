@@ -1,4 +1,5 @@
 import type { CredentialAdapters } from '../base.js';
+import { MemoryCredentialStore } from '../memory/store.js';
 import { createCommandProvider } from './command/provider.js';
 import { VaultCredentialStore } from './vault/store.js';
 
@@ -10,5 +11,12 @@ export const credentialAdapters: CredentialAdapters = {
         return createCommandProvider();
     }
   },
-  vaultStore: prefix => new VaultCredentialStore(prefix),
+  store(config) {
+    switch (config.type) {
+      case 'vault':
+        return new VaultCredentialStore(config.prefix);
+      case 'memory':
+        return new MemoryCredentialStore();
+    }
+  },
 };

@@ -1,4 +1,4 @@
-import type { CredentialProviderConfig } from '../../config/types.js';
+import type { CredentialProviderConfig, CredentialStorageConfig } from '../../config/types.js';
 
 /** Everything a provider may need to mint a credential for one identity. */
 export interface MintContext {
@@ -40,7 +40,11 @@ export interface StoredCredential {
   metadata?: Record<string, string>;
 }
 
-/** Where minted credentials are persisted so a restart or another replica reuses them. */
+/**
+ * Where minted credentials are persisted so a restart or another replica reuses them.
+ * Keys are relative (`profile/backend/agent/provider`); any backend-specific
+ * root such as a KV mount path belongs to the store implementation.
+ */
 export interface CredentialStore {
   get(path: string): Promise<StoredCredential | undefined>;
   put(path: string, value: StoredCredential): Promise<void>;
@@ -56,6 +60,6 @@ export interface CredentialStore {
 export interface CredentialAdapters {
   /** Build the provider for one `credential_providers` entry. */
   provider(config: CredentialProviderConfig): CredentialProvider;
-  /** A persistent store rooted at a Vault KV v2 data path. */
-  vaultStore(prefix: string): CredentialStore;
+  /** The store selected by `credential_storage`. */
+  store(config: CredentialStorageConfig): CredentialStore;
 }
