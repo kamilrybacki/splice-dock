@@ -7,7 +7,7 @@
 
 <p align="center">Connect MCP servers, HTTP APIs, and command-line tools through one MCP endpoint.</p>
 
-<p align="center"><code>v1.1.0</code></p>
+<p align="center"><code>v1.1.1</code></p>
 
 <p align="center">
   <a href="https://kamilrybacki.github.io/splice-dock/start.html"><strong>Quickstart</strong></a> ·
@@ -140,7 +140,7 @@ docker run --rm \
   -p 8788:8788 -p 8789:8789 \
   -v "$PWD/splicedock.yaml:/etc/splicedock/splicedock.yaml:ro" \
   -v splicedock-data:/var/splicedock/data \
-  ghcr.io/kamilrybacki/splice-dock:v1.1.0
+  ghcr.io/kamilrybacki/splice-dock:v1.1.1
 ```
 
 Each tagged release publishes a multi-architecture image with an SBOM and
