@@ -17,6 +17,20 @@ All notable changes to this project are recorded here. The format follows
 - CI uses actions/checkout 7, actions/setup-node 7 and current Docker
   actions.
 
+### Fixed
+
+- The example configuration (`splicedock.example.yaml`) now loads: `mcp_proxy`
+  entries use `service_dns`, `port` and `transport` instead of the unsupported
+  `upstream`, and a `consent` block with `rp_id` and `origin` is included.
+- The README install commands for npm and the container set
+  `SPLICEDOCK_ADMIN_TOKEN`, without which the gateway does not start.
+- The MCP endpoint answers malformed, oversized and unknown requests with JSON
+  instead of Express's HTML error page, which could include a stack trace, and
+  no longer sends the `X-Powered-By` header.
+- `GET` and `DELETE` on `/mcp` return 405 with `Allow: POST` instead of 404,
+  as the MCP Streamable HTTP transport expects from a server without sessions.
+- The MCP server reports the package version instead of `1.0.0`.
+
 ## [1.1.0] - 2026-11-24
 
 ### Added

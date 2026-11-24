@@ -107,6 +107,7 @@ image. Both read the same configuration file and environment variables.
 | `SPLICEDOCK_CONFIG` | `/etc/splicedock/splicedock.yaml` | Gateway configuration file |
 | `SPLICEDOCK_DB_PATH` | `/var/splicedock/data/splicedock.db` | SQLite database |
 | `SPLICEDOCK_BIN` | `/var/splicedock/bin` | Directory for CLI tool binaries |
+| `SPLICEDOCK_ADMIN_TOKEN` | none (required) | Bearer token for the admin API and UI login |
 
 Start from the [annotated configuration](splicedock.example.yaml). The MCP
 endpoint listens on port `8788` and the admin UI on port `8789`.
@@ -119,6 +120,7 @@ Requires Node.js 22 or later.
 npm install -g splicedock
 export SPLICEDOCK_CONFIG="$HOME/splicedock/splicedock.yaml"
 export SPLICEDOCK_DB_PATH="$HOME/splicedock/splicedock.db"
+export SPLICEDOCK_ADMIN_TOKEN="$(node -e 'console.log(require("node:crypto").randomBytes(32).toString("hex"))')"
 splicedock
 ```
 
@@ -136,8 +138,10 @@ To move an existing SQLite database to PostgreSQL, run
 ### Container
 
 ```bash
+export SPLICEDOCK_ADMIN_TOKEN="$(openssl rand -hex 32)"
 docker run --rm \
   -p 8788:8788 -p 8789:8789 \
+  -e SPLICEDOCK_ADMIN_TOKEN \
   -v "$PWD/splicedock.yaml:/etc/splicedock/splicedock.yaml:ro" \
   -v splicedock-data:/var/splicedock/data \
   ghcr.io/kamilrybacki/splice-dock:v1.1.1
