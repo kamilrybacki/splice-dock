@@ -2,7 +2,6 @@ import { decodeAttestationObject, convertCertBufferToPEM, validateCertificatePat
 import { verifyAuthenticationResponse, verifyRegistrationResponse, generateRegistrationOptions, type AuthenticationResponseJSON, type RegistrationResponseJSON } from '@simplewebauthn/server';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { ConsentStore, type Credential } from '../../consent/store.js';
-import { isPostgres } from '../../../database/base.js';
 /** Rolls back an approval whose credential counter or revocation changed under it. */
 class CounterRaced extends Error {}
 export interface ConsentConfig { enabled:boolean; rp_id?:string; origin?:string; max_attempts:number; rate_limit_per_minute:number; hardware_roots?:string[]; weak?:{enabled:boolean;ttl_seconds:number;max_attempts:number}; }
@@ -47,7 +46,7 @@ export class WebAuthnConsent {
       // approvals can never both accept the same next counter, and a revocation
       // that commits first is seen. The counter write is conditional and must
       // change exactly one row, otherwise the approval rolls back with it.
-      const lock=isPostgres(this.store.db)?' FOR UPDATE':'';
+      const lock=this.store.db.rowLock('update');
       try { return await this.store.db.transaction(async ()=>{
         const current=await this.store.db.prepare(`SELECT * FROM webauthn_credentials WHERE id=? AND revoked_at IS NULL AND trust_policy=?${lock}`).get(c.id,this.trustPolicy() ?? null) as Credential|undefined;
         if(!current) return false;

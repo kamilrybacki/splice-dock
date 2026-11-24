@@ -4,7 +4,7 @@
 import type { SqlDb } from '../base.js';
 import { logger } from '../../../common/logger.js';
 
-// Stable per-sweep keys. Distinct from the schema-migration key (727274) in pg-schema.ts.
+// Stable per-sweep keys. Distinct from the schema-migration key (727274) in postgres/schema.ts.
 // Retired keys, never reuse: 727283 (the removed repo_delete broker, #29),
 // 727284 (the removed LinkedIn import).
 export const SWEEP_LOCK_KEYS = {

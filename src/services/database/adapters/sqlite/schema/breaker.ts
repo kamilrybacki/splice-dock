@@ -1,6 +1,5 @@
-import type { SqlDb } from '../../database/base.js';
+import type { SqlDb } from '../../../base.js';
 export async function migrateBreakerState(db:SqlDb):Promise<void> {
-  if (db.dialect === 'postgres') return; // schema comes from pg-schema.ts
  await db.transaction(async ()=>{
  await db.exec(`CREATE TABLE IF NOT EXISTS breaker_state(scope TEXT PRIMARY KEY,family TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'closed',opened_at INTEGER NOT NULL DEFAULT 0,cooldown_until INTEGER NOT NULL DEFAULT 0,trip_count INTEGER NOT NULL DEFAULT 0,window_at INTEGER NOT NULL,denials INTEGER NOT NULL DEFAULT 0,probes INTEGER NOT NULL DEFAULT 0);
  CREATE TABLE IF NOT EXISTS breaker_buckets(scope TEXT NOT NULL,second INTEGER NOT NULL,n INTEGER NOT NULL,PRIMARY KEY(scope,second));

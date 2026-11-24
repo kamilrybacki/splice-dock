@@ -5,8 +5,6 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ConsentStore, hash } from '../../../src/services/approvals/consent/store.js';
-import { migrateBreakerState } from '../../../src/services/policy/breaker/schema.js';
-import { migrateShadowLog } from '../../../src/services/shadow/log/schema.js';
 import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
 import { migrateSqliteToPostgres, MigrationError } from '../../../src/services/database/adapters/migrations/sqlite/postgres.js';
 import { runDbCli } from '../../../src/services/database/adapters/cli/migrate.js';
@@ -28,8 +26,7 @@ async function seedSqlite(): Promise<{ path: string; tables: Map<string, number>
   const store = await SplicedockStore.open(path);
   await ConsentStore.open(store.consentDatabase());
   // Created lazily by the breaker / shadow observer in production.
-  await migrateBreakerState(store.consentDatabase());
-  await migrateShadowLog(store.consentDatabase());
+  await store.consentDatabase().ensureSchema();
   await store.insertProfileToken('tok-1', 'prof', hash('secret-token'));
   await store.close();
 

@@ -1,4 +1,4 @@
-import { isPostgres, type SqlDb } from '../../database/base.js';
+import type { SqlDb } from '../../database/base.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { baseShapeKey, kubectlBaseShape, type OperationShape } from '../../policy/shape/kubectl.js';
 import { contextSimilarity } from '../../policy/context/similarity.js';
@@ -68,7 +68,7 @@ export class StandingGrants {
     return (await this.db.prepare('UPDATE standing_grants SET use_count=use_count+1,last_used_at=? WHERE id=? AND use_count<use_count_max AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>?').run(now,id,now)).changes===1;
   }
   private async lockScope(profile:string,tokenId:string,tool:string,verb:string):Promise<void> {
-    if(isPostgres(this.db))await this.db.prepare('SELECT pg_advisory_xact_lock(hashtextextended(?,0))').get(JSON.stringify(['standing_grant',profile,tokenId,tool,verb]));
+    await this.db.lockInTransaction(JSON.stringify(['standing_grant',profile,tokenId,tool,verb]));
   }
   async promote(id:string):Promise<void> {
     if(!this.enabled)return;

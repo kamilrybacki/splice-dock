@@ -38,6 +38,26 @@ function layerOf(file) {
   return parts[0];
 }
 
+// Domain code must not know which SQL backend it runs on: that lives behind
+// the SqlDb contract and in adapters. Comment lines are ignored.
+const BACKEND_PATTERNS = [
+  /\.dialect\b/, /isPostgres/, /pg_advisory/, /FOR UPDATE/, /SKIP LOCKED/, /hashtextextended/,
+  /\bfrom\s+['"]pg['"]/, /\bfrom\s+['"]better-sqlite3['"]/,
+  /\brequire\(\s*['"](?:pg|better-sqlite3)['"]\s*\)/, /\bimport\(\s*['"](?:pg|better-sqlite3)['"]\s*\)/,
+];
+
+function checkBackendLeaks(file, layer) {
+  let inBlock = false;
+  readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+    const t = line.trim();
+    if (inBlock) { if (t.includes('*/')) inBlock = false; return; }
+    if (t.startsWith('/*')) { if (!t.includes('*/')) inBlock = true; return; }
+    if (t.startsWith('//') || t.startsWith('*')) return;
+    const hit = BACKEND_PATTERNS.find(re => re.test(line));
+    if (hit) violations.push(`${layer}: ${relative(SRC, file)}:${i + 1}: backend-specific code ${hit}`);
+  });
+}
+
 const violations = [];
 for (const file of walk(SRC).filter(f => f.endsWith('.ts'))) {
   const layer = layerOf(file);
@@ -47,6 +67,7 @@ for (const file of walk(SRC).filter(f => f.endsWith('.ts'))) {
     continue;
   }
   if (allowed === '*') continue;
+  checkBackendLeaks(file, layer);
   const { importedFiles } = ts.preProcessFile(readFileSync(file, 'utf8'), true, true);
   for (const { fileName } of importedFiles) {
     if (!fileName.startsWith('./') && !fileName.startsWith('../')) continue;

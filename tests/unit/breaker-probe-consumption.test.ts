@@ -9,6 +9,7 @@ import {join} from 'node:path';
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
 import {ApprovalService} from '../../src/services/approvals/base.js';
 import type {SqlDb} from "../../src/services/database/base.js";
+import {SqliteDb} from '../../src/services/database/adapters/sqlite/db.js';
 import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../src/common/request/context.js';
@@ -190,7 +191,9 @@ describe('CircuitBreaker.approved is idempotent per approval id',()=>{
 
   it('a database created before the probe ledger gains it when the breaker starts',async ()=>{
     await db.exec('DROP TABLE breaker_probe_ids');
-    const upgraded=await CircuitBreaker.create(db,cfg);
+    // A restart is a fresh handle on the same database: no schema memo yet.
+    const restarted=new SqliteDb((db as SqliteDb).raw);
+    const upgraded=await CircuitBreaker.create(restarted,cfg);
     await upgraded.approved(caller,'a');await upgraded.approved(caller,'a');
     expect((await state()).probes).toBe(1);
     await upgraded.approved(caller,'b');await upgraded.approved(caller,'c');

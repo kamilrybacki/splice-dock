@@ -34,7 +34,6 @@ export interface SqlTransaction<A extends unknown[], T> {
 }
 
 export interface SqlDb {
-  readonly dialect: 'postgres' | 'sqlite';
   prepare(sql: string): SqlStatement;
   /**
    * Run one or more statements with no result. `timeoutMs` overrides the
@@ -50,5 +49,22 @@ export interface SqlDb {
    * SQLite: single process, so it just runs `fn`.
    */
   tryWithAdvisoryLock<T>(key: number, fn: () => Promise<T>): Promise<{ ran: true; value: T } | { ran: false }>;
+  /**
+   * Suffix to append to a SELECT so the rows it reads are locked for the
+   * rest of the transaction ('skip_locked' also skips rows another
+   * transaction holds). Empty where writers are already serialised.
+   */
+  rowLock(mode: 'update' | 'skip_locked'): string;
+  /**
+   * Transaction-scoped cross-replica mutex: blocks until no other open
+   * transaction holds `key`, and is released when the current one ends.
+   * Must be called inside a transaction.
+   */
+  lockInTransaction(key: string): Promise<void>;
+  /**
+   * Bring the full schema to its current state. Idempotent and memoised per
+   * instance: concurrent callers share one run, and a failure can be retried.
+   */
+  ensureSchema(): Promise<void>;
   close(): Promise<void>;
 }

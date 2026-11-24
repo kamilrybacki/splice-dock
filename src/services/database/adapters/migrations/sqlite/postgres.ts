@@ -12,7 +12,7 @@ import Database from 'better-sqlite3';
 import pg from 'pg';
 import { PgDb } from '../../postgres/db.js';
 import { migratePostgres } from '../../postgres/schema.js';
-import { isPostgresDsn } from '../../../base.js';
+import { isPostgresDsn } from '../../target.js';
 
 export interface MigrateOptions {
   sqlitePath: string;

@@ -1,8 +1,6 @@
-import { migrateApprovalBroker } from '../broker/schema.js';
 import type { SqlDb } from '../../database/base.js';
 import { createHash, randomBytes } from 'node:crypto';
 import { opDigest } from '../../policy/operation.js';
-import { migrateApprovalConsent } from './schema.js';
 export const hash = (s: string): string => createHash('sha256').update(s).digest('hex');
 export interface ConsentRow {
   id:string; tool:string; argv_json:string; cwd:string|null; profile:string; token_id:string;
@@ -15,7 +13,7 @@ export class ConsentStore {
    *  (and pg-schema on Postgres). Use ConsentStore.open for a bare database. */
   constructor(readonly db: SqlDb, readonly event:(event:string)=>void=()=>{}) {}
   static async open(db: SqlDb, event:(event:string)=>void=()=>{}): Promise<ConsentStore> {
-    await migrateApprovalConsent(db); await migrateApprovalBroker(db);
+    await db.ensureSchema();
     return new ConsentStore(db, event);
   }
   async get(id:string):Promise<ConsentRow|undefined> {return await this.db.prepare('SELECT * FROM pending_approvals WHERE id=?').get(id) as ConsentRow|undefined;}

@@ -1,13 +1,6 @@
-import { migrateStandingGrants } from './migrations/grants/standing.js';
-import { migratePushSubscriptions } from './migrations/push/subscriptions.js';
-import { migrateProfileCatalog } from './migrations/profiles/catalog.js';
-import { migrateApprovalBroker } from '../../approvals/broker/schema.js';
 import { createHash } from 'node:crypto';
 import { ConsentStore } from '../../approvals/consent/store.js';
 import { authEvent, tokenEvent } from '../../authentication/lifecycle/events.js';
-import { migrateApprovalConsent } from '../../approvals/consent/schema.js';
-import { migrateProfileTokenLifecycle } from './migrations/profiles/tokens/lifecycle.js';
-import { migrateProfileTokenAgent } from './migrations/profiles/tokens/agent.js';
 // Splicedock persistent store (SQLite via better-sqlite3).
 //
 // What lives here:
@@ -37,108 +30,14 @@ export type {
   RuntimeFingerprint, RuntimeProfileRow, RuntimeProfileWriteResult, RuntimeToolRow,
 } from '../../../contracts/outbound/repositories.js';
 import { SqliteDb } from './sqlite/db.js';
-import { migratePostgres } from './postgres/schema.js';
-import { isPostgres, isPostgresDsn, type SqlDb } from '../base.js';
+import { isPostgresDsn } from './target.js';
+import type { SqlDb } from '../base.js';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { CliToolPolicy, ToolConfig } from '../../../config/types.js';
 import { logger } from '../../../common/logger.js';
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS policy_overrides (
-  tool_name   TEXT PRIMARY KEY,
-  policy_json TEXT NOT NULL,
-  updated_at  INTEGER NOT NULL,
-  updated_by  TEXT
-);
-
-CREATE TABLE IF NOT EXISTS profile_policy_overrides (
-  tool_name   TEXT NOT NULL,
-  profile     TEXT NOT NULL,
-  policy_json TEXT NOT NULL,
-  updated_at  INTEGER NOT NULL,
-  updated_by  TEXT,
-  PRIMARY KEY (tool_name, profile)
-);
-
-CREATE TABLE IF NOT EXISTS metrics_snapshots (
-  tool_name        TEXT PRIMARY KEY,
-  total            INTEGER NOT NULL DEFAULT 0,
-  allow            INTEGER NOT NULL DEFAULT 0,
-  deny             INTEGER NOT NULL DEFAULT 0,
-  rule_denies_json TEXT,
-  buckets_60s_json TEXT,
-  buckets_1h_json  TEXT,
-  last_ts          INTEGER,
-  last_duration_ms INTEGER,
-  updated_at       INTEGER NOT NULL
-);
-
--- One-shot approval requests for policies with on_violation: approval.
---
--- Lifecycle: pending → approved/rejected/expired; the first matching call
--- after approval reserves the row ("reserved"), which becomes "consumed" once
--- the child process spawns, returns to "approved" only on a confirmed
--- pre-spawn failure, or expires if never settled. argv_hash binds the row to
--- one exact tool + cwd + argv (see approval-service.ts argvHash).
-CREATE TABLE IF NOT EXISTS pending_approvals (
-  id            TEXT PRIMARY KEY,
-  tool          TEXT NOT NULL,
-  argv_hash     TEXT NOT NULL,
-  argv_json     TEXT NOT NULL,
-  rule          TEXT NOT NULL,
-  matched       TEXT,
-  status        TEXT NOT NULL DEFAULT 'pending',
-  requested_at  INTEGER NOT NULL,
-  expires_at    INTEGER NOT NULL,
-  approved_at   INTEGER,
-  approved_by   TEXT,
-  consumed_at   INTEGER
-);
-CREATE INDEX IF NOT EXISTS pending_approvals_lookup
-  ON pending_approvals (tool, argv_hash, status);
-CREATE INDEX IF NOT EXISTS pending_approvals_status
-  ON pending_approvals (status, requested_at);
-
--- Runtime-added tools (http / cli only) created via the admin UI/API.
--- File-defined tools (splicedock.yaml) and discovered mcp_proxy/cli_passthrough
--- tools never live here. Loaded at startup and re-registered into the
--- in-memory ToolRegistry so UI-added tools survive a pod restart.
-CREATE TABLE IF NOT EXISTS runtime_tools (
-  id          TEXT PRIMARY KEY,
-  driver      TEXT NOT NULL,
-  config_json TEXT NOT NULL,
-  created_at  INTEGER NOT NULL,
-  created_by  TEXT
-);
-
--- Runtime-added tool profiles (allow-glob sets) created via the admin UI/API.
--- File-defined profiles (splicedock.yaml) and reserved names never live here.
--- Loaded at startup and re-registered into the in-memory ProfileRegistry so
--- UI/API-added profiles survive a pod restart.
-CREATE TABLE IF NOT EXISTS runtime_profiles (
-  name          TEXT PRIMARY KEY,
-  tools_json    TEXT NOT NULL,
-  manifest_yaml TEXT,
-  revision      INTEGER NOT NULL DEFAULT 1,
-  origin        TEXT NOT NULL DEFAULT 'runtime',
-  updated_at    INTEGER NOT NULL,
-  updated_by    TEXT
-);
-
--- Opaque bearer tokens that bind an MCP session to a single profile. Only the
--- sha256 hash of a token is stored; the raw token is shown once at creation.
--- When a request presents a valid token the ?profile= query is ignored.
-CREATE TABLE IF NOT EXISTS profile_tokens (
-  id           TEXT PRIMARY KEY,
-  profile      TEXT NOT NULL,
-  token_hash   TEXT NOT NULL UNIQUE,
-  created_at   INTEGER NOT NULL,
-  last_used_at INTEGER
-);
-CREATE INDEX IF NOT EXISTS profile_tokens_hash ON profile_tokens (token_hash);
-`;
 
 interface RuntimeProfileDbRow {
   name: string;
@@ -188,7 +87,7 @@ export class SplicedockStore
     // SQLite file path (the default), so existing deploys are unchanged.
     if (isPostgresDsn(path)) {
       const pg = new PgDb(path);
-      await migratePostgres(pg);
+      await pg.ensureSchema();
       logger.info('db open', { backend: 'postgres' });
       return new SplicedockStore(pg);
     }
@@ -203,15 +102,7 @@ export class SplicedockStore
     // failing with SQLITE_BUSY.
     raw.pragma('busy_timeout = 5000');
     const db = new SqliteDb(raw);
-    await db.exec(SCHEMA);
-    await migrateApprovalBinding(db);
-    await migrateProfileTokenLifecycle(db);
-    await migrateProfileTokenAgent(db);
-    await migrateApprovalConsent(db);
-    await migrateApprovalBroker(db);
-    await migrateStandingGrants(db);
-    await migratePushSubscriptions(db);
-    await migrateProfileCatalog(db);
+    await db.ensureSchema();
     logger.info('db open', { path });
     return new SplicedockStore(db);
   }
@@ -339,7 +230,7 @@ export class SplicedockStore
 
   /** True when this store is backed by Postgres (i.e. may have sibling replicas). */
   get isPostgres(): boolean {
-    return isPostgres(this.db);
+    return this.db instanceof PgDb;
   }
 
   /**
@@ -348,7 +239,7 @@ export class SplicedockStore
    * invoke this only after their write has resolved.
    */
   async notify(channel: string, payload: string): Promise<void> {
-    if (!isPostgres(this.db)) return;
+    if (!this.isPostgres) return;
     await this.db.prepare('SELECT pg_notify(?, ?)').get(channel, payload);
   }
 
@@ -685,7 +576,7 @@ export class SplicedockStore
           WHERE tool = ? AND argv_hash = ? AND profile = ? AND token_id = ?
             AND cwd IS NOT NULL AND cwd = ?
             AND status = 'pending' AND expires_at > ?
-          ORDER BY requested_at DESC LIMIT 1${lock && this.db.dialect === 'postgres' ? ' FOR UPDATE' : ''}`,
+          ORDER BY requested_at DESC LIMIT 1${lock ? this.db.rowLock('update') : ''}`,
       )
       .get(tool, argv_hash, profile, token_id, cwd, now) as { id: string; expires_at: number } | undefined;
     return row ?? null;
@@ -1024,23 +915,4 @@ function safeParseArr(s: string): number[] {
   } catch {
     return [];
   }
-}
-
-/** Idempotent: add the caller-binding columns to pending_approvals and the
- *  index covering the binding. Pre-existing rows keep NULL bindings and so
- *  can never satisfy the bound consume (NULL = ? is never true). */
-async function migrateApprovalBinding(db: SqlDb): Promise<void> {
-  const cols = (await db.prepare('PRAGMA table_info(pending_approvals)').all() as Array<{ name: string }>).map(
-    c => c.name,
-  );
-  if (!cols.includes('profile')) await db.exec('ALTER TABLE pending_approvals ADD COLUMN profile TEXT');
-  if (!cols.includes('token_id')) await db.exec('ALTER TABLE pending_approvals ADD COLUMN token_id TEXT');
-  // R4: working-directory binding. Pre-existing rows keep NULL and never match.
-  if (!cols.includes('cwd')) await db.exec('ALTER TABLE pending_approvals ADD COLUMN cwd TEXT');
-  // R6: two-phase consume (approved → reserved → consumed | approved).
-  if (!cols.includes('reserved_at')) await db.exec('ALTER TABLE pending_approvals ADD COLUMN reserved_at INTEGER');
-  await db.exec(
-    `CREATE INDEX IF NOT EXISTS pending_approvals_binding
-       ON pending_approvals (tool, argv_hash, profile, token_id, status)`,
-  );
 }

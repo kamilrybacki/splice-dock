@@ -14,6 +14,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import pg from 'pg';
 import { translate } from './translate.js';
+import { migratePostgres } from './schema.js';
 import type { SqlDb, SqlRunResult, SqlStatement, SqlTransaction } from '../../base.js';
 import { logger } from '../../../../common/logger.js';
 
@@ -84,6 +85,7 @@ export class PgDb implements SqlDb {
   private readonly clientConfig: pg.ClientConfig;
   private readonly als = new AsyncLocalStorage<TxCtx>();
   private closed = false;
+  private schemaReady: Promise<void> | undefined;
 
   constructor(dsn: string, opts: PgDbOptions = {}) {
     const statementTimeout = opts.statementTimeoutMs ?? DEFAULT_STATEMENT_TIMEOUT_MS;
@@ -102,6 +104,20 @@ export class PgDb implements SqlDb {
     this.pool.on('error', (err) => {
       logger.warn('postgres idle client error', { error: err.message });
     });
+  }
+
+  rowLock(mode: 'update' | 'skip_locked'): string {
+    return mode === 'update' ? ' FOR UPDATE' : ' FOR UPDATE SKIP LOCKED';
+  }
+
+  async lockInTransaction(key: string): Promise<void> {
+    await this.prepare('SELECT pg_advisory_xact_lock(hashtextextended(?,0))').get(key);
+  }
+
+  ensureSchema(): Promise<void> {
+    const run = (this.schemaReady ??= migratePostgres(this));
+    run.catch(() => { if (this.schemaReady === run) this.schemaReady = undefined; });
+    return run;
   }
 
   private current(): TxCtx | undefined {
