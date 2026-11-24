@@ -39,15 +39,29 @@ const CONFIG_PATH = process.env['SPLICEDOCK_CONFIG'] ?? '/etc/splicedock/spliced
 
 setLogSink(stdoutLogSink);
 
-async function main() {
-  // ----- Config -----
+type Config = ReturnType<typeof loadConfig>;
+type CredentialFor = (profileName: string, tool: string) => Config['credential_defaults'][string] | undefined;
+
+interface Registries {
+  readonly metrics: ReturnType<typeof createPrometheusMetrics>;
+  readonly availablePassthroughs: Awaited<ReturnType<typeof resolveAvailablePassthroughs>>;
+  readonly toolRegistry: ToolRegistry;
+  readonly profileRegistry: ProfileRegistry;
+  readonly toolService: ToolService;
+  readonly profileService: ProfileService;
+  readonly credentialFor: CredentialFor;
+}
+
+function loadRuntimeConfig(): Config {
   const config = loadConfig(CONFIG_PATH);
   if (config.server.consent.enabled && (!config.server.consent.rp_id || !config.server.consent.origin)) {
     throw new Error('strong consent requires configured rp_id and HTTPS origin; configure before startup or explicitly disable consent');
   }
-  const env = process.env;
+  return config;
+}
 
-  // ----- Infrastructure: secrets, metrics, tool/profile registries -----
+/** Secrets, metrics, tool/profile registries and per-profile credential lookup. */
+async function buildRegistries(config: Config): Promise<Registries> {
   configureSecretGuard(config.server.vault);
   configureCredentialBroker({ providers: config.credential_providers, storage: config.credential_storage }, credentialAdapters);
   const metrics = createPrometheusMetrics();
@@ -62,10 +76,14 @@ async function main() {
   // Per-profile credentials, in order: the profile's own entry, then
   // credential_defaults (how a profile created at runtime gets credentialed),
   // then the tool-level credential. Unknown profiles resolve to undefined.
-  const credentialFor = (profileName: string, tool: string) =>
+  const credentialFor: CredentialFor = (profileName, tool) =>
     profileRegistry.getProfile(profileName)?.credentials?.[tool] ?? config.credential_defaults[tool];
+  return { metrics, availablePassthroughs, toolRegistry, profileRegistry, toolService, profileService, credentialFor };
+}
 
-  // ----- Upstream discovery -----
+/** Upstream discovery: probe once, start the refresh loop, register file tools. */
+async function discoverUpstreams(config: Config, reg: Registries) {
+  const { toolRegistry, toolService, metrics, availablePassthroughs } = reg;
   const proxyConfigs = proxyConfigsOf(config.tools);
   const podResolver = new PodResolver();
   // Always built (even with zero YAML upstreams) so runtime upstreams added via the
@@ -79,8 +97,15 @@ async function main() {
   await refreshService.probeOnce();
   refreshService.start();
   registerFileTools(config.tools, toolService, toolRegistry, availablePassthroughs);
+  return { proxyConfigs, podResolver, refreshService };
+}
 
-  // ----- Persistence (policy overrides, metrics, runtime tools/profiles, approvals, tokens) -----
+type Upstream = Awaited<ReturnType<typeof discoverUpstreams>>;
+
+/** Persistence (policy overrides, metrics, runtime tools/profiles, approvals, tokens) and the MCP server. */
+async function openPersistence(config: Config, env: NodeJS.ProcessEnv, reg: Registries, up: Upstream) {
+  const { toolRegistry, toolService, profileRegistry, profileService, metrics, credentialFor } = reg;
+  const { proxyConfigs, podResolver, refreshService } = up;
   const dbTarget = resolveDbTarget(env);
   const store = await SplicedockStore.open(dbTarget);
   const upstreams = new McpUpstreamManager(proxyConfigs, toolRegistry, refreshService, store, logger);
@@ -96,8 +121,15 @@ async function main() {
   await loadRuntimeTools(store, toolRegistry, toolService, logger, config.server.cli_whitelist);
   await upstreams.syncFromStore();
   await loadRuntimeProfiles(store, profileRegistry, logger, yamlManifestCodec);
+  return { store, upstreams, stopTokenSweep, mcpServer, invalidationBus, cacheSync };
+}
 
-  // ----- Services: audit, policy, shadow, breaker, approvals -----
+type Persistence = Awaited<ReturnType<typeof openPersistence>>;
+
+/** Audit, policy, shadow, breaker, approvals; installs the passthrough hooks and the SIGHUP reload. */
+async function buildPolicyServices(config: Config, env: NodeJS.ProcessEnv, reg: Registries, db: Persistence) {
+  const { store, invalidationBus, cacheSync } = db;
+  const { metrics, credentialFor } = reg;
   const auditBuffer = new AuditBuffer(2000); // in-memory only; Loki has the long-term log
   const toolMetrics = new ToolMetrics(store);
   await toolMetrics.start();
@@ -118,24 +150,49 @@ async function main() {
   // Validate the complete config before reloading breaker/shadow and consent strength.
   const configReloader = createConfigReloader(() => loadConfig(CONFIG_PATH), { breaker, shadow, approvals: approvalService }, logger);
   process.on('SIGHUP', () => { void configReloader.reload(); });
+  return { auditBuffer, toolMetrics, policyStore, shadow, breaker, approvalService, pushStore, pushNotifier };
+}
 
-  // ----- Entry adapters: admin API, then MCP -----
+type PolicyServices = Awaited<ReturnType<typeof buildPolicyServices>>;
+
+/** Admin API entry adapter. */
+async function startAdminServer(config: Config, reg: Registries, db: Persistence, svc: PolicyServices) {
   // proxyDrivers map is empty (no shared connections); the status route lists
   // zero upstreams but tool counts still reflect the refresh-populated registry.
   const adminServer = await createAdminServer(
-    toolRegistry, profileRegistry, toolService, profileService, new Map(), config, metrics,
-    { auditBuffer, toolMetrics, policyStore, approvalService, store, mcpUpstreams: upstreams, breaker, shadow, pushStore, pushNotifier, invalidation: invalidationBus },
+    reg.toolRegistry, reg.profileRegistry, reg.toolService, reg.profileService, new Map(), config, reg.metrics,
+    {
+      auditBuffer: svc.auditBuffer, toolMetrics: svc.toolMetrics, policyStore: svc.policyStore, approvalService: svc.approvalService,
+      store: db.store, mcpUpstreams: db.upstreams, breaker: svc.breaker, shadow: svc.shadow,
+      pushStore: svc.pushStore, pushNotifier: svc.pushNotifier, invalidation: db.invalidationBus,
+    },
   );
   await adminServer.listen({ port: config.server.admin_port, host: '0.0.0.0' });
   logger.info('Admin API listening', { port: config.server.admin_port });
+  return adminServer;
+}
 
+type AdminServer = Awaited<ReturnType<typeof startAdminServer>>;
+
+function installShutdown(env: NodeJS.ProcessEnv, db: Persistence, svc: PolicyServices, adminServer: AdminServer): void {
   registerShutdown({
-    mcpServer,
+    mcpServer: db.mcpServer,
     drainTimeoutMs: drainTimeoutMs(env),
-    stops: [() => adminServer.close(), () => cacheSync.stop(), () => invalidationBus.stop(), () => toolMetrics.stop(), () => approvalService.stop(), stopTokenSweep, () => store.close()],
+    stops: [() => adminServer.close(), () => db.cacheSync.stop(), () => db.invalidationBus.stop(), () => svc.toolMetrics.stop(), () => svc.approvalService.stop(), db.stopTokenSweep, () => db.store.close()],
   });
+}
+
+async function main(): Promise<void> {
+  const env = process.env;
+  const config = loadRuntimeConfig();
+  const reg = await buildRegistries(config);
+  const up = await discoverUpstreams(config, reg);
+  const db = await openPersistence(config, env, reg, up);
+  const svc = await buildPolicyServices(config, env, reg, db);
+  const adminServer = await startAdminServer(config, reg, db, svc);
+  installShutdown(env, db, svc, adminServer);
   // Accept MCP calls only after the catalog and the policy and approval hooks are ready.
-  mcpServer.listen(config.server.port, () => {
+  db.mcpServer.listen(config.server.port, () => {
     logger.info('MCP server listening', { port: config.server.port });
   });
 }
