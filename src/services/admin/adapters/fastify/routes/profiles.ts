@@ -9,7 +9,8 @@ import type { ProfileConfig } from '../../../../../config/types.js';
 import { exportProfilesYaml } from '../export/yaml.js';
 import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
 import { revokeProfileCredentials } from '../../../../secrets/broker.js';
-import { dumpProfileManifest, parseProfileManifest, ProfileManifestError } from '../../../../profiles/manifest.js';
+import { dumpProfileManifest, parseProfileManifest } from '../../../../profiles/adapters/yaml.js';
+import { ProfileManifestError } from '../../../../profiles/manifest.js';
 
 interface ManifestDocument {
   name: string;

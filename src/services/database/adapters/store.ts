@@ -380,7 +380,7 @@ export class SplicedockStore
   async upsertRuntimeProfile(name: string, tools: string[], updatedBy: string | null = null): Promise<void> {
     const current = await this.getRuntimeProfile(name);
     const profile = { tools, enable_code_mode: false, credentials: {} };
-    const { dumpProfileManifest } = await import('../../profiles/manifest.js');
+    const { dumpProfileManifest } = await import('../../profiles/adapters/yaml.js');
     const result = await this.saveRuntimeProfile(name, profile, dumpProfileManifest(profile), updatedBy, current?.revision ?? 0);
     if (result.status !== 'ok') throw new Error(`Concurrent profile update for '${name}'`);
   }

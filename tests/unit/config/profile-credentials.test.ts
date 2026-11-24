@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseConfig } from '../../../src/config/loader.js';
+import { parseConfig } from '../../../src/config-file.js';
 
 function configWith(profiles: string, tools: string = '  []'): string {
   return `

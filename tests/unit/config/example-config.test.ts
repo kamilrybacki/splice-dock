@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig } from '../../../src/config/loader.js';
+import { loadConfig } from '../../../src/config-file.js';
 
 const EXAMPLE_PATH = fileURLToPath(new URL('../../../splicedock.example.yaml', import.meta.url));
 const README_PATH = fileURLToPath(new URL('../../../README.md', import.meta.url));

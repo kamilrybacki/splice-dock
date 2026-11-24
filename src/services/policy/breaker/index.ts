@@ -16,6 +16,11 @@ export class CircuitBreaker {
  await db.ensureSchema();
  return new CircuitBreaker(db,config,event);
  }
+ /** Applies a reloaded configuration in place, recording an operator audit row first. */
+ async reconfigure(next:Config):Promise<void>{
+ await this.db.prepare('INSERT INTO breaker_audit(ts,scope,event,actor) VALUES(?,?,?,?)').run(Date.now(),'configured',`config_${next.enabled?next.mode:'disabled'}`,'operator_signal');
+ Object.assign(this.config,next);
+ }
  /** Row-lock suffixes. Empty on SQLite, where the IMMEDIATE transaction already holds the write lock. */
  private get forUpdate():string{return this.db.rowLock('update');}
  private get skipLocked():string{return this.db.rowLock('skip_locked');}

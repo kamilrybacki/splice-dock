@@ -1,8 +1,1 @@
-[
-  "common: common/http/drain.ts imports package 'node:http'",
-  "common: common/version.ts imports package 'node:fs'",
-  "config: config/loader.ts imports package 'js-yaml'",
-  "config: config/loader.ts imports package 'node:fs'",
-  "services: services/profiles/manifest.ts imports package 'js-yaml'",
-  "services: services/shadow/base.ts reads process.env"
-]
+[]

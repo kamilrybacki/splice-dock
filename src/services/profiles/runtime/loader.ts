@@ -6,7 +6,7 @@ import type { RuntimeProfileRepository } from '../../../contracts/outbound/repos
 import type { ProfileRegistry, ProfileInput, ProfileSource } from '../registry.js';
 import { profileSchema } from '../../../config/schema.js';
 import type { ProfileConfig } from '../../../config/types.js';
-import { dumpProfileManifest, parseProfileManifest } from '../manifest.js';
+import { dumpProfileManifest, parseProfileManifest, type ProfileManifestCodec } from '../manifest.js';
 import type { LogFields } from '../../../common/logger.js';
 
 const RESYNC_MAX_ATTEMPTS = 3;
@@ -39,6 +39,7 @@ export async function seedProfilesFromConfig(
   store: RuntimeProfileRepository,
   configured: Record<string, ProfileConfig>,
   log: LoaderLog,
+  codec: ProfileManifestCodec,
 ): Promise<{ inserted: number; migrated_collisions: number }> {
   const current = new Map((await store.listRuntimeProfiles()).map(row => [row.name, row]));
   const summary = { inserted: 0, migrated_collisions: 0 };
@@ -50,7 +51,7 @@ export async function seedProfilesFromConfig(
     const result = await store.saveRuntimeProfile(
       name,
       parsed,
-      dumpProfileManifest(parsed),
+      dumpProfileManifest(codec, parsed),
       'config-seed',
       existing?.revision ?? 0,
       'file',
@@ -66,6 +67,7 @@ export async function seedProfilesFromConfig(
 async function collectRuntimeProfiles(
   store: RuntimeProfileRepository,
   log: LoaderLog,
+  codec: ProfileManifestCodec,
 ): Promise<CollectedProfiles> {
   const summary: RuntimeProfileLoadSummary = { loaded: 0, skipped_reserved: 0, skipped_invalid: 0 };
   const profiles: CollectedProfile[] = [];
@@ -79,7 +81,7 @@ async function collectRuntimeProfiles(
     try {
       const profile = row.manifest_yaml === null
         ? profileSchema.parse({ tools: row.tools })
-        : parseProfileManifest(row.manifest_yaml, row.name).profile;
+        : parseProfileManifest(codec, row.manifest_yaml, row.name).profile;
       profiles.push({
         name: row.name,
         source: row.origin,
@@ -105,8 +107,9 @@ export async function loadRuntimeProfiles(
   store: RuntimeProfileRepository,
   registry: ProfileRegistry,
   log: LoaderLog,
+  codec: ProfileManifestCodec,
 ): Promise<RuntimeProfileLoadSummary> {
-  const { profiles, summary } = await collectRuntimeProfiles(store, log);
+  const { profiles, summary } = await collectRuntimeProfiles(store, log, codec);
   for (const profile of profiles) {
     const { name, ...entry } = profile;
     registry.loadCatalogProfile(name, entry);
@@ -120,10 +123,11 @@ export async function resyncRuntimeProfiles(
   store: RuntimeProfileRepository,
   registry: ProfileRegistry,
   log: LoaderLog,
+  codec: ProfileManifestCodec,
 ): Promise<RuntimeProfileLoadSummary> {
   for (let attempt = 0; attempt < RESYNC_MAX_ATTEMPTS; attempt += 1) {
     const before = registry.mutations;
-    const { profiles, summary } = await collectRuntimeProfiles(store, log);
+    const { profiles, summary } = await collectRuntimeProfiles(store, log, codec);
     if (registry.mutations !== before) continue;
     registry.replaceCatalogProfiles(profiles);
     log.info('profile catalog resynced', { ...summary });

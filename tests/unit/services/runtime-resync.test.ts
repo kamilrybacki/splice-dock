@@ -4,6 +4,7 @@ import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ToolService } from '../../../src/services/tools/base.js';
 import { loadRuntimeTools, resyncRuntimeTools } from '../../../src/services/tools/runtime/loader.js';
+import { yamlManifestCodec } from '../../../src/services/profiles/adapters/yaml.js';
 import { loadRuntimeProfiles, resyncRuntimeProfiles } from '../../../src/services/profiles/runtime/loader.js';
 import type { ToolConfig } from '../../../src/config/types.js';
 
@@ -55,11 +56,11 @@ describe('resync loaders (cross-replica reload)', () => {
     registry.addFileProfile('workspace', { tools: ['vault__*'] });
     await store.upsertRuntimeProfile('ops', ['grafana__*']);
     await store.upsertRuntimeProfile('dev', ['gh__*']);
-    await loadRuntimeProfiles(store, registry, log);
+    await loadRuntimeProfiles(store, registry, log, yamlManifestCodec);
 
     await store.upsertRuntimeProfile('ops', ['grafana__*', 'argocd__*']);
     await store.deleteRuntimeProfile('dev');
-    await resyncRuntimeProfiles(store, registry, log);
+    await resyncRuntimeProfiles(store, registry, log, yamlManifestCodec);
 
     expect(registry.getProfile('ops')).toMatchObject({ tools: ['grafana__*', 'argocd__*'], source: 'runtime' });
     expect(registry.getProfile('dev')).toBeUndefined();
@@ -101,7 +102,7 @@ describe('SplicedockStore invalidation support (SQLite)', () => {
       return rows;
     };
     await store.upsertRuntimeProfile('fresh', ['gh__*']);
-    await resyncRuntimeProfiles(store, registry, log);
+    await resyncRuntimeProfiles(store, registry, log, yamlManifestCodec);
     expect(registry.getProfile('fresh')).toBeDefined();
   });
 

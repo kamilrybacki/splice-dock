@@ -12,7 +12,7 @@ import { setLifecycleMetrics } from './services/authentication/lifecycle/events.
 import { configureSecretGuard } from './services/secrets/adapters/vault/guard.js';
 import { configureCredentialBroker } from './services/secrets/broker.js';
 import { createServer } from 'node:http';
-import { loadConfig } from './config/loader.js';
+import { loadConfig } from './config-file.js';
 import { ToolRegistry } from './services/tools/registry.js';
 import { ProfileRegistry } from './services/profiles/registry.js';
 import { ToolService } from './services/tools/base.js';
@@ -38,12 +38,16 @@ import { PushSubscriptionStore } from './services/database/adapters/push/store.j
 import { createPushNotifier, vapidFromEnv } from './services/approvals/adapters/push/web/notifier.js';
 import { installCliPassthroughTools } from './services/tools/adapters/cli/installer.js';
 import { resolveAndInjectCliPassthroughEnv } from './services/secrets/adapters/env/cli.js';
-import { logger } from './common/logger.js';
+import { logger, setLogSink } from './common/logger.js';
+import { stdoutLogSink } from './stdout-log-sink.js';
 import { PodResolver } from './services/upstreams/adapters/dns/pods.js';
 import { McpUpstreamManager } from './services/upstreams/base.js';
 import { ToolRefreshService } from './services/tools/refresh.js';
 import { loadRuntimeTools, resyncRuntimeTools } from './services/tools/runtime/loader.js';
 import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } from './services/profiles/runtime/loader.js';
+import { approvalTtlMsFromEnv, grantsEnabledFromEnv, shadowKillSwitchFromEnv } from './env-config.js';
+import { createConfigReloader } from './services/admin/config-reload.js';
+import { yamlManifestCodec } from './services/profiles/adapters/yaml.js';
 import { createInvalidationBus } from './services/database/adapters/invalidation/bus.js';
 import { CacheSync } from './services/runtime/base.js';
 import { hashProfileToken } from './services/authentication/base.js';
@@ -60,6 +64,8 @@ function drainTimeoutMs(): number {
   const raw = Number(process.env['SPLICEDOCK_DRAIN_TIMEOUT_MS']);
   return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_DRAIN_TIMEOUT_MS;
 }
+
+setLogSink(stdoutLogSink);
 
 async function main() {
   const config = loadConfig(CONFIG_PATH);
@@ -156,7 +162,7 @@ async function main() {
   const dbTarget = resolveDbTarget(process.env);
   const store = await SplicedockStore.open(dbTarget);
   const mcpUpstreamManager = new McpUpstreamManager(proxyConfigs, toolRegistry, refreshService, store, logger);
-  await seedProfilesFromConfig(store, config.profiles, logger);
+  await seedProfilesFromConfig(store, config.profiles, logger, yamlManifestCodec);
 
   const stopTokenSweep = startTokenSweep(store, config.server.token_policy, metrics);
   // Start MCP SSE server — per-session driver allocation via proxyConfigs + resolver.
@@ -196,7 +202,7 @@ async function main() {
       await resyncRuntimeTools(store, toolRegistry, toolService, logger, config.server.cli_whitelist);
       await mcpUpstreamManager.syncFromStore();
     },
-    reloadProfiles: () => resyncRuntimeProfiles(store, profileRegistry, logger),
+    reloadProfiles: () => resyncRuntimeProfiles(store, profileRegistry, logger, yamlManifestCodec),
     invalidatePolicy: (tool) => invalidatePolicyForTool(tool ?? '*'),
     fingerprint: () => store.runtimeFingerprint(),
     log: logger,
@@ -211,7 +217,7 @@ async function main() {
   await loadRuntimeTools(store, toolRegistry, toolService, logger, config.server.cli_whitelist);
   await mcpUpstreamManager.syncFromStore();
 
-  await loadRuntimeProfiles(store, profileRegistry, logger);
+  await loadRuntimeProfiles(store, profileRegistry, logger, yamlManifestCodec);
 
   const auditBuffer = new AuditBuffer(2000);
   const toolMetrics = new ToolMetrics(store);
@@ -232,28 +238,12 @@ async function main() {
   // ----- Approval flow (on_violation: approval) -----
   // Wires the SQLite-backed ApprovalService. Approval rows survive restarts;
   // operators find pending rows in the admin WebUI (/admin/approvals).
-  const approvalTtlMs = (() => {
-    const raw = process.env['APPROVAL_TTL_SEC'];
-    if (!raw) return undefined;
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n * 1000 : undefined;
-  })();
-  const shadow=await ShadowObserver.create(store.consentDatabase(),config.server.shadow,undefined,(outcome,latency,depth,agreement)=>{metrics.shadowTotal.inc({outcome});metrics.shadowLatency.observe(latency/1000);metrics.shadowDepth.set(depth);if(agreement)metrics.shadowAgreement.inc({result:agreement});});
+  const approvalTtlMs = approvalTtlMsFromEnv(process.env);
+  const shadow=await ShadowObserver.create(store.consentDatabase(),config.server.shadow,undefined,(outcome,latency,depth,agreement)=>{metrics.shadowTotal.inc({outcome});metrics.shadowLatency.observe(latency/1000);metrics.shadowDepth.set(depth);if(agreement)metrics.shadowAgreement.inc({result:agreement});},()=>shadowKillSwitchFromEnv(process.env));
   metrics.setShadowPSICollector(()=>shadow.psi());
   setObservationSink((e,argv,cwd)=>shadow.submit({tool:e.tool,profile:e.profile,argv,cwd},e.decision));
   const breaker=await CircuitBreaker.create(store.consentDatabase(),config.server.breaker,(event,family,state)=>{metrics.breakerEvents.inc({event,scope:family});if(event==='would_trip')metrics.breakerWouldTrip.inc({scope:family});if(event==='forced'){metrics.breakerForced.inc({scope:family});metrics.breakerEscalations.inc();}if(state)metrics.breakerTransitions.inc({scope:family,to:state});if(state)metrics.breakerState.set({scope:family},state==='open'?2:state==='half_open'?1:0);});
   setCircuitBreaker(breaker);
-  // Validate the complete config before reloading breaker/shadow and consent strength.
-  process.on('SIGHUP',()=>{void (async ()=>{
-    try{
-      const next=loadConfig(CONFIG_PATH);
-      await store.consentDatabase().prepare('INSERT INTO breaker_audit(ts,scope,event,actor) VALUES(?,?,?,?)').run(Date.now(),'configured',`config_${next.server.breaker.enabled?next.server.breaker.mode:'disabled'}`,'operator_signal');
-      Object.assign(breaker.config,next.server.breaker);
-      Object.assign(shadow.config,next.server.shadow);
-      approvalService.reconfigureStrongTools(next.server.consent.strong_default_tools);
-      logger.info('breaker/shadow configuration reloaded');
-    }catch(err){logger.warn('breaker/shadow reload refused',{error:err instanceof Error?err.message:String(err)});}
-  })();});
   const pushStore = new PushSubscriptionStore(store.consentDatabase());
   const vapid = vapidFromEnv(process.env);
   const pushNotifier = vapid ? createPushNotifier({ store: pushStore, vapid }) : undefined;
@@ -261,7 +251,7 @@ async function main() {
   const grantConfig = readGrantConfig(process.env);
   const approvalService = new ApprovalService({
     store,
-    grantsEnabled: process.env.SPLICEDOCK_GRANTS === '1',
+    grantsEnabled: grantsEnabledFromEnv(process.env),
     grantThreshold: grantConfig.threshold,
     grantContextMinSim: grantConfig.minSimilarity,
     grantExceptions: grantConfig.exceptions,
@@ -279,6 +269,9 @@ async function main() {
   setPolicyDecisionSink(e => metrics.policyDecisions.inc(e as unknown as Record<string, string>));
   setApprovalHookFactory((tool, { cwd,requireStrong,approvalContext }) => approvalService.makeHook(tool, cwd,undefined,requireStrong,approvalContext));
   setApprovalSettler(approvalService);
+  // Validate the complete config before reloading breaker/shadow and consent strength.
+  const configReloader = createConfigReloader(() => loadConfig(CONFIG_PATH), { breaker, shadow, approvals: approvalService }, logger);
+  process.on('SIGHUP', () => { void configReloader.reload(); });
 
   // Start Admin API server — proxyDrivers map is empty (no shared connections); status
   // route will list zero upstreams but tool counts still reflect the refresh-populated registry.

@@ -1,6 +1,6 @@
 // tests/unit/config/loader.test.ts
 import { describe, it, expect } from 'vitest';
-import { parseConfig, loadConfig } from '../../../src/config/loader.js';
+import { parseConfig, loadConfig } from '../../../src/config-file.js';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

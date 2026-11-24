@@ -10,7 +10,7 @@ import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js
 import type { McpProxyToolConfig } from '../../../../config/types.js';
 import type { McpToolDef } from '../../../tools/registry.js';
 import { retry } from '../../../../common/retry.js';
-import { PACKAGE_VERSION } from '../../../../common/version.js';
+import { PACKAGE_VERSION } from '../../../../version.js';
 import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 

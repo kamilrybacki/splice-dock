@@ -19,7 +19,8 @@ src/
     outbound/                ports and data exchanged with backend providers
     inbound/                 payloads received from external callers
   common/                    shared utilities
-  main.ts                    composition root
+  main.ts                    composition root: wires adapters into services
+  *.ts                       root helpers that touch the process (env, files, stdout)
 tests/
   fixtures/
   unit/
@@ -56,7 +57,9 @@ imports to pure, backend-free libraries:
 | `config` | `zod` |
 | service core | `node:crypto`, `node:path`, `node:timers/promises`, `zod`, `minimatch` |
 
-It also rejects `process.env` reads there (`config/loader.ts` excepted), using
+It also rejects `process.env` reads there, with no exceptions: the environment
+is mapped onto configuration only in the composition root (`src/*.ts`, e.g.
+`env-config.ts`, `config-file.ts`) and in adapters. The check uses
 the TypeScript AST rather than a text match. Existing violations are listed in
 `scripts/layers-baseline.json`. The baseline only shrinks: a new violation
 fails CI, and so does an entry that has been fixed. After fixing one, run

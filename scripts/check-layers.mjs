@@ -54,8 +54,9 @@ const PACKAGES = {
   root: '*',
 };
 
-// Files outside adapters and the root that may read process.env.
-const ENV_ALLOWED = ['config/loader.ts'];
+// Files outside adapters and the root that may read process.env. None: only the
+// composition root (src/*.ts) and adapters map the environment onto configuration.
+const ENV_ALLOWED = [];
 
 function walk(dir) {
   return readdirSync(dir).flatMap(name => {
