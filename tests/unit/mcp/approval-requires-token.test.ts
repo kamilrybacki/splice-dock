@@ -19,7 +19,7 @@ import { createMcpExpressApp, setApprovalWaitHandler } from '../../../src/servic
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
 import { setApprovalHookFactory, setApprovalSettler, setPolicyDecisionSink } from '../../../src/services/tools/adapters/cli/passthrough.js';
-import { createMetrics } from '../../../src/common/metrics.js';
+import { createPrometheusMetrics } from '../../../src/services/metrics/adapters/prometheus/index.js';
 import { hashProfileToken } from '../../../src/services/authentication/base.js';
 import { LEGACY_QUERY_TOKEN_ID } from '../../../src/common/request/context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
@@ -46,7 +46,7 @@ let http: Server | null = null;
 let base = '';
 let store: SplicedockStore;
 let approvals: ApprovalService;
-let metrics: ReturnType<typeof createMetrics>;
+let metrics: ReturnType<typeof createPrometheusMetrics>;
 
 beforeEach(async () => {
   const toolReg = new ToolRegistry();
@@ -58,7 +58,7 @@ beforeEach(async () => {
   profileReg.addFileProfile('ops', { tools: ['*'] });
   const profiles = new ProfileService(profileReg, toolReg);
 
-  metrics = createMetrics();
+  metrics = createPrometheusMetrics();
   store = await SplicedockStore.open(':memory:');
   approvals = new ApprovalService({
     store,

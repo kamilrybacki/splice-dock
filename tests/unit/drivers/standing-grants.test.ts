@@ -3,10 +3,10 @@ import {SplicedockStore} from '../../../src/services/database/adapters/store.js'
 import {ApprovalService} from '../../../src/services/approvals/base.js';
 import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler} from '../../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../../src/common/request/context.js';
-import {createMetrics} from '../../../src/common/metrics.js';
+import {createPrometheusMetrics} from '../../../src/services/metrics/adapters/prometheus/index.js';
 import type {CliPassthroughToolConfig} from '../../../src/config/types.js';
 it('carries context through policy, learns after real spawns and emits grant metrics',async()=>{
-  const store=await SplicedockStore.open(':memory:'),metrics=createMetrics();
+  const store=await SplicedockStore.open(':memory:'),metrics=createPrometheusMetrics();
   const svc=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,onGrantUsed:(tool,verb)=>metrics.approvalGrantUsed.inc({tool,verb})});
   const cfg:CliPassthroughToolConfig={type:'cli_passthrough',name:'kubectl',description:'fixture',command:'echo',deny_subcommands:[],env:[],timeout_ms:5000,isolate_config:false,policy:{approval_subcommands:['delete'],on_violation:'approval',audit:false}};
   setApprovalHookFactory((tool,ctx)=>svc.makeHook(tool,ctx.cwd,undefined,ctx.requireStrong,ctx.approvalContext));setApprovalSettler(svc);

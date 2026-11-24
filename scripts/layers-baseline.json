@@ -1,12 +1,8 @@
 [
   "common: common/http/drain.ts imports package 'node:http'",
-  "common: common/metrics.ts imports package 'prom-client'",
   "common: common/version.ts imports package 'node:fs'",
   "config: config/loader.ts imports package 'js-yaml'",
   "config: config/loader.ts imports package 'node:fs'",
-  "contracts: contracts/outbound/operation/exchange.ts imports package '@modelcontextprotocol/sdk'",
-  "services: services/code-mode/base.ts imports package '@modelcontextprotocol/sdk'",
-  "services: services/code-mode/preflight.ts imports package '@modelcontextprotocol/sdk'",
   "services: services/profiles/manifest.ts imports package 'js-yaml'",
   "services: services/shadow/base.ts reads process.env"
 ]

@@ -1,4 +1,4 @@
-import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../tool-result.js';
 
 export type ObservedOperation =
   | { driver: 'cli' | 'cli_passthrough'; command: string; argv: readonly string[]; cwd: string; approvalContext?: string }
@@ -6,5 +6,5 @@ export type ObservedOperation =
 
 export type OperationExchange = (
   operation: ObservedOperation,
-  invoke: () => Promise<CompatibilityCallToolResult>,
-) => Promise<CompatibilityCallToolResult>;
+  invoke: () => Promise<ToolResult>,
+) => Promise<ToolResult>;

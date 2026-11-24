@@ -8,7 +8,8 @@ import {
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ListToolsRequestSchema, CallToolRequestSchema, type CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { ProfileAccess } from '../../../profiles/base.js';
 import type { ToolRegistry } from '../../../tools/registry.js';
 import { McpProxyDriver, proxyDriverKey } from '../../../upstreams/adapters/mcp/driver.js';
@@ -23,7 +24,7 @@ import { createQueryFallbackWarner, type ProfileSelectionSource } from './profil
 import { randomUUID } from 'node:crypto';
 import type { HttpToolConfig, CliToolConfig, CliPassthroughToolConfig, McpProxyToolConfig } from '../../../../config/types.js';
 import type { PodResolver } from '../../../upstreams/adapters/dns/pods.js';
-import type { Metrics } from '../../../../common/metrics.js';
+import type { MetricsPort } from '../../../../contracts/outbound/metrics.js';
 import { resolveBoundProfile, type ProfileTokenLookup } from '../../base.js';
 import { clientLogFields } from './client/info.js';
 import { LEGACY_QUERY_TOKEN_ID, currentCaller, runWithCaller } from '../../../../common/request/context.js';
@@ -74,7 +75,7 @@ export function buildMcpServer(
     ],
   }));
 
-  const dispatch = async (toolName: string, rawArgs: Record<string, unknown>, signal?: AbortSignal, exchange?: HttpExchange, operation?: OperationExchange): Promise<CompatibilityCallToolResult> => {
+  const dispatch = async (toolName: string, rawArgs: Record<string, unknown>, signal?: AbortSignal, exchange?: HttpExchange, operation?: OperationExchange): Promise<ToolResult> => {
     const requestId = randomUUID().slice(0, 12);
     const safeName = sanitizeForLog(toolName);
 
@@ -98,7 +99,7 @@ export function buildMcpServer(
       return {
         content: [{ type: 'text', text: `Tool '${safeName}' not found for profile '${profile}'` }],
         isError: true,
-      } as CompatibilityCallToolResult;
+      } as ToolResult;
     }
 
     if (builtin) return builtin.call(rawArgs, { signal });
@@ -111,7 +112,7 @@ export function buildMcpServer(
 
     const entry = toolRegistry.getTool(toolName);
     if (!entry) {
-      return { content: [{ type: 'text', text: `Tool '${safeName}' not registered` }], isError: true } as CompatibilityCallToolResult;
+      return { content: [{ type: 'text', text: `Tool '${safeName}' not registered` }], isError: true } as ToolResult;
     }
 
     const start = Date.now();
@@ -158,7 +159,7 @@ export function buildMcpServer(
           }
         }
         if (!driver) throw new Error(`No proxy driver for namespace '${namespace}'`);
-        return await driver.callTool(toolName, rawArgs) as CompatibilityCallToolResult;
+        return await driver.callTool(toolName, rawArgs) as ToolResult;
       }
 
       if (entry.driver === 'http') {
@@ -167,24 +168,24 @@ export function buildMcpServer(
         return await callHttpTool(
           override === undefined ? httpConfig : { ...httpConfig, auth: override },
           stringArgs, exchange,
-        ) as CompatibilityCallToolResult;
+        ) as ToolResult;
       }
 
       if (entry.driver === 'cli') {
-        return await callCliTool(entry.config as CliToolConfig, stringArgs, cliWhitelist, operation, signal) as CompatibilityCallToolResult;
+        return await callCliTool(entry.config as CliToolConfig, stringArgs, cliWhitelist, operation, signal) as ToolResult;
       }
 
       if (entry.driver === 'cli_passthrough') {
         // Route by tool-name suffix: `<name>__help` or `<name>__run`.
         const kind = toolName.endsWith('__help') ? 'help' : toolName.endsWith('__run') ? 'run' : null;
         if (!kind) {
-          return { content: [{ type: 'text', text: `Unknown passthrough variant for '${safeName}'` }], isError: true } as CompatibilityCallToolResult;
+          return { content: [{ type: 'text', text: `Unknown passthrough variant for '${safeName}'` }], isError: true } as ToolResult;
         }
         if (operation && signal) return callReviewedCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist, operation, signal);
-        return await callCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist) as CompatibilityCallToolResult;
+        return await callCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist) as ToolResult;
       }
 
-      return { content: [{ type: 'text', text: 'Unknown driver type' }], isError: true } as CompatibilityCallToolResult;
+      return { content: [{ type: 'text', text: 'Unknown driver type' }], isError: true } as ToolResult;
     } finally {
       logger.info('tool call', {
         request_id: requestId,
@@ -237,7 +238,7 @@ export interface McpExpressAppOptions {
   /** Required when proxyConfigs is set — resolves service DNS to pod IPs. */
   resolver?: PodResolver;
   /** Optional metrics handle — increments session/connection counters when provided. */
-  metrics?: Metrics;
+  metrics?: MetricsPort;
   /**
    * When provided, a `Authorization: Bearer <profile-token>` on POST /mcp binds
    * the session to the profile this returns and the ?profile= query is ignored.

@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
 import { createQueryFallbackWarner, QUERY_FALLBACK_WARN_INTERVAL_MS } from '../../../src/services/mcp/adapters/express/profiles/selection.js';
-import { createMetrics } from '../../../src/common/metrics.js';
+import { createPrometheusMetrics } from '../../../src/services/metrics/adapters/prometheus/index.js';
 import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
@@ -17,7 +17,7 @@ async function start(opts: { requireProfileToken?: boolean; metrics?: boolean })
   profileReg.addFileProfile('default', { tools: ['*'] });
   profileReg.addFileProfile('ops', { tools: ['*'] });
   const svc = new ProfileService(profileReg, toolReg);
-  const metrics = opts.metrics ? createMetrics() : undefined;
+  const metrics = opts.metrics ? createPrometheusMetrics() : undefined;
   const app = createMcpExpressApp(svc, toolReg, new Map(), [], {
     lookupProfileByToken: t => (t === 'good' ? 'ops' : null),
     requireProfileToken: opts.requireProfileToken,
@@ -37,7 +37,7 @@ function post(headers: Record<string, string>, query = ''): Promise<Response> {
   });
 }
 
-async function selection(m: ReturnType<typeof createMetrics>, source: string): Promise<number> {
+async function selection(m: ReturnType<typeof createPrometheusMetrics>, source: string): Promise<number> {
   const text = await m.registry.metrics();
   const line = text.split('\n').find(l => l.startsWith('splicedock_profile_selection_total') && l.includes(`source="${source}"`));
   return line ? Number(line.split(' ').pop()) : 0;

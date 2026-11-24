@@ -1,10 +1,10 @@
 import { getQuickJS } from 'quickjs-emscripten';
-import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import { codeModeDef, type CodeExecutor } from '../../base.js';
 
 export const executeCode: CodeExecutor = async (code, catalog, dispatch, signal) => {
   const trace: Array<{ name: string; status: string; duration_ms: number }> = [];
-  const envelope = (result: unknown, error?: string): CompatibilityCallToolResult => {
+  const envelope = (result: unknown, error?: string): ToolResult => {
     const data = { result, calls: trace, ...(error ? { error } : {}) };
     return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data, ...(error ? { isError: true } : {}) };
   };

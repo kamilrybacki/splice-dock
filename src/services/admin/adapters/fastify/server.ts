@@ -29,7 +29,7 @@ import type { ToolDefinitions } from '../../../tools/base.js';
 import type { ProfileAccess } from '../../../profiles/base.js';
 import type { McpProxyDriver } from '../../../upstreams/adapters/mcp/driver.js';
 import type { SplicedockConfig, CliPassthroughToolConfig } from '../../../../config/types.js';
-import type { Metrics } from '../../../../common/metrics.js';
+import type { MetricsExposition, MetricsPort } from '../../../../contracts/outbound/metrics.js';
 import type { AuditBuffer } from '../../../audit/base.js';
 import type { ToolMetrics } from '../../../metrics/base.js';
 import type { PolicyStore } from '../../../policy/base.js';
@@ -72,7 +72,7 @@ export async function createAdminServer(
   profileService: ProfileAccess,
   proxyDrivers: Map<string, McpProxyDriver>,
   config: SplicedockConfig,
-  metrics?: Metrics,
+  metrics?: MetricsPort & MetricsExposition,
   extras?: AdminExtras,
 ) {
   const adminToken = process.env[config.server.admin_token_env];
@@ -115,16 +115,16 @@ export async function createAdminServer(
       return;
     }
     if (extras?.toolMetrics) {
-      const legacy = metrics ? await metrics.registry.metrics() : '';
-      reply.header('Content-Type', metrics?.registry.contentType ?? 'text/plain; version=0.0.4');
+      const legacy = metrics ? await metrics.exposition() : '';
+      reply.header('Content-Type', metrics?.contentType ?? 'text/plain; version=0.0.4');
       return legacy + extras.toolMetrics.prometheus();
     }
     if (!metrics) {
       reply.status(503).send('metrics not configured');
       return;
     }
-    reply.header('Content-Type', metrics.registry.contentType);
-    return metrics.registry.metrics();
+    reply.header('Content-Type', metrics.contentType);
+    return metrics.exposition();
   });
 
   // Authenticated routes are registered in an encapsulated plugin that adds the

@@ -2,11 +2,11 @@ import { expect, it, vi } from 'vitest';
 import { startTokenSweep } from '../../../src/services/authentication/lifecycle/tokens.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { splicedockConfigSchema } from '../../../src/config/schema.js';
-import { createMetrics } from '../../../src/common/metrics.js';
+import { createPrometheusMetrics } from '../../../src/services/metrics/adapters/prometheus/index.js';
 it('schedules observation by default and cancels before database shutdown', async () => {
   vi.useFakeTimers(); vi.setSystemTime(1000);
   const store = await SplicedockStore.open(':memory:');
-  const metrics = createMetrics();
+  const metrics = createPrometheusMetrics();
   const policy = splicedockConfigSchema.parse({}).server.token_policy;
   await store.insertProfileToken('old', 'ops', 'hash');
   vi.setSystemTime(1000 + 31 * 86400000);

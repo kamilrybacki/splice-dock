@@ -1,4 +1,4 @@
-import type { Metrics } from '../../common/metrics.js';
+import type { MetricsPort } from '../../contracts/outbound/metrics.js';
 import type { PodAddressResolver, UpstreamToolListerFactory } from '../../contracts/outbound/upstreams/discovery.js';
 import type { McpProxyToolConfig } from '../../config/types.js';
 import type { ToolRegistry } from './registry.js';
@@ -18,7 +18,7 @@ export class ToolRefreshService {
     private readonly configs: McpProxyToolConfig[],
     private readonly registry: Pick<ToolRegistry, 'replaceToolsForUpstream'>,
     private readonly resolver: PodAddressResolver,
-    private readonly metrics: Pick<Metrics, 'refreshSuccess' | 'refreshFailures'>,
+    private readonly metrics: Pick<MetricsPort, 'refreshSuccess' | 'refreshFailures'>,
     private readonly logger: RefreshLogger,
     private readonly intervalMs: number,
     private readonly openUpstream: UpstreamToolListerFactory,

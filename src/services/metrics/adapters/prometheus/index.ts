@@ -1,6 +1,7 @@
 import { Registry, Gauge, Counter, Histogram, collectDefaultMetrics } from 'prom-client';
+import type { MetricsExposition, MetricsPort } from '../../../../contracts/outbound/metrics.js';
 
-export function createMetrics() {
+export function createPrometheusMetrics() {
   const registry = new Registry();
   registry.setDefaultLabels({ service: 'splicedock' });
   collectDefaultMetrics({ register: registry });
@@ -118,6 +119,8 @@ export function createMetrics() {
     setActiveTokenCollector: (collect: () => number | Promise<number>) => { countActiveTokens = collect; },
     auth, tokenLifecycle, vaultRequests, failclosedActive, tokensActive,
     registry,
+    exposition: () => registry.metrics(),
+    contentType: registry.contentType,
     policyDecisions,
     approvals, approvalGrantUsed,
     profileSelection,
@@ -133,4 +136,8 @@ export function createMetrics() {
   };
 }
 
-export type Metrics = ReturnType<typeof createMetrics>;
+export type PrometheusMetrics = ReturnType<typeof createPrometheusMetrics>;
+
+// Compile-time check: the prom-client instruments satisfy the backend-neutral port.
+const _conforms = (m: PrometheusMetrics): MetricsPort & MetricsExposition => m;
+void _conforms;
