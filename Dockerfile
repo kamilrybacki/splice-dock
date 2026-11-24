@@ -1,7 +1,11 @@
 FROM node:22-slim AS build-node
 WORKDIR /app
 COPY package*.json tsconfig.json ./
-RUN npm ci
+# better-sqlite3 13 ships prebuilt binaries and always loads them, but npm
+# still runs `node-gyp rebuild` for it (npm/cli#9837), which needs Python and a
+# C++ compiler that this image does not have. Skip install scripts, then run
+# the only other one this tree needs (esbuild's binary check).
+RUN npm ci --ignore-scripts && npm rebuild esbuild
 COPY src ./src
 RUN npm run build
 
