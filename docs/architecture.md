@@ -70,9 +70,20 @@ fails CI, and so does an entry that has been fixed. After fixing one, run
 ### YAML tools
 
 Each tool in the configuration names a driver (MCP upstream, HTTP, CLI). Its
-argument schema, policy and approval rules sit next to it in YAML. Nothing in
-`src/` tests a tool's name, with one exception: data that is keyed by YAML tool
-name on purpose (standing-grant shapes, operator grant exceptions).
+argument schema, policy and approval rules sit next to it in YAML. Service cores
+never test a tool's name. Tool-specific knowledge is data keyed by the YAML tool
+name and injected through two registries:
+
+- `ShapeRegistry` (`policy/shape/registry.ts`) maps a tool name to its
+  standing-grant shape functions. The approval service and standing grants ask
+  the registry; an unknown tool has no shape, so no grant applies.
+- `ReadonlyProbes` (`policy/breaker/readonly.ts`) maps a tool name to a
+  read-only argv probe, used by the circuit breaker's `read_allowlist`.
+
+Both default to empty. The built-in entries (`policy/builtin.ts`, with the
+kubectl implementation in `policy/shape/kubectl.ts`) are passed in by the
+composition root. Other keyed data, such as operator grant exceptions, stays
+data in the same way.
 
 ### CLI profiles (`src/services/policy/cli/profiles/`)
 

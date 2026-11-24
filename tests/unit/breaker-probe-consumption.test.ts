@@ -11,7 +11,7 @@ import {ApprovalService} from '../../src/services/approvals/base.js';
 import type {SqlDb} from "../../src/services/database/base.js";
 import {SqliteDb} from '../../src/services/database/adapters/sqlite/db.js';
 import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
-import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../src/common/request/context.js';
 import type {CliPassthroughToolConfig} from '../../src/config/types.js';
 
@@ -53,7 +53,7 @@ beforeEach(async ()=>{
   store=await SplicedockStore.open(':memory:');db=store.consentDatabase();
   breaker=await CircuitBreaker.create(db,cfg);
   const svc=new ApprovalService({store,sweepIntervalMs:0,strongTools:[]});
-  setCircuitBreaker(breaker);setApprovalHookFactory((t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong));setApprovalSettler(svc);
+  configurePassthrough({circuitBreaker: breaker, approvalHookFactory: (t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong), approvalSettler: svc});
   tmp=mkdtempSync(join(tmpdir(),'breaker-probe-'));
   delete process.env[UNSET_REF];
   // Trip, then end the cooldown so the next force() moves to half_open.
@@ -64,7 +64,7 @@ beforeEach(async ()=>{
   expect(await state()).toMatchObject({state:'half_open',probes:0});
 });
 afterEach(async ()=>{
-  setCircuitBreaker(null);setApprovalHookFactory(null);setApprovalSettler(null);
+  configurePassthrough({});
   delete process.env[UNSET_REF];delete process.env[REL_KCFG_REF];
   await store.close();rmSync(tmp,{recursive:true,force:true});
 });

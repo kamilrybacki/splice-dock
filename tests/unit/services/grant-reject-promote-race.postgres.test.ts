@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
+import { builtinShapes } from '../../../src/services/policy/builtin.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, holdRowLocks, untilLockWaiters, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 const caller = { profile: 'test', tokenId: 'fixture', authenticated: true };
@@ -19,8 +20,8 @@ describe.skipIf(!TEST_PG_DSN)(TEST_PG_DSN ? 'rejection vs promotion race (Postgr
     const storeA = await SplicedockStore.open(s.dsn); const storeB = await SplicedockStore.open(s.dsn);
     const raw = new PgDb(s.dsn); open.push(storeA, storeB, raw);
     const now = () => Date.now();
-    const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, sweepIntervalMs: 0, now });
-    const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, sweepIntervalMs: 0, now });
+    const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
+    const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
     const request = (svc: ApprovalService, name: string) =>
       svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
     const consumed = async (name: string) => {

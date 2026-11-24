@@ -7,12 +7,9 @@ import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  callCliPassthrough,
-  setApprovalHookFactory,
-  setApprovalSettler,
-} from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
+import type { ToolHooks } from '../../../src/services/tools/hooks.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
@@ -40,19 +37,19 @@ describe('approval reservation through the wrapper', () => {
   let svc: ApprovalService;
   let root: string;
   let work: string;
+  let baseHooks: ToolHooks;
 
   beforeEach(async () => {
     svc = new ApprovalService({ store: await SplicedockStore.open(':memory:'), sweepIntervalMs: 0 });
-    setApprovalHookFactory((tool, ctx) => svc.makeHook(tool, ctx.cwd));
-    setApprovalSettler(svc);
+    baseHooks = { approvalHookFactory: (tool, ctx) => svc.makeHook(tool, ctx.cwd), approvalSettler: svc };
+    configurePassthrough(baseHooks);
     root = realpathSync(mkdtempSync(join(tmpdir(), 'splicedock-r6-')));
     work = join(root, 'work');
     mkdirSync(work);
   });
 
   afterEach(() => {
-    setApprovalHookFactory(null);
-    setApprovalSettler(null);
+    configurePassthrough({});
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -125,7 +122,7 @@ describe('approval reservation through the wrapper', () => {
   it.each([['pwd',true],['false',false]] as const)('settles %s once even if executionResult throws',async (command,success)=>{
     await preApprove([command]);
     const executionResult=vi.fn(()=>{throw new Error('result storage failed');});
-    setApprovalSettler({finalize:async id=>await svc.finalize(id),release:async id=>await svc.release(id),executionResult});
+    configurePassthrough({...baseHooks, approvalSettler: {finalize:async id=>await svc.finalize(id),release:async id=>await svc.release(id),executionResult}});
     const res=await run('env',[command]);
     expect(executionResult).toHaveBeenCalledTimes(1);
     expect(executionResult).toHaveBeenCalledWith(expect.any(String),success);
@@ -136,7 +133,7 @@ describe('approval reservation through the wrapper', () => {
     writeFileSync(file,'#!/splicedock-nonexistent-interpreter\n');chmodSync(file,0o755);
     const id=await preApprove(['pwd']);
     const executionResult=vi.fn();
-    setApprovalSettler({finalize:async id=>await svc.finalize(id),release:async id=>await svc.release(id),executionResult});
+    configurePassthrough({...baseHooks, approvalSettler: {finalize:async id=>await svc.finalize(id),release:async id=>await svc.release(id),executionResult}});
     const res=await run(file,['pwd']);
     expect(res.isError).toBe(true);expect((await svc.get(id))?.status).toBe('approved');
     expect(executionResult).not.toHaveBeenCalled();
@@ -153,14 +150,14 @@ describe('approval reservation through the wrapper', () => {
     const id = await preApprove(['pwd']);
     // Remove the bound cwd after the hook reserved the row but before spawn:
     // chdir fails in the child, so no process ever starts.
-    setApprovalHookFactory((tool, ctx) => {
+    configurePassthrough({...baseHooks, approvalHookFactory: (tool, ctx) => {
       const inner = svc.makeHook(tool, ctx.cwd);
       return async input => {
         const verdict = await inner(input);
         rmSync(work, { recursive: true, force: true });
         return verdict;
       };
-    });
+    }});
     const res = await run('env', ['pwd']);
     expect(res.isError).toBe(true);
     expect((await svc.get(id))?.status).toBe('approved');

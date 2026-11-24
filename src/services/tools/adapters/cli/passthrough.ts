@@ -1,6 +1,6 @@
 import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
-import type { CircuitBreaker } from '../../../policy/breaker/index.js';
+import type { PolicyDecisionEvent, ToolHooks } from '../../hooks.js';
 import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flags/arity.js';
 import { cliProfileFor } from '../../../policy/cli/profiles/index.js';
 import { requireSecret } from '../../../secrets/adapters/vault/guard.js';
@@ -10,105 +10,40 @@ import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } fro
 import { spawn } from 'node:child_process';
 import { accessSync, constants as fsConstants, realpathSync, statSync } from 'node:fs';
 import { delimiter, isAbsolute, join, resolve as resolvePath } from 'node:path';
-import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../../config/types.js';
+import type { CliPassthroughToolConfig } from '../../../../config/types.js';
 import { logger } from '../../../../common/logger.js';
 import { currentCaller, type CallerIdentity } from '../../../../common/request/context.js';
 import {
   compilePolicy,
   evaluatePolicy,
   PolicyCompileError,
-  type ApprovalHook,
   type CompiledCliPolicy,
 } from '../../../policy/cli/rules.js';
 import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 import { ArgvCanonicalizationError, canonicalizeArgv } from '../../../policy/operation.js';
 export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 
-// Override hook — when a PolicyStore is wired (admin webui mode), it provides
-// the effective policy per call. Default is null; wrapper falls back to the
-// config's own `policy` field, preserving current behaviour for any deployment
-// that doesn't enable the WebUI.
-type EffectivePolicyResolver = (config: CliPassthroughToolConfig, profile?: string) => CliToolPolicy | undefined | Promise<CliToolPolicy | undefined>;
-let effectiveResolver: EffectivePolicyResolver | null = null;
+export type {
+  ApprovalHookFactory,
+  ApprovalSettler,
+  AuditSink,
+  EffectivePolicyResolver,
+  MetricsSink,
+  ObservationSink,
+  PolicyDecisionEvent,
+  ProfileEnvResolver,
+  ToolHooks,
+} from '../../hooks.js';
 
-/** Wire a resolver (called by the admin app at startup). */
-export function setEffectivePolicyResolver(fn: EffectivePolicyResolver | null): void {
-  effectiveResolver = fn;
+// The injected hooks. Replaced wholesale (never mutated) by configurePassthrough.
+let injected: ToolHooks = {};
+
+/** Install the passthrough's collaborators (called once at startup; tests
+ *  call it per case). Replaces the whole set, so omitted hooks fall back to
+ *  their defaults, and drops compiled policies since the resolver may differ. */
+export function configurePassthrough(next: ToolHooks): void {
+  injected = { ...next };
   policyCache = new WeakMap();
-}
-
-// Recording hooks — the admin app wires AuditBuffer and ToolMetrics into
-// these. No sink ever receives argv content (not even argv[0] or the token a
-// rule matched): only tool, rule id, decision and argv length. When unset, wrapper still emits via the stdout logger but skips
-// the in-memory ring + counters.
-type AuditSink = (entry: {
-  tool: string;
-  decision: 'allow' | 'deny';
-  rule?: string;
-  argv_len: number;
-}) => void;
-type MetricsSink = (args: {
-  tool: string;
-  decision: 'allow' | 'deny';
-  rule?: string;
-  duration_ms?: number;
-}) => void;
-
-let auditSink: AuditSink | null = null;
-let metricsSink: MetricsSink | null = null;
-
-export function setAuditSink(fn: AuditSink | null): void { auditSink = fn; }
-export function setMetricsSink(fn: MetricsSink | null): void { metricsSink = fn; }
-
-// Approval-hook factory — when policies set on_violation: approval, the
-// wrapper consults this to get a per-tool ApprovalHook. The factory is
-// expected to be cheap (returns a closure over the underlying service).
-export interface PolicyDecisionEvent {
-  tool: string;
-  profile: string;
-  decision: 'allow' | 'deny' | 'approval_required' | 'approved';
-  /** Rule CATEGORY only (never argv values); 'none' for plain allow, 'approval' when an approval was reserved. */
-  rule: string;
-}
-let observationSink:((e:PolicyDecisionEvent,argv:readonly string[],cwd:string)=>void)|null=null;
-export function setObservationSink(fn:typeof observationSink):void {observationSink=fn;}
-let policyDecisionSink: ((e: PolicyDecisionEvent) => void) | null = null;
-export function setPolicyDecisionSink(fn: ((e: PolicyDecisionEvent) => void) | null): void {
-  policyDecisionSink = fn;
-}
-
-/** `ctx.cwd` is the realpath of the directory the command will be spawned in;
- *  approvals are bound to it. */
-export type ApprovalHookFactory = (toolName: string, ctx: { cwd: string; requireStrong?:boolean; approvalContext?:string }) => ApprovalHook;
-let circuitBreaker:CircuitBreaker|null=null;
-export function setCircuitBreaker(b:CircuitBreaker|null):void {circuitBreaker=b;}
-let approvalHookFactory: ApprovalHookFactory | null = null;
-export function setApprovalHookFactory(fn: ApprovalHookFactory | null): void {
-  approvalHookFactory = fn;
-}
-
-/** Settles a reservation made by the approval hook: `finalize` once the child
- *  process has spawned (the approval is spent, whatever the exit code),
- *  `release` only after a confirmed pre-spawn failure. Unsettled reservations
- *  expire in the approval service and are never refunded. A half-open breaker
- *  counts a recovery probe only on a successful `finalize`, never on reserve. */
-export interface ApprovalSettler {
-  /** True only for the one call that moved the reservation to consumed. */
-  finalize(id: string): Promise<boolean>;
-  release(id: string): Promise<unknown>;
-  executionResult?(id:string,success:boolean):Promise<void>;
-}
-let approvalSettler: ApprovalSettler | null = null;
-export function setApprovalSettler(s: ApprovalSettler | null): void {
-  approvalSettler = s;
-}
-
-/** Profile-scoped env refs (config: profiles.<name>.credentials.<tool>.env).
- *  Wired at startup; absent means every profile uses the tool's own `env`. */
-type ProfileEnvResolver = (tool: string, profile: string) => CliPassthroughToolConfig['env'] | undefined;
-let profileEnvResolver: ProfileEnvResolver | null = null;
-export function setProfileEnvResolver(fn: ProfileEnvResolver | null): void {
-  profileEnvResolver = fn;
 }
 
 /** Invalidate the cached compiled policy for a single tool. Called by
@@ -131,7 +66,7 @@ function envRefName(ref: CliPassthroughToolConfig['env'][number]): string {
  * a kubeconfig) is never handed to another profile's child process.
  */
 function effectiveEnvRefs(config: CliPassthroughToolConfig, profile: string): CliPassthroughToolConfig['env'] {
-  const override = profileEnvResolver?.(config.name, profile);
+  const override = injected.profileEnvResolver?.(config.name, profile);
   if (!override || override.length === 0) return config.env;
   const replaced = new Set(override.map(envRefName));
   return [...config.env.filter(ref => !replaced.has(envRefName(ref))), ...override];
@@ -187,7 +122,7 @@ async function policyFor(config: CliPassthroughToolConfig): Promise<CompiledCliP
           deny_subcommands: legacy,
         }
       : undefined);
-  const synthesized = effectiveResolver ? (await effectiveResolver(config, profile)) ?? filePolicy : filePolicy;
+  const synthesized = injected.effectivePolicyResolver ? (await injected.effectivePolicyResolver(config, profile)) ?? filePolicy : filePolicy;
 
   let compiled: CompiledCliPolicy;
   try {
@@ -284,9 +219,9 @@ export async function callCliPassthrough(
       needsStrong = Boolean(strongApprovalPaths && candidates?.some(strongApprovalPaths));
       if (!candidates || (requiresBroker && candidates.some(requiresBroker))) {
         try {
-          await circuitBreaker?.securityDenial(currentCaller());
+          await injected.circuitBreaker?.securityDenial(currentCaller());
         } catch {
-          if (circuitBreaker?.config.mode !== 'observe') return errorResult('breaker_unavailable');
+          if (injected.circuitBreaker?.config.mode !== 'observe') return errorResult('breaker_unavailable');
         }
         return errorResult('broker_required');
       }
@@ -306,9 +241,9 @@ export async function callCliPassthrough(
     }
 
     let forced:boolean;
-    try {forced=await circuitBreaker?.force(currentCaller(),config.name,cmdArgs)??false;} catch {if(circuitBreaker?.config.mode!=='observe')return errorResult('breaker_unavailable');forced=false;}
-    const approvalHook = approvalHookFactory
-      ? { tool: config.name, fn: approvalHookFactory(config.name, { cwd: runCwd, requireStrong:forced||needsStrong, approvalContext:args.approval_context as string | undefined }) }
+    try {forced=await injected.circuitBreaker?.force(currentCaller(),config.name,cmdArgs)??false;} catch {if(injected.circuitBreaker?.config.mode!=='observe')return errorResult('breaker_unavailable');forced=false;}
+    const approvalHook = injected.approvalHookFactory
+      ? { tool: config.name, fn: injected.approvalHookFactory(config.name, { cwd: runCwd, requireStrong:forced||needsStrong, approvalContext:args.approval_context as string | undefined }) }
       : undefined;
     let decision = await evaluatePolicy(cmdArgs, compiled, approvalHook);
     // A strong-approval path runs only when this tool's policy routed it to approval.
@@ -321,9 +256,9 @@ export async function callCliPassthrough(
       decision=verdict?.approved ? {ok:true,approval:{reserved_id:verdict.id}} : {ok:false,rule:'approval_subcommands',message:'breaker requires strong approval',... (verdict && 'id' in verdict ? {pending_approval:{id:verdict.id,expires_at:verdict.expires_at,payload:verdict.payload}} : {})};
     }
     try {
-      if(!decision.ok && !decision.pending_approval)await circuitBreaker?.securityDenial(currentCaller());
-      else await circuitBreaker?.record(currentCaller(),false);
-    } catch {if(circuitBreaker?.config.mode!=='observe'){if(decision.ok && 'approval' in decision)await safeHook(()=>approvalSettler?.release(decision.approval.reserved_id),'release');return errorResult('breaker_unavailable');}}
+      if(!decision.ok && !decision.pending_approval)await injected.circuitBreaker?.securityDenial(currentCaller());
+      else await injected.circuitBreaker?.record(currentCaller(),false);
+    } catch {if(injected.circuitBreaker?.config.mode!=='observe'){if(decision.ok && 'approval' in decision)await safeHook(()=>injected.approvalSettler?.release(decision.approval.reserved_id),'release');return errorResult('breaker_unavailable');}}
     const policyEvent:PolicyDecisionEvent={
       tool: config.name,
       profile: currentCaller()?.profile ?? 'unknown',
@@ -332,21 +267,21 @@ export async function callCliPassthrough(
         : decision.pending_approval ? 'approval_required' : 'deny',
       rule: decision.ok ? ('approval' in decision ? 'approval' : 'none') : decision.rule,
     };
-    policyDecisionSink?.(policyEvent);
-    try{observationSink?.(policyEvent,cmdArgs,runCwd);}catch{/* observers never affect execution */}
+    injected.policyDecisionSink?.(policyEvent);
+    try{injected.observationSink?.(policyEvent,cmdArgs,runCwd);}catch{/* observers never affect execution */}
     if (!decision.ok) {
       logger.warn('cli_passthrough policy deny', {
         tool: config.name,
         rule: decision.rule,
         argv_len: cmdArgs.length,
       });
-      auditSink?.({
+      injected.auditSink?.({
         tool: config.name,
         decision: 'deny',
         rule: decision.rule,
         argv_len: cmdArgs.length,
       });
-      metricsSink?.({ tool: config.name, decision: 'deny', rule: decision.rule });
+      injected.metricsSink?.({ tool: config.name, decision: 'deny', rule: decision.rule });
       if (decision.pending_approval) {
         const ttlSec = Math.max(0, Math.round((decision.pending_approval.expires_at - Date.now()) / 1000));
         return errorResult(
@@ -372,7 +307,7 @@ export async function callCliPassthrough(
     }
     // Audit-allow is emitted only when the tool config has audit:true.
     if (compiled.audit) {
-      auditSink?.({
+      injected.auditSink?.({
         tool: config.name,
         decision: 'allow',
         argv_len: cmdArgs.length,
@@ -425,7 +360,7 @@ export async function callCliPassthrough(
     if (!reservedId || !spawned || resultSettled) return;
     resultSettled = true;
     await finalizing;
-    await safeHook(() => approvalSettler?.executionResult?.(reservedId!,success), 'executionResult');
+    await safeHook(() => injected.approvalSettler?.executionResult?.(reservedId!,success), 'executionResult');
   };
   const t0 = Date.now();
   let isolatedHome: IsolatedHome | undefined;
@@ -448,7 +383,7 @@ export async function callCliPassthrough(
     }
     const { stdout, stderr, exitCode } = await runProcess(config.command, cmdArgs, env, config.timeout_ms, cwd, hooks);
     if (kind === 'run') {
-      metricsSink?.({
+      injected.metricsSink?.({
         tool: config.name,
         decision: 'allow',
         duration_ms: Date.now() - t0,
@@ -460,7 +395,7 @@ export async function callCliPassthrough(
   } catch (err) {
     await settleResult(false);
     if (kind === 'run') {
-      metricsSink?.({
+      injected.metricsSink?.({
         tool: config.name,
         decision: 'allow',
         duration_ms: Date.now() - t0,
@@ -498,8 +433,8 @@ interface SpawnHooks {
 }
 
 function settleHooks(id: string, caller: CallerIdentity | undefined): SpawnHooks {
-  const settler = approvalSettler;
-  const breaker = circuitBreaker;
+  const settler = injected.approvalSettler;
+  const breaker = injected.circuitBreaker;
   if (!settler) {
     // No settler wired: the reservation is left to expire (never refunded).
     logger.warn('approval reserved but no settler wired', { approval_id: id });

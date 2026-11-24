@@ -1,6 +1,7 @@
 import type { SqlDb } from '../../database/base.js';
 import { createHash, randomUUID } from 'node:crypto';
-import { baseShapeKey, kubectlBaseShape, type OperationShape } from '../../policy/shape/kubectl.js';
+import { baseShapeKey, type OperationShape } from '../../policy/shape/kubectl.js';
+import { NO_SHAPES, type ShapeRegistry } from '../../policy/shape/registry.js';
 import { contextSimilarity } from '../../policy/context/similarity.js';
 import { logger } from '../../../common/logger.js';
 const WEEK=7*86400000;
@@ -15,7 +16,7 @@ export class StandingGrants {
   /** Seeding the configured exceptions is async; it starts here and every
    *  exception read/write awaits it, so a caller never sees a half-seeded set. */
   private readonly seeded:Promise<void>;
-  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly minSimilarity:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined) {
+  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly minSimilarity:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined, private readonly shapes:ShapeRegistry=NO_SHAPES) {
     this.seeded=this.seed(configured);
     this.seeded.catch(()=>{/* surfaced to the first caller that awaits it */});
   }
@@ -99,9 +100,10 @@ export class StandingGrants {
   async rejected(id:string):Promise<void> {
     if(!this.enabled)return;
     const row=await this.db.prepare('SELECT * FROM pending_approvals WHERE id=?').get(id) as {base_shape_key:string|null;argv_json:string;matched:string;profile:string;token_id:string;tool:string}|undefined;
-    if(!row || row.tool!=='kubectl')return;
+    const toolShapes=row ? this.shapes.shapesFor(row.tool) : undefined;
+    if(!row || !toolShapes)return;
     const argv=JSON.parse(row.argv_json) as string[];
-    const base=kubectlBaseShape(argv,row.matched,{profile:row.profile,tokenId:row.token_id,authenticated:true});
+    const base=toolShapes.baseShape(argv,row.matched,{profile:row.profile,tokenId:row.token_id,authenticated:true});
     // The strict parser does not resolve attached -nX namespace syntax.
     const unresolvedNamespace=argv.some(arg=>arg.startsWith('-n') && arg!=='-n' && !arg.startsWith('-n='));
     const shape=unresolvedNamespace ? null : base;

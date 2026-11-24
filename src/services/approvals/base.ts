@@ -1,6 +1,7 @@
 import { runSweepExclusive } from '../database/sweep/lock.js';
 import { StandingGrants, type GrantException } from './grants/standing.js';
-import { kubectlShape, kubectlBaseShape, baseShapeKey } from '../policy/shape/kubectl.js';
+import { baseShapeKey } from '../policy/shape/kubectl.js';
+import { NO_SHAPES, type ShapeRegistry } from '../policy/shape/registry.js';
 // Approval flow for policies with on_violation: approval.
 //
 // Responsibilities:
@@ -47,6 +48,8 @@ export interface ApprovalServiceOptions {
   grantThreshold?: number;
   grantContextMinSim?: number;
   grantExceptions?: readonly GrantException[];
+  /** Per-tool standing-grant shapes. Default: none, so no grant ever applies. */
+  shapes?: ShapeRegistry;
   onGrantUsed?: (tool:string,verb:string)=>void;
   strongTools?: readonly string[];
   consentEnabled?:boolean;
@@ -102,7 +105,7 @@ export class ApprovalService {
     this.reservationTtlMs = opts.reservationTtlMs ?? 5 * 60 * 1000;
     this.now = opts.now ?? Date.now;
     this.onEvent = opts.onEvent;
-    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? 2, opts.grantContextMinSim ?? 0.5, this.now, opts.grantExceptions);
+    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? 2, opts.grantContextMinSim ?? 0.5, this.now, opts.grantExceptions, opts.shapes ?? NO_SHAPES);
 
     const sweepInterval = opts.sweepIntervalMs ?? 60_000;
     if (sweepInterval > 0) {
@@ -184,7 +187,8 @@ export class ApprovalService {
       this.options.onConsentEvent?.((await this.consent.get(foreign))?.level??'weak','binding_refused');
     }
 
-    const shape = this.grants.enabled && tool === 'kubectl' && !await this.grants.exception(tool,matched,requireStrong) ? kubectlShape(argv,matched,caller) : null;
+    const toolShapes = (this.options.shapes ?? NO_SHAPES).shapesFor(tool);
+    const shape = this.grants.enabled && toolShapes && !await this.grants.exception(tool,matched,requireStrong) ? toolShapes.shape(argv,matched,caller) : null;
     const candidate = shape && approvalContext ? await this.grants.match(shape,approvalContext) : undefined;
     // Lock the pending approval before claiming a grant, matching reject's
     // approval -> grant order. The locked read rechecks status after waiting;
@@ -213,7 +217,7 @@ export class ApprovalService {
       token_id: tokenId,
       cwd,
     });
-    const baseShape = tool === 'kubectl' ? kubectlBaseShape(argv,matched,caller) : null;
+    const baseShape = toolShapes?.baseShape(argv,matched,caller) ?? null;
     await this.store.consentDatabase().prepare('UPDATE pending_approvals SET shape_key=?,base_shape_key=?,approval_context=? WHERE id=?').run(shape ? JSON.stringify(shape) : null,baseShape ? baseShapeKey(baseShape) : null,approvalContext ?? null,id);
     if(grant) {
       await this.store.consentDatabase().prepare("UPDATE pending_approvals SET status='approved',approved_at=?,approved_by=?,consent_method='grant',grant_id=? WHERE id=?").run(now,`grant:${grant.id}`,grant.id,id);

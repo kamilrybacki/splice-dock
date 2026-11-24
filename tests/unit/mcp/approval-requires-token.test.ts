@@ -18,7 +18,7 @@ import { ToolService } from '../../../src/services/tools/base.js';
 import { createMcpExpressApp, setApprovalWaitHandler } from '../../../src/services/mcp/adapters/express/server.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
-import { setApprovalHookFactory, setApprovalSettler, setPolicyDecisionSink } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { createPrometheusMetrics } from '../../../src/services/metrics/adapters/prometheus/index.js';
 import { hashProfileToken } from '../../../src/services/authentication/base.js';
 import { LEGACY_QUERY_TOKEN_ID } from '../../../src/common/request/context.js';
@@ -66,9 +66,7 @@ beforeEach(async () => {
     sweepIntervalMs: 0,
     onEvent: (tool, event) => metrics.approvals.inc({ tool, event }),
   });
-  setApprovalHookFactory((tool, { cwd }) => approvals.makeHook(tool, cwd));
-  setApprovalSettler(approvals);
-  setPolicyDecisionSink(e => metrics.policyDecisions.inc(e as unknown as Record<string, string>));
+  configurePassthrough({approvalHookFactory: (tool, { cwd }) => approvals.makeHook(tool, cwd), approvalSettler: approvals, policyDecisionSink: e => metrics.policyDecisions.inc(e as unknown as Record<string, string>)});
 
   const app = createMcpExpressApp(profiles, toolReg, new Map(), ['echo'], {
     lookupProfileByToken: t => (t === OPS_TOKEN || t === OPS_TOKEN_2 ? 'ops' : null),
@@ -81,9 +79,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   setApprovalWaitHandler(undefined);
-  setApprovalHookFactory(null);
-  setApprovalSettler(null);
-  setPolicyDecisionSink(null);
+  configurePassthrough({});
   approvals.stop();
   if (http) await new Promise<void>(r => http!.close(() => r()));
   http = null;

@@ -22,13 +22,7 @@ import { SplicedockStore } from '../../src/services/database/adapters/store.js';
 import { AuditBuffer } from '../../src/services/audit/base.js';
 import { ToolMetrics } from '../../src/services/metrics/base.js';
 import { PolicyStore } from '../../src/services/policy/base.js';
-import {
-  setEffectivePolicyResolver,
-  setAuditSink,
-  setMetricsSink,
-  invalidatePolicyForTool,
-  callCliPassthrough,
-} from '../../src/services/tools/adapters/cli/passthrough.js';
+import { configurePassthrough, invalidatePolicyForTool, callCliPassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, SplicedockConfig } from '../../src/config/types.js';
 
 const ADMIN_TOKEN = 'webui-e2e-token';
@@ -90,10 +84,12 @@ beforeAll(async () => {
   await toolMetrics.start();
   policyStore = new PolicyStore(store);
 
-  setEffectivePolicyResolver(async cfg => await policyStore.effective(cfg));
+  configurePassthrough({
+    effectivePolicyResolver: async cfg => await policyStore.effective(cfg),
+    auditSink: entry => auditBuffer.push({ ...entry, ts: Date.now() }),
+    metricsSink: entry => toolMetrics.record(entry),
+  });
   policyStore.onChange(invalidatePolicyForTool);
-  setAuditSink(entry => auditBuffer.push({ ...entry, ts: Date.now() }));
-  setMetricsSink(entry => toolMetrics.record(entry));
 
   server = await createAdminServer(
     toolRegistry, profileRegistry, toolService, profileService,
@@ -107,9 +103,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  setEffectivePolicyResolver(null);
-  setAuditSink(null);
-  setMetricsSink(null);
+  configurePassthrough({});
   await server?.close();
 });
 

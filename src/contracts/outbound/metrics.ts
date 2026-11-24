@@ -35,7 +35,7 @@ export interface MetricsPort {
   profileSelection: CounterPort<'source'>;
   auth: CounterPort<'result'>;
   tokenLifecycle: CounterPort<'event'>;
-  vaultRequests: CounterPort<'outcome'>;
+  secretRequests: CounterPort<'outcome'>;
   failclosedActive: GaugePort;
   tokensActive: GaugePort;
   consent: CounterPort<'level' | 'event'>;

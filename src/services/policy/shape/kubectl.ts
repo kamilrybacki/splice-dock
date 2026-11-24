@@ -64,3 +64,9 @@ export function kubectlShape(argv: readonly string[], verb: string, caller: Call
   for(const name of names){const pieces=name.split('/');if(pieces.length>2 || (pieces.length===2 && kind(pieces[0])!==resource) || !/^[a-z0-9][a-z0-9.-]*$/.test(pieces.at(-1)!))return null;}
   return {profile:caller.profile,token_id:caller.tokenId,tool:'kubectl',verb_path:verb,resource_kind:resource,namespace,object_count_max:5,flags_allowed:ALLOWED};
 }
+
+const READONLY_KUBECTL_KINDS = ['pods', 'services', 'deployments', 'namespaces', 'nodes'];
+/** Breaker exemption: exactly `kubectl get <kind>` for a few plain kinds. */
+export function kubectlReadonlyProbe(argv: readonly string[]): boolean {
+  return argv.length === 2 && argv[0] === 'get' && READONLY_KUBECTL_KINDS.includes(argv[1]!);
+}

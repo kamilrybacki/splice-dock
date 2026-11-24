@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { callCliPassthrough, setApprovalHookFactory, setApprovalSettler } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
@@ -33,8 +33,7 @@ describe('approval cwd binding through the wrapper', () => {
 
   beforeEach(async () => {
     svc = new ApprovalService({ store: await SplicedockStore.open(':memory:'), sweepIntervalMs: 0 });
-    setApprovalHookFactory((tool, ctx) => svc.makeHook(tool, ctx.cwd));
-    setApprovalSettler(svc);
+    configurePassthrough({approvalHookFactory: (tool, ctx) => svc.makeHook(tool, ctx.cwd), approvalSettler: svc});
     root = realpathSync(mkdtempSync(join(tmpdir(), 'splicedock-r4-')));
     dirA = join(root, 'a');
     dirB = join(root, 'b');
@@ -45,8 +44,7 @@ describe('approval cwd binding through the wrapper', () => {
   });
 
   afterEach(() => {
-    setApprovalHookFactory(null);
-    setApprovalSettler(null);
+    configurePassthrough({});
   });
 
   const run = (cwd?: string) =>

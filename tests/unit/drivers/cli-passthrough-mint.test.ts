@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { callCliPassthrough, setProfileEnvResolver } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { configureCredentialBroker, resetCredentialBroker } from '../../../src/services/secrets/broker.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  setProfileEnvResolver(null);
+  configurePassthrough({});
   resetCredentialBroker();
   rmSync(dir, { recursive: true, force: true });
 });
@@ -59,16 +59,15 @@ afterEach(() => {
 describe('cli_passthrough minted env', () => {
   it('mints a credential for the calling profile', async () => {
     configure();
-    setProfileEnvResolver((tool, profile) =>
-      tool === 'gh' && profile === 'worker' ? [{ name: 'GH_TOKEN', mint: 'gh' }] : undefined,
-    );
+    configurePassthrough({profileEnvResolver: (tool, profile) =>
+      tool === 'gh' && profile === 'worker' ? [{ name: 'GH_TOKEN', mint: 'gh' }] : undefined,});
 
     expect((await printToken()).content[0]!.text).toBe('tok-1');
   });
 
   it('reuses the minted value on the next call', async () => {
     configure();
-    setProfileEnvResolver(() => [{ name: 'GH_TOKEN', mint: 'gh' }]);
+    configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', mint: 'gh' }]});
 
     expect((await printToken()).content[0]!.text).toBe('tok-1');
     expect((await printToken()).content[0]!.text).toBe('tok-1');
@@ -85,7 +84,7 @@ describe('cli_passthrough minted env', () => {
         output: { format: 'text', secret_field: 'token' },
       },
     });
-    setProfileEnvResolver(() => [{ name: 'GH_TOKEN', mint: 'gh' }]);
+    configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', mint: 'gh' }]});
 
     const result = await printToken();
     expect(result.isError).toBe(true);
@@ -95,7 +94,7 @@ describe('cli_passthrough minted env', () => {
   it('still resolves a static reference unchanged', async () => {
     process.env['CLI_TEST_TOKEN'] = 'static-value';
     try {
-      setProfileEnvResolver(() => [{ name: 'GH_TOKEN', from: 'env:CLI_TEST_TOKEN' }]);
+      configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', from: 'env:CLI_TEST_TOKEN' }]});
       expect((await printToken()).content[0]!.text).toBe('static-value');
     } finally {
       delete process.env['CLI_TEST_TOKEN'];
