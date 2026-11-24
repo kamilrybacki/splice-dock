@@ -46,6 +46,22 @@ admin and MCP services.
 concrete adapters in `main.ts` and keep provider imports out of the service
 core.
 
+Outside adapters and the composition root, the same check also limits package
+imports to pure, backend-free libraries:
+
+| Location | Allowed packages |
+|---|---|
+| `common` | `node:async_hooks`, `node:crypto` |
+| `contracts` | none |
+| `config` | `zod` |
+| service core | `node:crypto`, `node:path`, `node:timers/promises`, `zod`, `minimatch` |
+
+It also rejects `process.env` reads there (`config/loader.ts` excepted), using
+the TypeScript AST rather than a text match. Existing violations are listed in
+`scripts/layers-baseline.json`. The baseline only shrinks: a new violation
+fails CI, and so does an entry that has been fixed. After fixing one, run
+`node scripts/check-layers.mjs --prune` to drop it from the list.
+
 ## Extension points
 
 ### YAML tools
