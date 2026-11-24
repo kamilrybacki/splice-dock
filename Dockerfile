@@ -1,4 +1,4 @@
-FROM node:22-slim AS build-node
+FROM node:25-slim AS build-node
 WORKDIR /app
 COPY package*.json tsconfig.json ./
 # better-sqlite3 13 ships prebuilt binaries and always loads them, but npm
@@ -9,7 +9,7 @@ RUN npm ci --ignore-scripts && npm rebuild esbuild
 COPY src ./src
 RUN npm run build
 
-FROM node:22-slim
+FROM node:25-slim
 # gh is pinned to the release the built-in gh policy tables were verified
 # against. Keep in sync with PINNED_GH_VERSION (src/domain/cli/gh-version.ts);
 # tests/unit/drivers/gh-version-pin.test.ts enforces it.
