@@ -1,28 +1,28 @@
-import { resolveDbTarget } from './ports/sql-db.js';
-import { readGrantConfig } from './domain/policy/grant-config.js';
-import { setApprovalWaitHandler } from './adapters/inbound/mcp/server.js';
-import {ShadowObserver} from './application/shadow/queue.js';
-import { credentialAdapters } from './adapters/outbound/credentials/index.js';
-import { McpProxyDriver } from './adapters/outbound/drivers/mcp-proxy.js';
-import {setObservationSink} from './adapters/outbound/drivers/cli-passthrough-wrapper.js';
-import {CircuitBreaker} from './application/policy/circuit-breaker.js';
-import {setCircuitBreaker} from './adapters/outbound/drivers/cli-passthrough-wrapper.js';
-import { startTokenSweep } from './application/auth/token-lifecycle.js';
-import { setLifecycleMetrics } from './application/auth/lifecycle-events.js';
-import { configureSecretGuard } from './application/auth/secret-guard.js';
-import { configureCredentialBroker } from './application/credentials/broker.js';
+import { resolveDbTarget } from './services/database/base.js';
+import { readGrantConfig } from './services/policy/grant-config.js';
+import { setApprovalWaitHandler } from './services/mcp/adapters/express/server.js';
+import {ShadowObserver} from './services/shadow/base.js';
+import { credentialAdapters } from './services/secrets/adapters/index.js';
+import { McpProxyDriver } from './services/upstreams/adapters/mcp/driver.js';
+import {setObservationSink} from './services/tools/adapters/cli/passthrough.js';
+import {CircuitBreaker} from './services/policy/circuit-breaker.js';
+import {setCircuitBreaker} from './services/tools/adapters/cli/passthrough.js';
+import { startTokenSweep } from './services/authentication/token-lifecycle.js';
+import { setLifecycleMetrics } from './services/authentication/lifecycle-events.js';
+import { configureSecretGuard } from './services/secrets/adapters/vault/guard.js';
+import { configureCredentialBroker } from './services/secrets/broker.js';
 import { createServer } from 'node:http';
 import { loadConfig } from './config/loader.js';
-import { ToolRegistry } from './application/registry/tool-registry.js';
-import { ProfileRegistry } from './application/registry/profile-registry.js';
-import { ToolService } from './application/tools/tool-service.js';
-import { ProfileService } from './application/profiles/profile-service.js';
-import { createMcpExpressApp } from './adapters/inbound/mcp/server.js';
-import { createAdminServer } from './adapters/inbound/admin/server.js';
-import { SplicedockStore } from './adapters/outbound/persistence/store.js';
-import { AuditBuffer } from './application/audit/audit-buffer.js';
-import { ToolMetrics } from './application/metrics/tool-metrics.js';
-import { PolicyStore } from './application/policy/policy-store.js';
+import { ToolRegistry } from './services/tools/tool-registry.js';
+import { ProfileRegistry } from './services/profiles/profile-registry.js';
+import { ToolService } from './services/tools/base.js';
+import { ProfileService } from './services/profiles/base.js';
+import { createMcpExpressApp } from './services/mcp/adapters/express/server.js';
+import { createAdminServer } from './services/admin/adapters/fastify/server.js';
+import { SplicedockStore } from './services/database/adapters/store.js';
+import { AuditBuffer } from './services/audit/base.js';
+import { ToolMetrics } from './services/metrics/base.js';
+import { PolicyStore } from './services/policy/base.js';
 import {
   setEffectivePolicyResolver,
   setAuditSink,
@@ -32,21 +32,21 @@ import {
   setPolicyDecisionSink,
   setProfileEnvResolver,
   invalidatePolicyForTool,
-} from './adapters/outbound/drivers/cli-passthrough-wrapper.js';
-import { ApprovalService } from './application/approvals/approval-service.js';
-import { PushSubscriptionStore } from './adapters/outbound/persistence/push-store.js';
-import { createPushNotifier, vapidFromEnv } from './adapters/outbound/push/notifier.js';
-import { installCliPassthroughTools } from './adapters/outbound/installer/cli-installer.js';
-import { resolveAndInjectCliPassthroughEnv } from './application/auth/env-resolver.js';
+} from './services/tools/adapters/cli/passthrough.js';
+import { ApprovalService } from './services/approvals/base.js';
+import { PushSubscriptionStore } from './services/database/adapters/push-store.js';
+import { createPushNotifier, vapidFromEnv } from './services/approvals/adapters/web-push/notifier.js';
+import { installCliPassthroughTools } from './services/tools/adapters/cli/installer.js';
+import { resolveAndInjectCliPassthroughEnv } from './services/secrets/adapters/env/cli-env.js';
 import { logger } from './common/logger.js';
-import { PodResolver } from './adapters/outbound/network/pod-resolver.js';
-import { McpUpstreamManager } from './application/upstreams/mcp-upstream-manager.js';
-import { ToolRefreshService } from './application/tools/tool-refresh-service.js';
-import { loadRuntimeTools, resyncRuntimeTools } from './application/runtime/runtime-tool-loader.js';
-import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } from './application/runtime/runtime-profile-loader.js';
-import { createInvalidationBus } from './adapters/outbound/persistence/invalidation-bus.js';
-import { CacheSync } from './application/runtime/cache-sync.js';
-import { hashProfileToken } from './application/auth/profile-token.js';
+import { PodResolver } from './services/upstreams/adapters/dns/pod-resolver.js';
+import { McpUpstreamManager } from './services/upstreams/base.js';
+import { ToolRefreshService } from './services/tools/tool-refresh-service.js';
+import { loadRuntimeTools, resyncRuntimeTools } from './services/tools/runtime-tool-loader.js';
+import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } from './services/profiles/runtime-profile-loader.js';
+import { createInvalidationBus } from './services/database/adapters/invalidation-bus.js';
+import { CacheSync } from './services/runtime/base.js';
+import { hashProfileToken } from './services/authentication/base.js';
 import { createMetrics } from './common/metrics.js';
 import { drainHttpServer } from './common/http-drain.js';
 
@@ -327,7 +327,7 @@ async function main() {
 }
 
 if (process.argv[2] === 'db') {
-  void import('./adapters/outbound/persistence/migrate-cli.js').then(m => m.runDbCli(process.argv.slice(3), process.env)).then(code => process.exit(code));
+  void import('./services/database/adapters/cli/migrate.js').then(m => m.runDbCli(process.argv.slice(3), process.env)).then(code => process.exit(code));
 } else main().catch(err => {
   logger.error('startup failed', {
     error: err instanceof Error ? err.message : String(err),

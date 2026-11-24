@@ -1,7 +1,7 @@
 import {it,expect} from 'vitest';
-import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
-import {ConsentStore,hash} from '../../../src/application/approvals/consent-store.js';
-import {WeakConsent} from '../../../src/adapters/inbound/consent/weak.js';
+import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
+import {ConsentStore,hash} from '../../../src/services/approvals/consent-store.js';
+import {WeakConsent} from '../../../src/services/approvals/adapters/fastify/weak.js';
 it('dormant weak consent binds credentials per token, limits attempts and never executes',async ()=>{
  const db=await SplicedockStore.open(':memory:');const store=await ConsentStore.open(db.consentDatabase());const now=Date.now();
  for(const [id,token] of [['a','A'],['b','B'],['c','A']])await db.insertApproval({id,tool:'test',argv_hash:'hash',argv_json:'[]',rule:'approval_subcommands',matched:'x',requested_at:now,expires_at:now+600000,profile:'p',token_id:token,cwd:'/tmp'});

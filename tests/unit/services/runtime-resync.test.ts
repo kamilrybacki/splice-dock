@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { ToolService } from '../../../src/application/tools/tool-service.js';
-import { loadRuntimeTools, resyncRuntimeTools } from '../../../src/application/runtime/runtime-tool-loader.js';
-import { loadRuntimeProfiles, resyncRuntimeProfiles } from '../../../src/application/runtime/runtime-profile-loader.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ToolService } from '../../../src/services/tools/base.js';
+import { loadRuntimeTools, resyncRuntimeTools } from '../../../src/services/tools/runtime-tool-loader.js';
+import { loadRuntimeProfiles, resyncRuntimeProfiles } from '../../../src/services/profiles/runtime-profile-loader.js';
 import type { ToolConfig } from '../../../src/config/types.js';
 
 const log = { info() {}, warn() {} };

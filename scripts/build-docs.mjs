@@ -1,16 +1,16 @@
 import {readFileSync,writeFileSync,mkdirSync,cpSync,rmSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
-import {makePages,escape} from '../site/pages.mjs';
+import {makePages,escape} from '../docs/web/pages.mjs';
 const root=join(dirname(fileURLToPath(import.meta.url)),'..');
-const config=JSON.parse(readFileSync(join(root,'site/config.json'),'utf8'));
-const pages=makePages(config,readFileSync(join(root,'site/examples/quickstart.yaml'),'utf8').trim());
+const config=JSON.parse(readFileSync(join(root,'docs/web/config.json'),'utf8'));
+const pages=makePages(config,readFileSync(join(root,'docs/web/examples/quickstart.yaml'),'utf8').trim());
 const out=join(root,'_site');
 // Only generated output is replaced; content and application files stay untouched.
 rmSync(out,{recursive:true,force:true});mkdirSync(out,{recursive:true});
-cpSync(join(root,'site/assets'),join(out,'assets'),{recursive:true});
-cpSync(join(root,'site/examples'),join(out,'examples'),{recursive:true});
-for(const file of ['style.css','client.js'])cpSync(join(root,'site',file),join(out,file));
+cpSync(join(root,'docs/web/assets'),join(out,'assets'),{recursive:true});
+cpSync(join(root,'docs/web/examples'),join(out,'examples'),{recursive:true});
+for(const file of ['style.css','client.js'])cpSync(join(root,'docs/web',file),join(out,file));
 const text=html=>html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 const nav=current=>`<nav aria-label="Documentation">${pages.map((p,i)=>`<a href="${p.slug}.html" ${current===p.slug?'aria-current="page"':''}><span>${String(i).padStart(2,'0')}</span>${escape(p.nav)}</a>`).join('')}</nav>`;
 for(const [i,page] of pages.entries()){

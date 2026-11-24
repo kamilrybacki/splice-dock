@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'site/**'
+      - 'docs/web/**'
       - 'scripts/build-docs.mjs'
       - 'scripts/check-docs.mjs'
       - '.github/workflows/pages.yml'
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
       # The docs scripts use only Node built-ins, so no npm ci is needed.
-      # site/config.json holds the absolute site URL, so no configure-pages step.
+      # docs/web/config.json holds the absolute site URL, so no configure-pages step.
       - name: Build and validate user documentation
         run: node scripts/build-docs.mjs && node scripts/check-docs.mjs
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

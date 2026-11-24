@@ -7,9 +7,9 @@ import {
   isCanonicalArgv,
   opDigest,
   type CanonicalOperation,
-} from '../../../src/domain/policy/operation.js';
-import { argvHash } from '../../../src/application/approvals/approval-service.js';
-import { compilePolicy, evaluatePolicy } from '../../../src/domain/policy/cli-policy.js';
+} from '../../../src/services/policy/operation.js';
+import { argvHash } from '../../../src/services/approvals/base.js';
+import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli-policy.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 const LONE_SURROGATE = 'a\uD800b';

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 
 describe('SplicedockStore runtime_profiles', () => {
   let store: SplicedockStore;

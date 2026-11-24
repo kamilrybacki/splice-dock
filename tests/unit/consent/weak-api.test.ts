@@ -1,9 +1,9 @@
 import {it,expect} from 'vitest';
 import Fastify from 'fastify';
-import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
-import {ConsentStore,hash} from '../../../src/application/approvals/consent-store.js';
-import {WebAuthnConsent} from '../../../src/adapters/inbound/consent/webauthn.js';
-import {registerEnrollmentRoutes,registerWeakConsentRoutes} from '../../../src/adapters/inbound/consent/server.js';
+import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
+import {ConsentStore,hash} from '../../../src/services/approvals/consent-store.js';
+import {WebAuthnConsent} from '../../../src/services/approvals/adapters/fastify/webauthn.js';
+import {registerEnrollmentRoutes,registerWeakConsentRoutes} from '../../../src/services/approvals/adapters/fastify/server.js';
 it('configured weak issuance rotates, is single-use and requires the bound profile bearer',async()=>{
  const db=await SplicedockStore.open(':memory:');const store=await ConsentStore.open(db.consentDatabase());
  await db.insertProfileToken('A','p',hash('profile-A'));await db.insertProfileToken('B','p',hash('profile-B'));

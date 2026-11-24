@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AuditBuffer, type AuditEntry } from '../../../src/application/audit/audit-buffer.js';
+import { AuditBuffer, type AuditEntry } from '../../../src/services/audit/base.js';
 
 function mk(tool: string, decision: 'allow' | 'deny', extras: Partial<AuditEntry> = {}): AuditEntry {
   return {

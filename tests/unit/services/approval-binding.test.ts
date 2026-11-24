@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService, argvHash } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
 import { LEGACY_QUERY_TOKEN_ID, runWithCaller } from '../../../src/common/request-context.js';
 import { logger } from '../../../src/common/logger.js';
 

@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/assets/splicedock-logo-dark.svg">
-    <img src="site/assets/splicedock-logo.svg" alt="Splicedock" width="320">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/web/assets/splicedock-logo-dark.svg">
+    <img src="docs/web/assets/splicedock-logo.svg" alt="Splicedock" width="320">
   </picture>
 </h1>
 
@@ -73,7 +73,7 @@ consent for this local run.
 ```bash
 (
   demo_dir="$(mktemp -d)" || exit 1
-  export SPLICEDOCK_CONFIG="$PWD/site/examples/quickstart.yaml"
+  export SPLICEDOCK_CONFIG="$PWD/docs/web/examples/quickstart.yaml"
   export SPLICEDOCK_DB_PATH="$demo_dir/splicedock.db"
   export SPLICEDOCK_ADMIN_TOKEN="$(node -e 'console.log(require("node:crypto").randomBytes(32).toString("hex"))')"
 
@@ -81,7 +81,7 @@ consent for this local run.
   gateway_pid=$!
   trap 'kill "$gateway_pid" 2>/dev/null; wait "$gateway_pid" 2>/dev/null; rm -f "$demo_dir"/splicedock.db* "$demo_dir/gateway.log"; rmdir "$demo_dir"' EXIT
 
-  node site/examples/first-call.mjs || { cat "$demo_dir/gateway.log" >&2; exit 1; }
+  node docs/web/examples/first-call.mjs || { cat "$demo_dir/gateway.log" >&2; exit 1; }
 )
 ```
 
@@ -137,7 +137,7 @@ and does not need the build, but npm still starts it
 
 With the same configuration and environment, `npx splicedock` also works without
 a global install. The package includes the Quickstart configuration at
-`$(npm root -g)/splicedock/site/examples/quickstart.yaml`
+`$(npm root -g)/splicedock/docs/web/examples/quickstart.yaml`
 and the annotated example at `$(npm root -g)/splicedock/splicedock.example.yaml`.
 To move an existing SQLite database to PostgreSQL, run
 `splicedock db migrate-sqlite-to-pg --sqlite <path>` with `SPLICEDOCK_DB_DSN` set.
@@ -267,7 +267,7 @@ listed the available tools, and then ran the three reads in parallel.
 | Build and check the docs | `npm run docs:build && npm run docs:check` |
 
 Gateway code lives in [`src/`](src/), tests in [`tests/`](tests/), and the
-public user guide in [`site/`](site/). The
+public user guide in [`docs/web/`](docs/web/). The
 [architecture decisions](docs/adrs/), [token and metrics authentication](docs/profile-token-and-metrics-auth.md),
 and [admin identity and CSRF](docs/admin-identity-and-csrf.md) notes document the design.
 Check the [CI runs](https://github.com/kamilrybacki/splice-dock/actions/workflows/ci.yml) for build and test results.

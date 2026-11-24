@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { loadRuntimeProfiles } from '../../../src/application/runtime/runtime-profile-loader.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { loadRuntimeProfiles } from '../../../src/services/profiles/runtime-profile-loader.js';
 
 const log = { info: () => {}, warn: () => {} };
 

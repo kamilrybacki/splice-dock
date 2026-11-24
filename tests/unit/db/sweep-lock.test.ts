@@ -49,9 +49,9 @@ vi.mock('pg', async (importOriginal) => {
   return { ...actual, default: { ...actual.default, Client: h.FakeClient } };
 });
 
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
-import { SqliteDb } from '../../../src/adapters/outbound/persistence/sqlite-db.js';
-import { runSweepExclusive, SWEEP_LOCK_KEYS } from '../../../src/application/shared/sweep-lock.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
+import { SqliteDb } from '../../../src/services/database/adapters/sqlite/db.js';
+import { runSweepExclusive, SWEEP_LOCK_KEYS } from '../../../src/services/database/sweep-lock.js';
 
 const DSN = 'postgres://u:p@127.0.0.1:1/x';
 

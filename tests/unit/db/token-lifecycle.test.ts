@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 let store: SplicedockStore;
 beforeEach(async () => { vi.useFakeTimers(); vi.setSystemTime(100000); store = await SplicedockStore.open(':memory:'); });
 afterEach(async () => { await store.close(); vi.useRealTimers(); });

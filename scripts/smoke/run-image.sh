@@ -23,7 +23,7 @@ GATEWAYS=("$PREFIX-sqlite" "$PREFIX-pg1" "$PREFIX-pg2")
 PG="$PREFIX-pg"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-config="$(cd "$here/../.." && pwd)/site/examples/quickstart.yaml"
+config="$(cd "$here/../.." && pwd)/docs/web/examples/quickstart.yaml"
 client="$here/client.mjs"
 admin_token="$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
 dsn="postgres://postgres:${PG_PASSWORD}@${PG}:5432/postgres"

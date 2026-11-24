@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { PgDb } from '../../src/adapters/outbound/persistence/pg-db.js';
+import { PgDb } from '../../src/services/database/adapters/postgres/db.js';
 
 /** DSN of a real Postgres for tests; absent => the real-Postgres suites skip. */
 export const TEST_PG_DSN = process.env['SPLICEDOCK_TEST_PG_DSN'];

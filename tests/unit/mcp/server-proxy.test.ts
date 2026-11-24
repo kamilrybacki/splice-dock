@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 // Capture setRequestHandler callbacks so we can invoke them directly
@@ -29,7 +29,7 @@ vi.mock('@modelcontextprotocol/sdk/server/sse.js', () => ({
 }));
 
 // Import after mocking
-const { buildMcpServer } = await import('../../../src/adapters/inbound/mcp/server.js');
+const { buildMcpServer } = await import('../../../src/services/mcp/adapters/express/server.js');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 

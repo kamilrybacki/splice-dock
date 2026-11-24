@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
-import { createMcpExpressApp } from '../../../src/adapters/inbound/mcp/server.js';
-import { createQueryFallbackWarner, QUERY_FALLBACK_WARN_INTERVAL_MS } from '../../../src/adapters/inbound/mcp/profile-selection.js';
+import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
+import { createQueryFallbackWarner, QUERY_FALLBACK_WARN_INTERVAL_MS } from '../../../src/services/mcp/adapters/express/profile-selection.js';
 import { createMetrics } from '../../../src/common/metrics.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
 import { logger } from '../../../src/common/logger.js';
 
 let server: ReturnType<typeof createServer> | undefined;

@@ -1,9 +1,10 @@
+import { executeCode } from '../../../src/services/code-mode/adapters/quickjs/executor.js';
 import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { executeWithPreflight } from '../../../src/application/code-mode/preflight.js';
-import { callCliTool } from '../../../src/adapters/outbound/drivers/cli-wrapper.js';
-import { callReviewedCliPassthrough } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
-import { McpProxyDriver } from '../../../src/adapters/outbound/drivers/mcp-proxy.js';
+import { executeWithPreflight } from '../../../src/services/code-mode/preflight.js';
+import { callCliTool } from '../../../src/services/tools/adapters/cli/static.js';
+import { callReviewedCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { McpProxyDriver } from '../../../src/services/upstreams/adapters/mcp/driver.js';
 import type { CliToolConfig, CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 describe('Code Mode driver preflight', () => {
@@ -16,6 +17,7 @@ describe('Code Mode driver preflight', () => {
     };
     let reviewed = false;
     const result = await executeWithPreflight({
+      executeCode,
       code: 'return await tools.call("demo__echo", {value:"sample"});', profile: 'test',
       catalog: () => [], allowLive,
       dispatch: (_tool, args, phase, _http, signal, exchange) => {
@@ -41,6 +43,7 @@ describe('Code Mode driver preflight', () => {
       policy: { deny_subcommands: ['fixture'] }, timeout_ms: 3000, env: [] } as CliPassthroughToolConfig;
     let captured: unknown;
     const result = await executeWithPreflight({
+      executeCode,
       code: 'return await tools.call("demo__run",{args:["fixture"]});', profile: 'test', catalog: () => [],
       allowLive: true,
       dispatch: (_tool, args, _phase, _http, signal, exchange) =>
@@ -80,6 +83,7 @@ describe('Code Mode driver preflight', () => {
     try {
       await driver.connect();
       const result = await executeWithPreflight({
+        executeCode,
         code: 'return await tools.call("demo__read", { value: 2 });', profile: 'test', catalog: () => [],
         allowLive,
         dispatch: (tool, args, _phase, _http, signal, exchange) => driver.callReviewedTool(tool, args, exchange, signal),

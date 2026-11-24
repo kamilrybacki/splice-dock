@@ -6,15 +6,15 @@ import Database from 'better-sqlite3';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { CircuitBreaker } from '../../../src/application/policy/circuit-breaker.js';
-import { compilePolicy } from '../../../src/domain/policy/cli-policy.js';
+import { CircuitBreaker } from '../../../src/services/policy/circuit-breaker.js';
+import { compilePolicy } from '../../../src/services/policy/cli-policy.js';
 import type { CliToolPolicy } from '../../../src/config/schema.js';
 import {
   callCliPassthrough,
   setApprovalHookFactory,
   setCircuitBreaker,
   type ApprovalHookFactory,
-} from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+} from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { runWithCaller } from '../../../src/common/request-context.js';
 import { sqliteDb } from '../../helpers/sqlite.js';
 

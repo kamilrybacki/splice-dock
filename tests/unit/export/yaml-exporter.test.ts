@@ -1,8 +1,8 @@
 // tests/unit/export/yaml-exporter.test.ts
 import { describe, it, expect } from 'vitest';
-import { exportToolsYaml, exportProfilesYaml, exportFullManifest } from '../../../src/adapters/outbound/export/yaml-exporter.js';
-import { ToolRegistry, type RegistryEntry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
+import { exportToolsYaml, exportProfilesYaml, exportFullManifest } from '../../../src/services/admin/adapters/fastify/yaml-exporter.js';
+import { ToolRegistry, type RegistryEntry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
 import yaml from 'js-yaml';
 
 function makeHttpEntry(id: string, source: 'file' | 'runtime' = 'file'): RegistryEntry {

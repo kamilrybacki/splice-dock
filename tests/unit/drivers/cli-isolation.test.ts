@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createIsolatedHome, ISOLATED_ENV_KEYS } from '../../../src/adapters/outbound/drivers/cli-isolation.js';
-import { callCliPassthrough } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { createIsolatedHome, ISOLATED_ENV_KEYS } from '../../../src/services/tools/adapters/cli/isolation.js';
+import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 const mode = (p: string) => statSync(p).mode & 0o777;

@@ -3,10 +3,10 @@ import { describe,it,expect } from 'vitest';
 import { generateKeyPairSync,createHash,sign } from 'node:crypto';
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ConsentStore } from '../../../src/application/approvals/consent-store.js';
-import { WebAuthnConsent } from '../../../src/adapters/inbound/consent/webauthn.js';
-import { registerConsentRoutes } from '../../../src/adapters/inbound/consent/server.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
+import { WebAuthnConsent } from '../../../src/services/approvals/adapters/fastify/webauthn.js';
+import { registerConsentRoutes } from '../../../src/services/approvals/adapters/fastify/server.js';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 async function setup(trusted=true,event:(event:string,latency?:number)=>void=()=>{}) {
   const db=await SplicedockStore.open(':memory:');const store=await ConsentStore.open(db.consentDatabase(),event);

@@ -2,7 +2,7 @@
 // (SQLite file or Postgres DSN), waits on a start barrier, then performs one
 // claim and reports the outcome. Never throws across the thread boundary.
 import { parentPort, workerData } from 'node:worker_threads';
-import { SplicedockStore } from '../../src/adapters/outbound/persistence/store.js';
+import { SplicedockStore } from '../../src/services/database/adapters/store.js';
 
 interface Data {
   target: string;

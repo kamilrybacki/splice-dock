@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { CircuitBreaker } from '../../../src/application/policy/circuit-breaker.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { CircuitBreaker } from '../../../src/services/policy/circuit-breaker.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, holdRowLocks, untilLockWaiters, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 // Two PgDb pools on one schema stand in for two Splicedock replicas.

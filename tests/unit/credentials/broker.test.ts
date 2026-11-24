@@ -1,4 +1,5 @@
-import { credentialAdapters } from '../../../src/adapters/outbound/credentials/index.js';
+import { resolveCredentialSource } from '../../../src/services/secrets/adapters/resolve-credential.js';
+import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,10 +8,9 @@ import {
   configureCredentialBroker,
   resetCredentialBroker,
   resetCredentialCache,
-  resolveCredentialSource,
   resolveMintedCredential,
   revokeProfileCredentials,
-} from '../../../src/application/credentials/broker.js';
+} from '../../../src/services/secrets/broker.js';
 import type { CredentialProviderConfig } from '../../../src/config/types.js';
 
 let dir: string;

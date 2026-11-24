@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { baseShapeKey, kubectlBaseShape, kubectlShape } from '../../../src/domain/policy/shape/kubectl.js';
-import { contextSimilarity } from '../../../src/domain/policy/context-similarity.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { baseShapeKey, kubectlBaseShape, kubectlShape } from '../../../src/services/policy/shape/kubectl.js';
+import { contextSimilarity } from '../../../src/services/policy/context-similarity.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
 const caller = {profile:'test',tokenId:'fixture',authenticated:true};
 const context = 'Clean up completed batch jobs after investigating failed scheduled runs';
 const base = ['delete','jobs','fixture','-n','batch'];

@@ -7,9 +7,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService, argvHash } from '../../../src/application/approvals/approval-service.js';
-import { renderApprovalDetail, renderApprovalsPage } from '../../../src/adapters/inbound/admin/web/pages/approvals.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
+import { renderApprovalDetail, renderApprovalsPage } from '../../../src/services/admin/adapters/fastify/web/pages/approvals.js';
 
 const INPUT = { tool: 'kubectl', argv: ['rollout', 'undo'], rule: 'approval_subcommand_paths' as const, matched: 'rollout undo' };
 const CALLER = { profile: 'profA', tokenId: 'tok-1', authenticated: true };

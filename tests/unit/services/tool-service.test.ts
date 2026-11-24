@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ToolService } from '../../../src/application/tools/tool-service.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
+import { ToolService } from '../../../src/services/tools/base.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
 import type { HttpToolConfig, CliToolConfig } from '../../../src/config/types.js';
 
 describe('ToolService', () => {

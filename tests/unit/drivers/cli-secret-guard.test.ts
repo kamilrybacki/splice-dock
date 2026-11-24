@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { callCliPassthrough } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 it('refuses spawn rather than using a previously injected credential', async () => {
   vi.stubEnv('T8_STALE', 'stale-test-fixture');

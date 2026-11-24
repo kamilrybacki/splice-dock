@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ConsentStore, hash } from '../../../src/application/approvals/consent-store.js';
-import { WeakConsent } from '../../../src/adapters/inbound/consent/weak.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ConsentStore, hash } from '../../../src/services/approvals/consent-store.js';
+import { WeakConsent } from '../../../src/services/approvals/adapters/fastify/weak.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, holdRowLocks, untilLockWaiters, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 // Two SplicedockStore pools on one schema stand in for two Splicedock replicas.

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
-import { startTokenSweep } from '../../../src/application/auth/token-lifecycle.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { startTokenSweep } from '../../../src/services/authentication/token-lifecycle.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { splicedockConfigSchema } from '../../../src/config/schema.js';
 import { createMetrics } from '../../../src/common/metrics.js';
 it('schedules observation by default and cancels before database shutdown', async () => {

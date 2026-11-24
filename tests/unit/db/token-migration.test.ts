@@ -3,9 +3,9 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateProfileTokenAgent } from '../../../src/adapters/outbound/persistence/migrations/profile-token-agent.js';
-import { migrateProfileTokenLifecycle } from '../../../src/adapters/outbound/persistence/migrations/profile-token-lifecycle.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { migrateProfileTokenAgent } from '../../../src/services/database/adapters/migrations/profile-token-agent.js';
+import { migrateProfileTokenLifecycle } from '../../../src/services/database/adapters/migrations/profile-token-lifecycle.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { sqliteDb } from "../../helpers/sqlite.js";
 
 it('migrates twice without changing legacy data and preserves lifecycle across restart', async () => {

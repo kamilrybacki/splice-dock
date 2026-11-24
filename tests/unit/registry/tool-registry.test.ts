@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import type { RegistryEntry } from '../../../src/application/registry/tool-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import type { RegistryEntry } from '../../../src/services/tools/tool-registry.js';
 
 function makeEntry(id: string, source: 'file' | 'runtime' = 'file'): RegistryEntry {
   return {

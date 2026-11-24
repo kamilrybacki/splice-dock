@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { registerMcpUpstreamRoutes } from '../../../src/adapters/inbound/admin/routes/mcp-upstreams.js';
-import { McpUpstreamManager } from '../../../src/application/upstreams/mcp-upstream-manager.js';
+import { registerMcpUpstreamRoutes } from '../../../src/services/admin/adapters/fastify/routes/mcp-upstreams.js';
+import { McpUpstreamManager } from '../../../src/services/upstreams/base.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 const fileCfg = { type: 'mcp_proxy', name: 'filed', service_dns: 'f.svc', port: 1 } as unknown as McpProxyToolConfig;

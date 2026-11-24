@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import Fastify from 'fastify';
 import { inflateSync } from 'node:zlib';
-import { ADMIN_SESSION_COOKIE } from '../../../src/adapters/inbound/admin/auth.js';
-import { registerWebUiRoutes } from '../../../src/adapters/inbound/admin/web.js';
-import { renderSwipePage } from '../../../src/adapters/inbound/admin/web/pages/swipe.js';
-import { renderIconPng } from '../../../src/adapters/inbound/admin/web/pwa.js';
-import type { WebUiOptions } from '../../../src/adapters/inbound/admin/web/types.js';
+import { ADMIN_SESSION_COOKIE } from '../../../src/services/admin/adapters/fastify/auth.js';
+import { registerWebUiRoutes } from '../../../src/services/admin/adapters/fastify/web.js';
+import { renderSwipePage } from '../../../src/services/admin/adapters/fastify/web/pages/swipe.js';
+import { renderIconPng } from '../../../src/services/admin/adapters/fastify/web/pwa.js';
+import type { WebUiOptions } from '../../../src/services/admin/adapters/fastify/web/types.js';
 
 const TOKEN = 'swipe-test-placeholder';
 const cookie = `${ADMIN_SESSION_COOKIE}=${TOKEN}`;

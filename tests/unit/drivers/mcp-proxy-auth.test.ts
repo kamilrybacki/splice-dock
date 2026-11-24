@@ -5,13 +5,13 @@ const mocks = vi.hoisted(() => ({
   mintResolve: vi.fn(async (source: unknown) => `minted(${(source as { mint: string }).mint})`),
 }));
 
-vi.mock('../../../src/application/auth/resolver.js', () => ({ resolveAuthValue: mocks.staticResolve }));
-vi.mock('../../../src/application/credentials/broker.js', () => ({
+vi.mock('../../../src/services/secrets/adapters/vault/resolver.js', () => ({ resolveAuthValue: mocks.staticResolve }));
+vi.mock('../../../src/services/secrets/adapters/resolve-credential.js', () => ({
   resolveCredentialSource: (source: { from: string } | { mint: string }, _target: unknown) =>
     'from' in source ? mocks.staticResolve(source.from) : mocks.mintResolve(source),
 }));
 
-const { buildAuthHeaders } = await import('../../../src/adapters/outbound/drivers/mcp-proxy.js');
+const { buildAuthHeaders } = await import('../../../src/services/upstreams/adapters/mcp/driver.js');
 
 const identity = { profile: 'worker', agent: 'bot' };
 

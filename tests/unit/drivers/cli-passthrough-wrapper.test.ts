@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { callCliPassthrough } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 function mkConfig(overrides: Partial<CliPassthroughToolConfig> = {}): CliPassthroughToolConfig {
@@ -154,7 +154,7 @@ describe('callCliPassthrough — policy', () => {
 
 describe('callCliPassthrough — policy decision metric sink', () => {
   it('reports allow and deny with rule category only', async () => {
-    const { setPolicyDecisionSink } = await import('../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js');
+    const { setPolicyDecisionSink } = await import('../../../src/services/tools/adapters/cli/passthrough.js');
     const { runWithCaller } = await import('../../../src/common/request-context.js');
     const seen: unknown[] = [];
     setPolicyDecisionSink(e => seen.push(e));

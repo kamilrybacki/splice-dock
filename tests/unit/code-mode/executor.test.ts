@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { executeCode } from '../../../src/application/code-mode/executor.js';
+import { executeCode } from '../../../src/services/code-mode/adapters/quickjs/executor.js';
 
 const catalog = () => [{ name: 'test__get', description: 'Get data', inputSchema: { type: 'object' as const } }];
 describe('Code Mode', () => {

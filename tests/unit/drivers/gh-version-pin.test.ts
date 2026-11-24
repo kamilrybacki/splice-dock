@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PINNED_GH_VERSION } from '../../../src/domain/cli/gh-version.js';
+import { PINNED_GH_VERSION } from '../../../src/services/policy/cli/gh-version.js';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const read = (file: string): string => readFileSync(root + file, 'utf8');

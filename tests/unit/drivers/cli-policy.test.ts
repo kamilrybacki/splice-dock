@@ -4,7 +4,7 @@ import {
   evaluatePolicy,
   PolicyCompileError,
   type CompiledCliPolicy,
-} from '../../../src/domain/policy/cli-policy.js';
+} from '../../../src/services/policy/cli-policy.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 function mkPolicy(overrides: Partial<CliToolPolicy> = {}): CliToolPolicy {
@@ -259,7 +259,7 @@ describe('evaluatePolicy — error message redaction', () => {
 describe('policyFor double-set guard (via wrapper)', () => {
   // Integration here via the wrapper module to avoid duplicating the guard.
   it('legacy + policy.deny_subcommands both set throws via wrapper compile', async () => {
-    const { callCliPassthrough } = await import('../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js');
+    const { callCliPassthrough } = await import('../../../src/services/tools/adapters/cli/passthrough.js');
     const result = await callCliPassthrough(
       {
         type: 'cli_passthrough',

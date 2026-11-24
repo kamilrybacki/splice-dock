@@ -8,10 +8,10 @@ import {
   setAuditSink,
   setMetricsSink,
   setPolicyDecisionSink,
-} from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+} from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
 import { runWithCaller } from '../../../src/common/request-context.js';
 
 // Obvious placeholder that looks like a credential passed as argv[0].

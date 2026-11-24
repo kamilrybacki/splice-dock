@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import Fastify from 'fastify';
-import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/adapters/inbound/admin/auth.js';
-import { registerApprovalRoutes } from '../../../src/adapters/inbound/admin/routes/approvals.js';
-import type { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/services/admin/adapters/fastify/auth.js';
+import { registerApprovalRoutes } from '../../../src/services/admin/adapters/fastify/routes/approvals.js';
+import type { ApprovalService } from '../../../src/services/approvals/base.js';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 let app: ReturnType<typeof Fastify> | undefined;

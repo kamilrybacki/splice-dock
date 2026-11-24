@@ -1,10 +1,10 @@
 import { it, expect } from 'vitest';
 import Fastify from 'fastify';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ConsentStore } from '../../../src/application/approvals/consent-store.js';
-import { WebAuthnConsent } from '../../../src/adapters/inbound/consent/webauthn.js';
-import { registerConsentRoutes } from '../../../src/adapters/inbound/consent/server.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
+import { WebAuthnConsent } from '../../../src/services/approvals/adapters/fastify/webauthn.js';
+import { registerConsentRoutes } from '../../../src/services/approvals/adapters/fastify/server.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
 
 const caller = { profile: 'test', tokenId: 'fixture', authenticated: true };
 const context = 'Clean up completed batch jobs after investigating failed scheduled runs';

@@ -32,7 +32,7 @@ vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
 }));
 
 // Import after mocking
-const { McpProxyDriver } = await import('../../../src/adapters/outbound/drivers/mcp-proxy.js');
+const { McpProxyDriver } = await import('../../../src/services/upstreams/adapters/mcp/driver.js');
 
 function makeConfig(overrides: Partial<McpProxyToolConfig> = {}): McpProxyToolConfig {
   return {

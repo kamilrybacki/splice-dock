@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import {breakerReadonly} from '../domain/policy/breaker-readonly.js';
+import {breakerReadonly} from '../services/policy/breaker-readonly.js';
 
 const authFromSchema = z
   .string()
@@ -142,7 +142,7 @@ const cliPassthroughEnvRefSchema = z.union([
 // Fine-grained argv policy for cli_passthrough tools. Exported so admin
 // routes can re-validate runtime override payloads. Every field is optional;
 // when set, ALL constraints must pass (intersection). Evaluation order is
-// deterministic and documented in src/domain/policy/cli-policy.ts.
+// deterministic and documented in src/services/policy/cli-policy.ts.
 //
 // Backward compatibility: the top-level `deny_subcommands` on
 // cli_passthrough is kept and folded into policy.deny_subcommands by the
@@ -161,7 +161,7 @@ export const cliToolPolicySchema = z.object({
   // a list of consecutive non-flag argv tokens. Example: [["repo","view"]]
   // for `gh repo view ...`. Mutually exclusive with deny_subcommand_paths.
   //
-  // Path extraction is tool-aware (src/domain/cli/flag-arity.ts): built-in
+  // Path extraction is tool-aware (src/services/policy/cli/flag-arity.ts): built-in
   // flag tables for gh and kubectl (by command basename), extended by
   // `value_flags` / `boolean_flags` below. `--flag=value` and `-xVALUE` never
   // consume the next token; a known value flag always does (even `--`); `--`

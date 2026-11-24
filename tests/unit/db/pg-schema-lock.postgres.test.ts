@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
-import { migratePostgres } from '../../../src/adapters/outbound/persistence/pg-schema.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
+import { migratePostgres } from '../../../src/services/database/adapters/postgres/schema.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 const LOCK_KEY = 727274;

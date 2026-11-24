@@ -6,7 +6,7 @@
 #
 # Installs the tarball globally in a fresh node:22-slim container, starts
 # `splicedock` with the Quickstart config shipped in the package, then runs
-# site/examples/first-call.mjs and client.mjs against it. The container needs
+# docs/web/examples/first-call.mjs and client.mjs against it. The container needs
 # registry access to install the package's dependencies.
 set -euo pipefail
 
@@ -40,7 +40,7 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const { createRequire } = require("node:module");
 const pkg = process.argv[2];
 const { load, dump } = createRequire(pkg + "/package.json")("js-yaml");
-const config = load(readFileSync(pkg + "/site/examples/quickstart.yaml", "utf8"));
+const config = load(readFileSync(pkg + "/docs/web/examples/quickstart.yaml", "utf8"));
 config.server.cli_whitelist.push("smoke-probe");
 config.profiles.demo.tools.push("smoke_probe__*");
 config.tools.push({
@@ -63,7 +63,7 @@ NODE
   gateway=$!
   trap "kill $gateway 2>/dev/null || true" EXIT
   cp /smoke/client.mjs "$pkg/smoke-client.mjs"
-  node "$pkg/site/examples/first-call.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
+  node "$pkg/docs/web/examples/first-call.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
   echo "PASS first-call.mjs"
   SD_CHECK_INSTALLER=1 node "$pkg/smoke-client.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
   if grep "\"level\":\"error\"" "$data/gateway.log" >&2; then echo "gateway logged errors" >&2; exit 1; fi

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import type { McpProxyDriver } from '../../../src/adapters/outbound/drivers/mcp-proxy.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import type { McpProxyDriver } from '../../../src/services/upstreams/adapters/mcp/driver.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 const handlers = new Map<string, (req: unknown) => unknown>();
@@ -29,7 +29,7 @@ vi.mock('@modelcontextprotocol/sdk/server/sse.js', () => ({
   SSEServerTransport: vi.fn(),
 }));
 
-vi.mock('../../../src/adapters/outbound/drivers/mcp-proxy.js', () => ({
+vi.mock('../../../src/services/upstreams/adapters/mcp/driver.js', () => ({
   proxyDriverKey: (namespace: string, profile?: string) =>
     profile === undefined ? namespace : `${namespace}\u0000${profile}`,
   proxyDriverNamespace: (key: string) => key.split('\u0000')[0],
@@ -44,7 +44,7 @@ vi.mock('../../../src/adapters/outbound/drivers/mcp-proxy.js', () => ({
   },
 }));
 
-const { buildMcpServer } = await import('../../../src/adapters/inbound/mcp/server.js');
+const { buildMcpServer } = await import('../../../src/services/mcp/adapters/express/server.js');
 
 const BASE_AUTH = { type: 'bearer' as const, token: { from: 'env:BASE_TOKEN' } };
 const WORKER_AUTH = { type: 'bearer' as const, token: { from: 'env:WORKER_TOKEN' } };

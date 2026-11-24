@@ -4,8 +4,8 @@
 // after a spawn, and a reservation that is never settled expires.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService, type ApprovalEvent } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService, type ApprovalEvent } from '../../../src/services/approvals/base.js';
 
 const INPUT = { tool: 'kubectl', argv: ['rollout', 'undo'], rule: 'approval_subcommand_paths' as const, matched: 'rollout undo' };
 const CALLER = { profile: 'profA', tokenId: 'tok-1', authenticated: true };

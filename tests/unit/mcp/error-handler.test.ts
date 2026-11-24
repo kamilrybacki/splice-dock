@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
-import { createMcpExpressApp } from '../../../src/adapters/inbound/mcp/server.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
+import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
 import { logger } from '../../../src/common/logger.js';
 
 const pkg = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8')) as { version: string };
