@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { expect, it } from 'vitest';
-import { registerProfileTokenRoutes } from '../../src/services/admin/adapters/fastify/routes/profile-tokens.js';
+import { registerProfileTokenRoutes } from '../../src/services/admin/adapters/fastify/routes/profiles/tokens.js';
 import { buildAdminAuthHook, buildAdminTokenSet } from '../../src/services/admin/adapters/fastify/auth.js';
 import { SplicedockStore } from '../../src/services/database/adapters/store.js';
 import { hashProfileToken } from '../../src/services/authentication/base.js';

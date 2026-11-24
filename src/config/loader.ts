@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { splicedockConfigSchema, type SplicedockConfig } from './schema.js';
-import { compilePolicy, PolicyCompileError } from '../services/policy/cli-policy.js';
-import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../services/policy/cli/kubeconfig-path.js';
+import { compilePolicy, PolicyCompileError } from '../services/policy/cli/rules.js';
+import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../services/policy/cli/kubeconfig/path.js';
 
 /** Every KUBECONFIG value a tool would pass that can be read without a live
  *  call: bare names and env: refs. vault: refs are checked at call time. All

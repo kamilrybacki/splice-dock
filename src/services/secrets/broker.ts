@@ -1,6 +1,6 @@
 import { logger } from '../../common/logger.js';
 import type { CredentialProviderConfig, CredentialStorageConfig } from '../../config/types.js';
-import { MemoryCredentialStore } from './memory-store.js';
+import { MemoryCredentialStore } from './memory/store.js';
 import type { CredentialAdapters, CredentialProvider, CredentialStore, MintedCredential, MintContext, StoredCredential } from './base.js';
 
 /** Who a credential is minted for. Part of every cache and storage key. */

@@ -1,4 +1,4 @@
-import type { ShadowFeatures } from '../../contracts/outbound/shadow-model.js';
+import type { ShadowFeatures } from '../../contracts/outbound/shadow/model.js';
 
 export interface Observation {tool:string;profile:string;argv:readonly string[];cwd:string|null}
 /** Caller supplies only configured tool/profile names. Argument values never cross the provider boundary. */

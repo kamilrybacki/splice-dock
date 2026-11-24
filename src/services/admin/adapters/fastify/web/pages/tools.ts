@@ -9,7 +9,7 @@
 // attribute, avoiding any embedding of tool names into JS string literals.
 
 import { escapeHtml, pill, kpi, card, spark } from '../components.js';
-import { ADD_TOOL_STYLES, ADD_TOOL_ALPINE } from './tools-add-assets.js';
+import { ADD_TOOL_STYLES, ADD_TOOL_ALPINE } from './tools/add/assets.js';
 
 interface ToolRow {
   tool: string;

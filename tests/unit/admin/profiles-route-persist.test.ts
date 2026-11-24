@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { registerProfileRoutes } from '../../../src/services/admin/adapters/fastify/routes/profiles.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { loadRuntimeProfiles } from '../../../src/services/profiles/runtime-profile-loader.js';
+import { loadRuntimeProfiles } from '../../../src/services/profiles/runtime/loader.js';
 
 const log = { info: () => {}, warn: () => {} };
 

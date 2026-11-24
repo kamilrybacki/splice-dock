@@ -1,7 +1,7 @@
 import { minimatch } from 'minimatch';
-import type { ProfileRegistry } from './profile-registry.js';
-import type { ToolRegistry } from '../tools/tool-registry.js';
-import type { McpToolDef } from '../../contracts/internal/mcp-tool.js';
+import type { ProfileRegistry } from './registry.js';
+import type { ToolRegistry } from '../tools/registry.js';
+import type { McpToolDef } from '../../contracts/internal/mcp/tool.js';
 
 export interface ProfileAccess {
   getToolsForProfile(profileName: string): McpToolDef[];

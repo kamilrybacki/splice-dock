@@ -2,7 +2,7 @@ import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { renderProfilesPage } from './web/pages/profiles.js';
-import { renderAutomaticApprovals } from './web/pages/automatic-approvals.js';
+import { renderAutomaticApprovals } from './web/pages/approvals/automatic.js';
 // Admin WebUI — routing wiring only. HTML generation lives in ./web/* modules.
 // Routes: GET/POST /admin/login, POST /admin/logout, GET /admin/,
 //         GET /admin/tools/:name, GET /admin/audit,
@@ -16,7 +16,7 @@ import { AUTHELIA_HEADER, CSRF_HEADER } from './auth.js';
 import { renderPage } from './web/layout.js';
 import { renderLoginPage } from './web/pages/login.js';
 import { renderToolsPage } from './web/pages/tools.js';
-import { renderToolDetail } from './web/pages/tool-detail.js';
+import { renderToolDetail } from './web/pages/tools/detail/index.js';
 import { renderAuditPage } from './web/pages/audit.js';
 import { renderApprovalsPage, renderApprovalDetail } from './web/pages/approvals.js';
 import { renderMetricsPage } from './web/pages/metrics.js';
@@ -33,7 +33,7 @@ export function registerWebUiRoutes(app: FastifyInstance, opts: WebUiOptions): v
   });
   app.get('/admin/profiles-editor.js', async (req, reply) => {
     if (!requireSession(req, reply, authCtx)) return;
-    editorBundle ??= build({ entryPoints: [fileURLToPath(new URL('./web/profile-editor/main.' + (import.meta.url.endsWith('.ts') ? 'ts' : 'js'), import.meta.url))], bundle: true, write: false, platform: 'browser', format: 'iife', minify: true }).then(result => result.outputFiles[0].text).catch(error => { editorBundle = undefined; throw error; });
+    editorBundle ??= build({ entryPoints: [fileURLToPath(new URL('./web/profiles/editor/main.' + (import.meta.url.endsWith('.ts') ? 'ts' : 'js'), import.meta.url))], bundle: true, write: false, platform: 'browser', format: 'iife', minify: true }).then(result => result.outputFiles[0].text).catch(error => { editorBundle = undefined; throw error; });
     return reply.type('application/javascript').send(await editorBundle);
   });
 

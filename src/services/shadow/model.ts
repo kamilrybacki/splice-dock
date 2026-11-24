@@ -1,4 +1,4 @@
-import type { Prediction, Provider, ShadowFeatures } from '../../contracts/outbound/shadow-model.js';
+import type { Prediction, Provider, ShadowFeatures } from '../../contracts/outbound/shadow/model.js';
 
 /** No endpoint or credentials are inferred from process environment. Deployment must explicitly inject a self-hosted adapter. */
 export const unavailable:Provider=async()=>{throw new Error('unavailable');};

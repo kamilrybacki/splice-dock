@@ -4,7 +4,7 @@ import { generateKeyPairSync,createHash,sign } from 'node:crypto';
 import Fastify from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent/store.js';
 import { WebAuthnConsent } from '../../../src/services/approvals/adapters/fastify/webauthn.js';
 import { registerConsentRoutes } from '../../../src/services/approvals/adapters/fastify/server.js';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';

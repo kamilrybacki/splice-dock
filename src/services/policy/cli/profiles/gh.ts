@@ -1,8 +1,8 @@
-// GitHub CLI profile (verified against gh 2.102.0, see ../gh-version.ts).
+// GitHub CLI profile (verified against gh 2.102.0, see ../gh/version.ts).
 
 import { join } from 'node:path';
-import { canonicalizeCommandPath, knownCommandTable } from '../command-table.js';
-import { flagTable, type FlagArity, type FlagTable } from '../flag-table.js';
+import { canonicalizeCommandPath, knownCommandTable } from '../commands/table.js';
+import { flagTable, type FlagArity, type FlagTable } from '../flags/table.js';
 import type { CliProfile, InvocationContext } from './types.js';
 
 // Only flags whose arity is the same in every subcommand belong here. When in

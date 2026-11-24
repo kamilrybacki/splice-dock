@@ -8,7 +8,7 @@
 import type { RuntimeToolRepository } from '../../contracts/outbound/repositories.js';
 import type { McpProxyToolConfig } from '../../config/types.js';
 import { toolSchema } from '../../config/schema.js';
-import type { ToolRegistry } from '../tools/tool-registry.js';
+import type { ToolRegistry } from '../tools/registry.js';
 import type { LogFields } from '../../common/logger.js';
 
 interface ManagerLog {

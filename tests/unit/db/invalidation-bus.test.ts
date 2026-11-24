@@ -7,7 +7,7 @@ import {
   encodeInvalidation,
   type BusTransport,
   type BusConnection,
-} from '../../../src/services/database/adapters/invalidation-bus.js';
+} from '../../../src/services/database/adapters/invalidation/bus.js';
 
 const quiet = { info: () => {}, warn: () => {} };
 

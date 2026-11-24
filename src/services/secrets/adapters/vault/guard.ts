@@ -1,4 +1,4 @@
-import { vaultEvent, authEvent } from '../../../authentication/lifecycle-events.js';
+import { vaultEvent, authEvent } from '../../../authentication/lifecycle/events.js';
 import { resolveAuthValueRaw } from './resolver.js';
 export type SecretResult = { ok: true; value: string } | { ok: false; code: 'vault_unavailable' | 'vault_timeout' | 'secret_missing' };
 let timeoutMs = 3000;

@@ -14,8 +14,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
 import { createAdminServer } from '../../src/services/admin/adapters/fastify/server.js';
-import { ToolRegistry } from '../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../src/services/profiles/registry.js';
 import { ToolService } from '../../src/services/tools/base.js';
 import { ProfileService } from '../../src/services/profiles/base.js';
 import { SplicedockStore } from '../../src/services/database/adapters/store.js';

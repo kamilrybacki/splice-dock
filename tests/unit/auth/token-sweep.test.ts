@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { startTokenSweep } from '../../../src/services/authentication/token-lifecycle.js';
+import { startTokenSweep } from '../../../src/services/authentication/lifecycle/tokens.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { splicedockConfigSchema } from '../../../src/config/schema.js';
 import { createMetrics } from '../../../src/common/metrics.js';

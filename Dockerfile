@@ -11,7 +11,7 @@ RUN npm run build
 
 FROM node:22-slim
 # gh is pinned to the release the built-in gh policy tables were verified
-# against. Keep in sync with PINNED_GH_VERSION (src/services/policy/cli/gh-version.ts);
+# against. Keep in sync with PINNED_GH_VERSION (src/services/policy/cli/gh/version.ts);
 # tests/unit/drivers/gh-version-pin.test.ts enforces it.
 ARG GH_VERSION=2.102.0
 # kubectl is pinned to the target cluster version (bump alongside cluster upgrades).

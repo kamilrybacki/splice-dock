@@ -1,6 +1,6 @@
-import type { SqlDb } from '../../contracts/outbound/sql-db.js';
+import type { SqlDb } from '../../contracts/outbound/sql/database.js';
 
-export type { SqlDb, SqlNamedParams, SqlParam, SqlRunResult, SqlStatement, SqlTransaction } from '../../contracts/outbound/sql-db.js';
+export type { SqlDb, SqlNamedParams, SqlParam, SqlRunResult, SqlStatement, SqlTransaction } from '../../contracts/outbound/sql/database.js';
 
 export function isPostgres(db: SqlDb): boolean {
   return db.dialect === 'postgres';

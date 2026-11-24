@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import Database from 'better-sqlite3';
-import {CircuitBreaker} from '../../src/services/policy/circuit-breaker.js';
+import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 describe('durable breaker',()=>{
  it('trips once, persists, isolates tokens and never enforces observe',async ()=>{
  const db=new Database(':memory:');
@@ -19,7 +19,7 @@ describe('durable breaker',()=>{
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
 import {ApprovalService} from '../../src/services/approvals/base.js';
 import {callCliPassthrough,setCircuitBreaker,setApprovalHookFactory,setApprovalSettler} from '../../src/services/tools/adapters/cli/passthrough.js';
-import {runWithCaller} from '../../src/common/request-context.js';
+import {runWithCaller} from '../../src/common/request/context.js';
 const cfg={enabled:true,mode:'enforce' as const,window_seconds:60,deny_threshold:10,cooldown_seconds:1800,half_open_probes:3,scopes:['token'],read_allowlist:[]};
 const caller={profile:'test',tokenId:'one',authenticated:true};
 

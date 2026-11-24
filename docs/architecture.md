@@ -68,7 +68,7 @@ Profiles are selected by the executable's basename. A CLI without a profile gets
 generic, conservative handling. To support a new CLI, add one profile module and
 list it in `profiles/index.ts`.
 
-### Built-in MCP tools (`src/services/mcp/adapters/express/builtin-tools.ts`)
+### Built-in MCP tools (`src/services/mcp/adapters/express/tools/builtin.ts`)
 
 Only `approvals__wait` is served by Splicedock itself rather than by a YAML
 driver; it waits on an operator decision.
@@ -112,7 +112,7 @@ tools:
       approval_subcommand_paths: [["repo", "delete"]]
 ```
 
-### Built-in grant exceptions (`src/services/policy/grant-config.ts`)
+### Built-in grant exceptions (`src/services/policy/grants/config.ts`)
 
 Operations that must never be covered by a standing grant are declared once in
 `BUILT_IN_GRANT_EXCEPTIONS`. Both the standing-grant service and the admin API read

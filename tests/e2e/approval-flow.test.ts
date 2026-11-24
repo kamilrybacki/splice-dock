@@ -17,8 +17,8 @@ import { createServer, type Server } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-import { ToolRegistry } from '../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../src/services/profiles/registry.js';
 import { ProfileService } from '../../src/services/profiles/base.js';
 import { ToolService } from '../../src/services/tools/base.js';
 import { createMcpExpressApp } from '../../src/services/mcp/adapters/express/server.js';

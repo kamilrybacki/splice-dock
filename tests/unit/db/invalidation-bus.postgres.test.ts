@@ -5,7 +5,7 @@ import {
   TransportInvalidationBus,
   createPgTransport,
   type InvalidationMessage,
-} from '../../../src/services/database/adapters/invalidation-bus.js';
+} from '../../../src/services/database/adapters/invalidation/bus.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 const quiet = { info: () => {}, warn: () => {} };

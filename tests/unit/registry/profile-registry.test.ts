@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 
 describe('ProfileRegistry', () => {
   let registry: ProfileRegistry;

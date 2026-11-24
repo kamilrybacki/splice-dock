@@ -8,9 +8,9 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { flagTableFor, invocationFlagTable, type FlagArity } from '../../../src/services/policy/cli/flag-arity.js';
-import { knownCommandsFor } from '../../../src/services/policy/cli/known-commands.js';
-import { PINNED_GH_VERSION } from '../../../src/services/policy/cli/gh-version.js';
+import { flagTableFor, invocationFlagTable, type FlagArity } from '../../../src/services/policy/cli/flags/arity.js';
+import { knownCommandsFor } from '../../../src/services/policy/cli/commands/known.js';
+import { PINNED_GH_VERSION } from '../../../src/services/policy/cli/gh/version.js';
 
 const configDir = mkdtempSync(join(tmpdir(), 'splicedock-gh-help-'));
 afterAll(() => rmSync(configDir, { recursive: true, force: true }));

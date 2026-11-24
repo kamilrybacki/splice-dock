@@ -5,7 +5,7 @@ import type { CredentialStore, StoredCredential } from '../../base.js';
 const VAULT_TIMEOUT_MS = 3_000;
 const MAX_LIST_DEPTH = 4;
 
-export { MemoryCredentialStore } from '../../memory-store.js';
+export { MemoryCredentialStore } from '../../memory/store.js';
 
 /**
  * Vault KV v2 store. `prefix` is a KV v2 *data* path

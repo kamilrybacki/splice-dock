@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { CircuitBreaker } from '../../../src/services/policy/circuit-breaker.js';
-import { StandingGrants } from '../../../src/services/approvals/standing-grants.js';
+import { CircuitBreaker } from '../../../src/services/policy/breaker/index.js';
+import { StandingGrants } from '../../../src/services/approvals/grants/standing.js';
 import { startPglite } from '../../helpers/pglite-server.js';
 
 let srv: Awaited<ReturnType<typeof startPglite>>;

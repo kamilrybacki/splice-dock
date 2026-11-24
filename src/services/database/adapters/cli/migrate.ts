@@ -1,4 +1,4 @@
-import { migrateSqliteToPostgres, MigrationError, redact } from '../migrate-sqlite-to-pg.js';
+import { migrateSqliteToPostgres, MigrationError, redact } from '../migrations/sqlite/postgres.js';
 
 const USAGE = 'usage: db migrate-sqlite-to-pg --sqlite <path> [--force]   (target DSN from SPLICEDOCK_DB_DSN)';
 

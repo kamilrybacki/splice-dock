@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { StandingGrants } from '../../../src/services/approvals/standing-grants.js';
+import { StandingGrants } from '../../../src/services/approvals/grants/standing.js';
 import { kubectlShape } from '../../../src/services/policy/shape/kubectl.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, type IsolatedSchema } from '../../helpers/pg-test.js';
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
   Server: vi.fn().mockImplementation(function () {

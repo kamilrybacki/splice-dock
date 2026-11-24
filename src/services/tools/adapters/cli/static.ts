@@ -1,9 +1,9 @@
 import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { OperationExchange } from '../../../../contracts/outbound/operation-exchange.js';
+import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
 import { spawn } from 'node:child_process';
 import type { CliToolConfig } from '../../../../config/types.js';
-import type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
-export type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
+import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
+export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 
 export async function callCliTool(
   config: CliToolConfig,

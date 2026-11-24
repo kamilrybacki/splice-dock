@@ -1,7 +1,7 @@
-import { executeCode } from '../../../src/services/code-mode/adapters/quickjs/executor.js';
+import { executeCode } from '../../../src/services/code/mode/adapters/quickjs/executor.js';
 import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { executeWithPreflight } from '../../../src/services/code-mode/preflight.js';
+import { executeWithPreflight } from '../../../src/services/code/mode/preflight.js';
 import { callCliTool } from '../../../src/services/tools/adapters/cli/static.js';
 import { callReviewedCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { McpProxyDriver } from '../../../src/services/upstreams/adapters/mcp/driver.js';

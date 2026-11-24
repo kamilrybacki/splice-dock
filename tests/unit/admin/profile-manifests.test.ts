@@ -1,10 +1,10 @@
 import { it, expect } from 'vitest';
 import Fastify from 'fastify';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { seedProfilesFromConfig, loadRuntimeProfiles } from '../../../src/services/profiles/runtime-profile-loader.js';
+import { seedProfilesFromConfig, loadRuntimeProfiles } from '../../../src/services/profiles/runtime/loader.js';
 import { registerProfileRoutes } from '../../../src/services/admin/adapters/fastify/routes/profiles.js';
 
 it('preserves YAML comments, rejects stale revisions, persists flags and deletion across startup', async () => {

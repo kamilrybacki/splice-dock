@@ -58,7 +58,7 @@ it('actual CLI decision unaffected by a failing observation sink',async()=>{
 /** Exhaustive transitive local import walk, including re-exports and literal dynamic imports. */
 function reachesShadow(entry:string,seen=new Set<string>()):boolean {
  const path=resolve(entry);if(seen.has(path))return false;seen.add(path);
- if(/\/src\/(?:services\/shadow\/|contracts\/outbound\/shadow-model\.ts$)/.test(path))return true;
+ if(/\/src\/(?:services\/shadow\/|contracts\/outbound\/shadow\/model\.ts$)/.test(path))return true;
  if(!existsSync(path))return false;
  const parsed=ts.preProcessFile(readFileSync(path,'utf8'),true,true);
  return parsed.importedFiles.some(i=>i.fileName.startsWith('.')&&reachesShadow(resolve(dirname(path),i.fileName.replace(/\.js$/,'.ts')),seen));

@@ -10,12 +10,12 @@ import {
   evaluatePolicy,
   type ApprovalHook,
   type PolicyDecision,
-} from '../../../src/services/policy/cli-policy.js';
+} from '../../../src/services/policy/cli/rules.js';
 import {
   extractSubcommandPaths,
   flagTableFor,
   MAX_PATH_CANDIDATES,
-} from '../../../src/services/policy/cli/flag-arity.js';
+} from '../../../src/services/policy/cli/flags/arity.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 const BASE = { max_args: 256, on_violation: 'deny', audit: false } as const;

@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
-import { createQueryFallbackWarner, QUERY_FALLBACK_WARN_INTERVAL_MS } from '../../../src/services/mcp/adapters/express/profile-selection.js';
+import { createQueryFallbackWarner, QUERY_FALLBACK_WARN_INTERVAL_MS } from '../../../src/services/mcp/adapters/express/profiles/selection.js';
 import { createMetrics } from '../../../src/common/metrics.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
 import { logger } from '../../../src/common/logger.js';
 

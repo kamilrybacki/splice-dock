@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CacheSync, coalesce } from '../../../src/services/runtime/base.js';
 import type { RuntimeFingerprint } from '../../../src/services/database/adapters/store.js';
-import type { InvalidationBus, InvalidationMessage, MessageHandler, ResyncHandler } from '../../../src/contracts/outbound/invalidation-bus.js';
+import type { InvalidationBus, InvalidationMessage, MessageHandler, ResyncHandler } from '../../../src/contracts/outbound/invalidation/bus.js';
 
 const quiet = { info: () => {}, warn: () => {} };
 const fp = (tools = 't1', profiles = 'p1', policy = 'o1'): RuntimeFingerprint => ({ tools, profiles, policy });
