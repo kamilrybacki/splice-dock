@@ -16,6 +16,8 @@ First public release.
 - Container images on GHCR for `linux/amd64` and `linux/arm64` for each
   release tag, with an SBOM and build provenance.
 - GitHub releases with generated notes for each `vX.Y.Z` tag.
+- The user guide is published from this repository at
+  <https://kamilrybacki.github.io/splice-dock/>.
 
 ### Changed
 

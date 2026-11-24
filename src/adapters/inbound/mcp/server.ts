@@ -347,7 +347,7 @@ export function createMcpExpressApp(
     if (source === 'query') {
       warnQueryFallback(profile);
       res.setHeader('Deprecation', '@' + Date.UTC(2026, 10, 18) / 1000);
-      res.append('Link', '<https://kamilrybacki.github.io/splicedock/connect.html#selection>; rel="deprecation"');
+      res.append('Link', '<https://kamilrybacki.github.io/splice-dock/connect.html#selection>; rel="deprecation"');
     }
 
     if (Array.isArray(req.body)) {
