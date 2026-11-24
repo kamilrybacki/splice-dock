@@ -19,3 +19,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Dependabot cannot tell LTS from non-LTS Node releases. The image follows
+    # Node LTS lines only; move to the next LTS by hand.
+    ignore:
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
