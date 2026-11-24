@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { CircuitBreaker } from '../../../src/application/policy/circuit-breaker.js';
-import { StandingGrants } from '../../../src/application/approvals/standing-grants.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { CircuitBreaker } from '../../../src/services/policy/circuit-breaker.js';
+import { StandingGrants } from '../../../src/services/approvals/standing-grants.js';
 import { startPglite } from '../../helpers/pglite-server.js';
 
 let srv: Awaited<ReturnType<typeof startPglite>>;
@@ -80,7 +80,7 @@ describe('SplicedockStore on Postgres (PGlite, functional parity)', () => {
   });
 
   it('shadow log: summary aggregate queries run on Postgres', async () => {
-    const { ShadowObserver } = await import('../../../src/application/shadow/queue.js');
+    const { ShadowObserver } = await import('../../../src/services/shadow/base.js');
     const db = store.consentDatabase();
     const q = await ShadowObserver.create(db, { enabled: true, retention_days: 7, sample_rate: 1, queue_max: 10, timeout_ms: 100 } as never);
     await db.prepare("INSERT INTO s1_shadow_log(ts, tool, profile, features, deterministic_decision, s1_label, s1_confidence, s1_latency_ms, outcome) VALUES (?,?,?,?,?,?,?,?,?)")

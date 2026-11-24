@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
-import {compilePolicy,evaluatePolicy,PolicyCompileError} from '../../../src/domain/policy/cli-policy.js';
-import {flagTableFor,invocationFlagTable} from '../../../src/domain/cli/flag-arity.js';
+import {compilePolicy,evaluatePolicy,PolicyCompileError} from '../../../src/services/policy/cli-policy.js';
+import {flagTableFor,invocationFlagTable} from '../../../src/services/policy/cli/flag-arity.js';
 describe('Review D command-dependent arity',()=>{
   it.each([
     [['pr','create'],'f','bool'],[['pr','create'],'F','value'],

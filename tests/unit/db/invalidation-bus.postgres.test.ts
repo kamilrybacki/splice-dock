@@ -1,11 +1,11 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
 import {
   TransportInvalidationBus,
   createPgTransport,
   type InvalidationMessage,
-} from '../../../src/adapters/outbound/persistence/invalidation-bus.js';
+} from '../../../src/services/database/adapters/invalidation-bus.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 const quiet = { info: () => {}, warn: () => {} };

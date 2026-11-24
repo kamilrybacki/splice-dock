@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { callCliTool } from '../../../src/adapters/outbound/drivers/cli-wrapper.js';
+import { callCliTool } from '../../../src/services/tools/adapters/cli/static.js';
 import type { CliToolConfig } from '../../../src/config/types.js';
 
 function makeConfig(overrides: Partial<CliToolConfig> = {}): CliToolConfig {

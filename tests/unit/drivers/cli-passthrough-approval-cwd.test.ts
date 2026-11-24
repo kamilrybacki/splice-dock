@@ -5,10 +5,10 @@ import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { callCliPassthrough, setApprovalHookFactory, setApprovalSettler } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { callCliPassthrough, setApprovalHookFactory, setApprovalSettler } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
 import { runWithCaller } from '../../../src/common/request-context.js';
 
 const CALLER = { profile: 'p', tokenId: 'tok-a', authenticated: true };

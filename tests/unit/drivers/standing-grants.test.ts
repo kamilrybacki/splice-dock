@@ -1,7 +1,7 @@
 import {it,expect} from 'vitest';
-import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
-import {ApprovalService} from '../../../src/application/approvals/approval-service.js';
-import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler} from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
+import {ApprovalService} from '../../../src/services/approvals/base.js';
+import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler} from '../../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../../src/common/request-context.js';
 import {createMetrics} from '../../../src/common/metrics.js';
 import type {CliPassthroughToolConfig} from '../../../src/config/types.js';

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { registerToolRoutes } from '../../../src/adapters/inbound/admin/routes/tools.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ToolService } from '../../../src/application/tools/tool-service.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { registerToolRoutes } from '../../../src/services/admin/adapters/fastify/routes/tools.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ToolService } from '../../../src/services/tools/base.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 
 const httpBody = {
   type: 'http', name: 'get_user', namespace: 'myapi', description: 'Get a user',

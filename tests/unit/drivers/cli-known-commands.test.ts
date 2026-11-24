@@ -3,11 +3,11 @@
 // (gh extensions, gh config aliases, kubectl-<name> plugins) is refused.
 import { describe, expect, it, vi } from 'vitest';
 
-import { compilePolicy, evaluatePolicy, type ApprovalHook, type PolicyDecision } from '../../../src/domain/policy/cli-policy.js';
+import { compilePolicy, evaluatePolicy, type ApprovalHook, type PolicyDecision } from '../../../src/services/policy/cli-policy.js';
 import {
   canonicalizeCommandPath,
   knownCommandsFor,
-} from '../../../src/domain/cli/known-commands.js';
+} from '../../../src/services/policy/cli/known-commands.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 const BASE = { max_args: 256, on_violation: 'deny', audit: false } as const;

@@ -11,7 +11,7 @@ RUN npm run build
 
 FROM node:22-slim
 # gh is pinned to the release the built-in gh policy tables were verified
-# against. Keep in sync with PINNED_GH_VERSION (src/domain/cli/gh-version.ts);
+# against. Keep in sync with PINNED_GH_VERSION (src/services/policy/cli/gh-version.ts);
 # tests/unit/drivers/gh-version-pin.test.ts enforces it.
 ARG GH_VERSION=2.102.0
 # kubectl is pinned to the target cluster version (bump alongside cluster upgrades).
@@ -68,7 +68,7 @@ WORKDIR /app
 COPY --from=build-node /app/node_modules ./node_modules
 COPY --from=build-node /app/package.json ./package.json
 COPY --from=build-node /app/dist ./dist
-COPY site/assets/splicedock-mark.svg site/assets/space-grotesk-latin-500.woff2 site/assets/space-grotesk-latin-700.woff2 site/assets/space-mono-latin-400.woff2 site/assets/space-mono-latin-700.woff2 site/assets/OFL-SpaceGrotesk.txt site/assets/OFL-SpaceMono.txt ./site/assets/
+COPY docs/web/assets/splicedock-mark.svg docs/web/assets/space-grotesk-latin-500.woff2 docs/web/assets/space-grotesk-latin-700.woff2 docs/web/assets/space-mono-latin-400.woff2 docs/web/assets/space-mono-latin-700.woff2 docs/web/assets/OFL-SpaceGrotesk.txt docs/web/assets/OFL-SpaceMono.txt ./docs/web/assets/
 
 # Credential minting adapters used by `credential_providers` entries (type: command).
 # Plain .mjs: run by the image's node, no build step, no extra dependency.

@@ -24,7 +24,7 @@ describe('cli_passthrough install script environment', () => {
   });
 
   it('gives npm one prefix and one cache, both under SPLICEDOCK_BIN', async () => {
-    const { installCliPassthroughTools } = await import('../../../src/adapters/outbound/installer/cli-installer.js');
+    const { installCliPassthroughTools } = await import('../../../src/services/tools/adapters/cli/installer.js');
     const tool = toolSchema.parse({
       type: 'cli_passthrough',
       name: 'envprobe',
@@ -51,7 +51,7 @@ describe('cli_passthrough install script environment', () => {
   });
 
   it('completes an install that writes more than a pipe buffer to stdout', async () => {
-    const { installCliPassthroughTools } = await import('../../../src/adapters/outbound/installer/cli-installer.js');
+    const { installCliPassthroughTools } = await import('../../../src/services/tools/adapters/cli/installer.js');
     const tool = toolSchema.parse({
       type: 'cli_passthrough',
       name: 'stdoutprobe',

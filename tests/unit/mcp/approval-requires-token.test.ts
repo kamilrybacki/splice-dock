@@ -11,16 +11,16 @@ import { createServer, type Server } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
-import { ToolService } from '../../../src/application/tools/tool-service.js';
-import { createMcpExpressApp, setApprovalWaitHandler } from '../../../src/adapters/inbound/mcp/server.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService, argvHash } from '../../../src/application/approvals/approval-service.js';
-import { setApprovalHookFactory, setApprovalSettler, setPolicyDecisionSink } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
+import { ToolService } from '../../../src/services/tools/base.js';
+import { createMcpExpressApp, setApprovalWaitHandler } from '../../../src/services/mcp/adapters/express/server.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
+import { setApprovalHookFactory, setApprovalSettler, setPolicyDecisionSink } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { createMetrics } from '../../../src/common/metrics.js';
-import { hashProfileToken } from '../../../src/application/auth/profile-token.js';
+import { hashProfileToken } from '../../../src/services/authentication/base.js';
 import { LEGACY_QUERY_TOKEN_ID } from '../../../src/common/request-context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 

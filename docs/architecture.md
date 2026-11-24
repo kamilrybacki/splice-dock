@@ -1,40 +1,50 @@
 # Architecture
 
-Splicedock is a hexagonal (ports and adapters) application. Services are reached
-only through tools defined in YAML; the runtime holds no per-service code. A new
-backend is a YAML entry, not a new module.
+Splicedock groups gateway functionality into services. Each service owns its
+rules, use cases, and integrations. An operator can still add a configured
+tool in YAML without changing the gateway code.
 
-## Layers
-
-```
+```text
+docs/
+  adrs/                      architecture decisions
+  web/                       sources for GitHub Pages
 src/
-  common/       logging, metrics, request context; depends on nothing else
-  domain/       pure rules: CLI profiles, policy, profiles, shadow model, tool types
-  config/       YAML loading and schema (zod); produces domain types
-  ports/        interfaces the application needs from the outside world
-  application/  use cases: approvals, broker, code mode, credentials, policy, runtime…
-  adapters/     inbound (MCP, admin HTTP, consent) and outbound (drivers, persistence…)
-  main.ts       composition root: wires adapters into ports
+  services/
+    <service>/
+      base.ts                service entry point or backend-neutral interface
+      adapters/<provider>/   framework or backend implementations, where needed
+  config/                    configuration loading, schemas, and types
+  contracts/
+    internal/                gateway data exposed to callers
+    outbound/                ports and data exchanged with backend providers
+    inbound/                 payloads received from external callers
+  common/                    shared utilities
+  main.ts                    composition root
+tests/
+  fixtures/
+  unit/
+  functional/
+  e2e/
 ```
 
-### Allowed imports
+For example, the database service exposes a SQL interface through
+`services/database/base.ts` and implements it under `adapters/sqlite/` and
+`adapters/postgres/`. Services that own a use case, such as profiles or
+approvals, keep its implementation in `base.ts` and depend on repository
+contracts for persistence. Fastify and Express are entry adapters for the
+admin and MCP services.
 
-| Layer             | May import from                                      |
-|-------------------|------------------------------------------------------|
-| `common`          | `common`                                             |
-| `domain`          | `domain`, `config`, `common`                         |
-| `config`          | `config`, `domain`, `common`                         |
-| `ports`           | `ports`, `domain`, `config`, `common`                |
-| `application`     | `application`, `ports`, `domain`, `config`, `common` |
-| `adapters`        | anything                                             |
-| root (`src/*.ts`) | anything                                             |
+| Location | Allowed local dependencies |
+|---|---|
+| `common` | `common` |
+| `contracts` | `common`, `config`, `contracts` |
+| `config` | `common`, `config`, `contracts`, service rules |
+| service core | `common`, `config`, `contracts`, service cores |
+| service adapters and composition root | any layer |
 
-`npm run lint:layers` (`scripts/check-layers.mjs`) enforces the table in CI. A file
-in a directory that is not a known layer is a violation too.
-
-The application layer talks to the database, the network, push channels and
-upstream servers only through `src/ports/*`. Adapters implement those ports, and
-`main.ts` connects them.
+`npm run lint:layers` enforces these dependency directions in CI. Wire
+concrete adapters in `main.ts` and keep provider imports out of the service
+core.
 
 ## Extension points
 
@@ -45,7 +55,7 @@ argument schema, policy and approval rules sit next to it in YAML. Nothing in
 `src/` tests a tool's name, with one exception: data that is keyed by YAML tool
 name on purpose (standing-grant shapes, operator grant exceptions).
 
-### CLI profiles (`src/domain/cli/profiles/`)
+### CLI profiles (`src/services/policy/cli/profiles/`)
 
 What the runtime knows about a particular executable lives in a `CliProfile`:
 - its flag table
@@ -58,7 +68,7 @@ Profiles are selected by the executable's basename. A CLI without a profile gets
 generic, conservative handling. To support a new CLI, add one profile module and
 list it in `profiles/index.ts`.
 
-### Built-in MCP tools (`src/adapters/inbound/mcp/builtin-tools.ts`)
+### Built-in MCP tools (`src/services/mcp/adapters/express/builtin-tools.ts`)
 
 Only `approvals__wait` is served by Splicedock itself rather than by a YAML
 driver; it waits on an operator decision.
@@ -102,7 +112,7 @@ tools:
       approval_subcommand_paths: [["repo", "delete"]]
 ```
 
-### Built-in grant exceptions (`src/domain/policy/grant-config.ts`)
+### Built-in grant exceptions (`src/services/policy/grant-config.ts`)
 
 Operations that must never be covered by a standing grant are declared once in
 `BUILT_IN_GRANT_EXCEPTIONS`. Both the standing-grant service and the admin API read

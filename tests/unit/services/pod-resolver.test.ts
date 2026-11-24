@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockLookup = vi.fn();
 vi.mock('node:dns', () => ({ promises: { lookup: (...args: unknown[]) => mockLookup(...args) } }));
 
-const { PodResolver } = await import('../../../src/adapters/outbound/network/pod-resolver.js');
+const { PodResolver } = await import('../../../src/services/upstreams/adapters/dns/pod-resolver.js');
 
 describe('PodResolver', () => {
   let r: PodResolver;

@@ -1,11 +1,11 @@
 import { createServer } from 'node:http';
-import { ToolRegistry } from '../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../src/application/registry/profile-registry.js';
-import { ToolService } from '../../src/application/tools/tool-service.js';
-import { ProfileService } from '../../src/application/profiles/profile-service.js';
-import { createMcpExpressApp } from '../../src/adapters/inbound/mcp/server.js';
-import { createAdminServer } from '../../src/adapters/inbound/admin/server.js';
-import type { McpProxyDriver } from '../../src/adapters/outbound/drivers/mcp-proxy.js';
+import { ToolRegistry } from '../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../src/services/profiles/profile-registry.js';
+import { ToolService } from '../../src/services/tools/base.js';
+import { ProfileService } from '../../src/services/profiles/base.js';
+import { createMcpExpressApp } from '../../src/services/mcp/adapters/express/server.js';
+import { createAdminServer } from '../../src/services/admin/adapters/fastify/server.js';
+import type { McpProxyDriver } from '../../src/services/upstreams/adapters/mcp/driver.js';
 import type { SplicedockConfig } from '../../src/config/schema.js';
 
 export interface Harness {

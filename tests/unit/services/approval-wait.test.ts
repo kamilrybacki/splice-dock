@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
-import type { SqliteDb } from "../../../src/adapters/outbound/persistence/sqlite-db.js";
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
+import type { SqliteDb } from "../../../src/services/database/adapters/sqlite/db.js";
 const caller = { profile: 'test', tokenId: 'test-token', authenticated: true };
 describe('approval wait', () => {
   it('returns only caller-bound decisions and preserves late approved retries', async () => {

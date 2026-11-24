@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { generateKeyPairSync, createHash, sign, type KeyObject } from 'node:crypto';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
-import { PgDb } from '../../../src/adapters/outbound/persistence/pg-db.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ConsentStore } from '../../../src/application/approvals/consent-store.js';
-import { WebAuthnConsent } from '../../../src/adapters/inbound/consent/webauthn.js';
+import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
+import { WebAuthnConsent } from '../../../src/services/approvals/adapters/fastify/webauthn.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, holdRowLocks, untilLockWaiters, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 // Two SplicedockStore pools on one schema stand in for two Splicedock replicas.

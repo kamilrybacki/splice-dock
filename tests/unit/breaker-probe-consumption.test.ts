@@ -6,11 +6,11 @@ import {afterEach,beforeEach,describe,expect,it} from 'vitest';
 import {chmodSync,mkdtempSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {SplicedockStore} from '../../src/adapters/outbound/persistence/store.js';
-import {ApprovalService} from '../../src/application/approvals/approval-service.js';
-import type {SqlDb} from "../../src/ports/sql-db.js";
-import {CircuitBreaker} from '../../src/application/policy/circuit-breaker.js';
-import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import {SplicedockStore} from '../../src/services/database/adapters/store.js';
+import {ApprovalService} from '../../src/services/approvals/base.js';
+import type {SqlDb} from "../../src/services/database/base.js";
+import {CircuitBreaker} from '../../src/services/policy/circuit-breaker.js';
+import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../src/common/request-context.js';
 import type {CliPassthroughToolConfig} from '../../src/config/types.js';
 

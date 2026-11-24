@@ -1,8 +1,9 @@
+import { LEGACY_ADMIN_IDENTITY } from '../../../src/services/admin/base.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveNamedAdminTokens, LEGACY_ADMIN_IDENTITY } from '../../../src/adapters/inbound/admin/admin-tokens.js';
+import { resolveNamedAdminTokens } from '../../../src/services/admin/adapters/fastify/admin-tokens.js';
 import { splicedockConfigSchema } from '../../../src/config/schema.js';
 
 const dirs: string[] = [];

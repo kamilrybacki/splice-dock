@@ -67,7 +67,7 @@ any of: `--all`, `-A`/`--all-namespaces`, `-l`/`--selector`, `--field-selector`,
 `-k`/`--kustomize`, a `kind/name` token whose kind differs from the shape, or any flag
 not in `flags_allowed` (default allow-list: `-n`, `--namespace`, `--wait`).
 
-Shape extraction is a pure per-tool function (`src/domain/policy/shape/<tool>.ts`). A tool
+Shape extraction is a pure per-tool function (`src/services/policy/shape/<tool>.ts`). A tool
 without one cannot have grants.
 
 ### 2. Eligibility and exceptions

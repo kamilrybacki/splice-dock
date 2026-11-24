@@ -34,12 +34,12 @@
     "!dist/**/*.d.ts",
     "!dist/**/*.d.ts.map",
     "scripts/mint",
-    "site/examples",
+    "docs/web/examples",
     "splicedock.example.yaml",
-    "site/assets/splicedock-mark.svg",
-    "site/assets/space-grotesk-latin-{500,700}.woff2",
-    "site/assets/space-mono-latin-{400,700}.woff2",
-    "site/assets/OFL-Space*.txt"
+    "docs/web/assets/splicedock-mark.svg",
+    "docs/web/assets/space-grotesk-latin-{500,700}.woff2",
+    "docs/web/assets/space-mono-latin-{400,700}.woff2",
+    "docs/web/assets/OFL-Space*.txt"
   ],
   "scripts": {
     "build": "tsc",

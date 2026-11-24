@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
 
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
   Server: vi.fn().mockImplementation(function () {
@@ -22,7 +22,7 @@ vi.mock('@modelcontextprotocol/sdk/server/sse.js', () => ({
 }));
 
 // Import after mocking
-const { buildMcpServer } = await import('../../../src/adapters/inbound/mcp/server.js');
+const { buildMcpServer } = await import('../../../src/services/mcp/adapters/express/server.js');
 const { Server } = await import('@modelcontextprotocol/sdk/server/index.js');
 
 describe('buildMcpServer', () => {

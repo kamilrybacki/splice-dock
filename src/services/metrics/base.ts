@@ -1,0 +1,294 @@
+// Per-tool usage metrics for the WebUI + Prometheus exposition.
+//
+// Counters are accumulated in-memory on every cli_passthrough __run dispatch.
+// A periodic flush adds this process's increments to the shared DB row, so the
+// dashboard shows cluster-wide numbers that survive a pod restart.
+//
+// Two views of the counts:
+//   metrics (get/list)  — cluster-wide totals adopted from the DB after each
+//                         flush; for the WebUI / API.
+//   local (prometheus)  — this process's own monotonic counters since start.
+//                         Every replica is scraped separately and Prometheus
+//                         sums the series; exporting cluster totals would make
+//                         N replicas report N× the real count.
+//
+// Two bucket arrays power sparklines:
+//   buckets_60s — 60 entries, one per minute, last hour
+//   buckets_1h  — 24 entries, one per hour, last day
+//
+// Each bucket holds the count of calls landing in that interval. We don't
+// store per-decision per-bucket counts — that's a 6× memory blowup for
+// modest UX gain. The WebUI shows total calls per bucket + a separate
+// rule-deny breakdown bar from the all-time totals.
+
+import type { MetricsDelta, MetricsRepository } from '../../contracts/outbound/repositories.js';
+import { logger } from '../../common/logger.js';
+
+const MINUTES_BUCKETS = 60;
+const HOURS_BUCKETS = 24;
+const MS_PER_MINUTE = 60_000;
+const MS_PER_HOUR = 3_600_000;
+
+export interface ToolMetric {
+  tool: string;
+  total: number;
+  allow: number;
+  deny: number;
+  rule_denies: Record<string, number>;
+  last_ts: number | null;
+  last_duration_ms: number | null;
+  buckets_60s: number[];   // length 60, oldest first after rollForward()
+  buckets_1h: number[];    // length 24, oldest first after rollForward()
+  bucket_60s_anchor: number;  // minute index at index 0
+  bucket_1h_anchor: number;   // hour index at index 0
+}
+
+function freshMetric(tool: string): ToolMetric {
+  return {
+    tool,
+    total: 0,
+    allow: 0,
+    deny: 0,
+    rule_denies: {},
+    last_ts: null,
+    last_duration_ms: null,
+    buckets_60s: new Array(MINUTES_BUCKETS).fill(0),
+    buckets_1h: new Array(HOURS_BUCKETS).fill(0),
+    bucket_60s_anchor: Math.floor(Date.now() / MS_PER_MINUTE),
+    bucket_1h_anchor: Math.floor(Date.now() / MS_PER_HOUR),
+  };
+}
+
+export class ToolMetrics {
+  private metrics = new Map<string, ToolMetric>();
+  private flushHandle: NodeJS.Timeout | null = null;
+  // Increments since the last successful flush, per tool. Flushed as deltas so
+  // replicas sharing one DB add to each other's counts instead of overwriting them.
+  private pending = new Map<string, PendingDelta>();
+  // Process-local counters for the Prometheus exposition. Never hydrated or
+  // overwritten from the DB, so they only ever increase.
+  private local = new Map<string, LocalCounters>();
+  // Flushes run one at a time (interval tick vs slow flush vs stop()); a
+  // concurrent flush() chains behind the one in flight.
+  private flushChain: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly store: MetricsRepository | null = null,
+    private readonly flushIntervalMs = 30_000,
+  ) {}
+
+  /** Hydrate counters from the DB and start the periodic snapshot writer. */
+  async start(): Promise<void> {
+    if (this.store) {
+      for (const row of await this.store.listMetricsSnapshots()) {
+        const m = freshMetric(row.tool_name);
+        m.total = row.total;
+        m.allow = row.allow;
+        m.deny = row.deny;
+        m.rule_denies = row.rule_denies;
+        m.last_ts = row.last_ts;
+        m.last_duration_ms = row.last_duration_ms;
+        // Buckets are anchored in time; if the snapshot is old, the bucket
+        // contents are stale. rollForward() handles that lazily on read.
+        m.buckets_60s = padToLength(row.buckets_60s, MINUTES_BUCKETS);
+        m.buckets_1h = padToLength(row.buckets_1h, HOURS_BUCKETS);
+        this.metrics.set(row.tool_name, m);
+      }
+    }
+    if (this.flushIntervalMs > 0 && this.store) {
+      this.flushHandle = setInterval(() => {
+        this.flush().catch(err => logger.warn('tool metrics flush failed', { err: String(err) }));
+      }, this.flushIntervalMs);
+      // Don't keep the event loop alive just for this.
+      this.flushHandle.unref?.();
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.flushHandle) {
+      clearInterval(this.flushHandle);
+      this.flushHandle = null;
+    }
+    await this.flush();
+  }
+
+  /** Record a single dispatch outcome. */
+  record(args: {
+    tool: string;
+    decision: 'allow' | 'deny';
+    rule?: string;
+    duration_ms?: number;
+    ts?: number;
+  }): void {
+    const ts = args.ts ?? Date.now();
+    const m = this.metrics.get(args.tool) ?? freshMetric(args.tool);
+    rollForward(m, ts);
+    m.total += 1;
+    if (args.decision === 'allow') m.allow += 1; else m.deny += 1;
+    if (args.decision === 'deny' && args.rule) {
+      m.rule_denies[args.rule] = (m.rule_denies[args.rule] ?? 0) + 1;
+    }
+    m.last_ts = ts;
+    if (args.duration_ms !== undefined) m.last_duration_ms = args.duration_ms;
+    m.buckets_60s[MINUTES_BUCKETS - 1] += 1;
+    m.buckets_1h[HOURS_BUCKETS - 1] += 1;
+    this.metrics.set(args.tool, m);
+    const p = this.pending.get(args.tool) ?? emptyPending();
+    p.total += 1;
+    if (args.decision === 'allow') p.allow += 1; else p.deny += 1;
+    if (args.decision === 'deny' && args.rule) p.rule_denies[args.rule] = (p.rule_denies[args.rule] ?? 0) + 1;
+    p.last_ts = ts;
+    if (args.duration_ms !== undefined) p.last_duration_ms = args.duration_ms;
+    this.pending.set(args.tool, p);
+    const l = this.local.get(args.tool) ?? { allow: 0, deny: 0, rule_denies: {} };
+    if (args.decision === 'allow') l.allow += 1; else l.deny += 1;
+    if (args.decision === 'deny' && args.rule) l.rule_denies[args.rule] = (l.rule_denies[args.rule] ?? 0) + 1;
+    this.local.set(args.tool, l);
+  }
+
+  get(tool: string): ToolMetric | null {
+    const m = this.metrics.get(tool);
+    if (!m) return null;
+    rollForward(m, Date.now());
+    return m;
+  }
+
+  list(): ToolMetric[] {
+    const now = Date.now();
+    const out: ToolMetric[] = [];
+    for (const m of this.metrics.values()) {
+      rollForward(m, now);
+      out.push(m);
+    }
+    return out.sort((a, b) => a.tool.localeCompare(b.tool));
+  }
+
+  /** Prometheus exposition of this process's own counters (see header). */
+  prometheus(): string {
+    const lines: string[] = [];
+    lines.push('# HELP splicedock_cli_calls_total Cumulative CLI passthrough call count');
+    lines.push('# TYPE splicedock_cli_calls_total counter');
+    lines.push('# HELP splicedock_cli_deny_total Cumulative CLI passthrough deny count');
+    lines.push('# TYPE splicedock_cli_deny_total counter');
+    lines.push('# HELP splicedock_cli_last_duration_ms Last observed duration of a CLI passthrough run');
+    lines.push('# TYPE splicedock_cli_last_duration_ms gauge');
+    for (const m of this.list()) {
+      const tool = quote(m.tool);
+      const l = this.local.get(m.tool) ?? { allow: 0, deny: 0, rule_denies: {} };
+      lines.push(`splicedock_cli_calls_total{tool=${tool},decision="allow"} ${l.allow}`);
+      lines.push(`splicedock_cli_calls_total{tool=${tool},decision="deny"} ${l.deny}`);
+      for (const [rule, count] of Object.entries(l.rule_denies)) {
+        lines.push(`splicedock_cli_deny_total{tool=${tool},rule=${quote(rule)}} ${count}`);
+      }
+      if (m.last_duration_ms !== null) {
+        lines.push(`splicedock_cli_last_duration_ms{tool=${tool}} ${m.last_duration_ms}`);
+      }
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  /**
+   * Add this replica's unflushed increments to the DB, then adopt the merged
+   * totals for the UI view. Serialised: a call made while a flush is in flight
+   * waits for it and then flushes whatever was recorded meanwhile, so an older
+   * result can never overwrite a newer one.
+   *
+   * Delivery is at-least-once: if the upsert commits but the client then sees
+   * an error (dropped connection before the COMMIT reply), the increments are
+   * kept and re-sent on the next flush, so they can be counted twice. That is
+   * accepted for usage metrics; there are no idempotency tokens.
+   */
+  flush(): Promise<void> {
+    const run = this.flushChain.catch(() => undefined).then(() => this.flushOnce());
+    this.flushChain = run;
+    return run;
+  }
+
+  private async flushOnce(): Promise<void> {
+    if (!this.store || this.pending.size === 0) return;
+    const batch = this.pending;
+    this.pending = new Map();
+    let firstError: unknown;
+    for (const [tool, p] of batch) {
+      const m = this.metrics.get(tool);
+      if (!m) continue;
+      const delta: MetricsDelta = {
+        tool_name: tool,
+        total: p.total, allow: p.allow, deny: p.deny,
+        rule_denies: p.rule_denies,
+        buckets_60s: m.buckets_60s, buckets_1h: m.buckets_1h,
+        last_ts: p.last_ts, last_duration_ms: p.last_duration_ms,
+      };
+      try {
+        const row = await this.store.addMetricsDelta(delta);
+        // Adopt cluster-wide totals (other replicas' counts) plus anything recorded mid-flush.
+        const extra = this.pending.get(tool) ?? emptyPending();
+        m.total = row.total + extra.total;
+        m.allow = row.allow + extra.allow;
+        m.deny = row.deny + extra.deny;
+        m.rule_denies = { ...row.rule_denies };
+        for (const [r, n] of Object.entries(extra.rule_denies)) m.rule_denies[r] = (m.rule_denies[r] ?? 0) + n;
+      } catch (err) {
+        // Not persisted: keep the increments for the next flush.
+        const cur = this.pending.get(tool) ?? emptyPending();
+        cur.total += p.total; cur.allow += p.allow; cur.deny += p.deny;
+        for (const [r, n] of Object.entries(p.rule_denies)) cur.rule_denies[r] = (cur.rule_denies[r] ?? 0) + n;
+        cur.last_ts = cur.last_ts ?? p.last_ts;
+        cur.last_duration_ms = cur.last_duration_ms ?? p.last_duration_ms;
+        this.pending.set(tool, cur);
+        firstError ??= err;
+      }
+    }
+    if (firstError !== undefined) throw firstError;
+  }
+}
+
+interface LocalCounters {
+  allow: number;
+  deny: number;
+  rule_denies: Record<string, number>;
+}
+
+interface PendingDelta {
+  total: number;
+  allow: number;
+  deny: number;
+  rule_denies: Record<string, number>;
+  last_ts: number | null;
+  last_duration_ms: number | null;
+}
+
+function emptyPending(): PendingDelta {
+  return { total: 0, allow: 0, deny: 0, rule_denies: {}, last_ts: null, last_duration_ms: null };
+}
+
+/** Advance the per-minute and per-hour bucket windows to "now", filling any
+ *  intervening slots with zeros. Idempotent; cheap. */
+function rollForward(m: ToolMetric, now: number): void {
+  const minuteNow = Math.floor(now / MS_PER_MINUTE);
+  const hourNow = Math.floor(now / MS_PER_HOUR);
+  const minuteShift = Math.min(MINUTES_BUCKETS, Math.max(0, minuteNow - m.bucket_60s_anchor - (MINUTES_BUCKETS - 1)));
+  if (minuteShift > 0) {
+    m.buckets_60s.splice(0, minuteShift);
+    for (let i = 0; i < minuteShift; i++) m.buckets_60s.push(0);
+    m.bucket_60s_anchor += minuteShift;
+  }
+  const hourShift = Math.min(HOURS_BUCKETS, Math.max(0, hourNow - m.bucket_1h_anchor - (HOURS_BUCKETS - 1)));
+  if (hourShift > 0) {
+    m.buckets_1h.splice(0, hourShift);
+    for (let i = 0; i < hourShift; i++) m.buckets_1h.push(0);
+    m.bucket_1h_anchor += hourShift;
+  }
+}
+
+function padToLength(arr: number[], len: number): number[] {
+  if (arr.length === len) return arr;
+  if (arr.length > len) return arr.slice(arr.length - len);
+  const out = new Array(len - arr.length).fill(0).concat(arr);
+  return out;
+}
+
+function quote(s: string): string {
+  // Prometheus label values: surrounded by ", escape " and \
+  return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}

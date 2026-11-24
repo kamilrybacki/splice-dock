@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import Fastify from 'fastify';
-import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/adapters/inbound/admin/auth.js';
-import { migratePushSubscriptions } from '../../../src/adapters/outbound/persistence/migrations/push-subscriptions.js';
-import { PushSubscriptionStore } from '../../../src/adapters/outbound/persistence/push-store.js';
-import { createPushNotifier, parseSubscription, vapidFromEnv, type PushSender } from '../../../src/adapters/outbound/push/notifier.js';
-import { registerPushRoutes } from '../../../src/adapters/inbound/admin/routes/push.js';
+import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/services/admin/adapters/fastify/auth.js';
+import { migratePushSubscriptions } from '../../../src/services/database/adapters/migrations/push-subscriptions.js';
+import { PushSubscriptionStore } from '../../../src/services/database/adapters/push-store.js';
+import { createPushNotifier, parseSubscription, vapidFromEnv, type PushSender } from '../../../src/services/approvals/adapters/web-push/notifier.js';
+import { registerPushRoutes } from '../../../src/services/admin/adapters/fastify/routes/push.js';
 import { sqliteDb } from "../../helpers/sqlite.js";
 
 const KEY = 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM';

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { callCliPassthrough, setProfileEnvResolver } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { callCliPassthrough, setProfileEnvResolver } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { runWithCaller } from '../../../src/common/request-context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 

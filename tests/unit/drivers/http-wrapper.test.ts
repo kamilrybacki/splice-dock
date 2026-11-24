@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { callHttpTool } from '../../../src/adapters/outbound/drivers/http-wrapper.js';
+import { callHttpTool } from '../../../src/services/tools/adapters/http/driver.js';
 import type { HttpToolConfig } from '../../../src/config/types.js';
 
 function makeConfig(overrides: Partial<HttpToolConfig> = {}): HttpToolConfig {

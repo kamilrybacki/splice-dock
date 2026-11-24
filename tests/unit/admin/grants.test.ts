@@ -1,9 +1,9 @@
 import {it,expect} from 'vitest';
 import Fastify from 'fastify';
-import {buildAdminAuthHook,ADMIN_SESSION_COOKIE,CSRF_HEADER} from '../../../src/adapters/inbound/admin/auth.js';
-import {registerApprovalRoutes} from '../../../src/adapters/inbound/admin/routes/approvals.js';
-import {SplicedockStore} from '../../../src/adapters/outbound/persistence/store.js';
-import {ApprovalService} from '../../../src/application/approvals/approval-service.js';
+import {buildAdminAuthHook,ADMIN_SESSION_COOKIE,CSRF_HEADER} from '../../../src/services/admin/adapters/fastify/auth.js';
+import {registerApprovalRoutes} from '../../../src/services/admin/adapters/fastify/routes/approvals.js';
+import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
+import {ApprovalService} from '../../../src/services/approvals/base.js';
 it('protects grant controls with admin authentication, CSRF and authenticated actor',async()=>{
   const store=await SplicedockStore.open(':memory:');const svc=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0});
   const app=Fastify();app.decorateRequest('adminIdentity',undefined);

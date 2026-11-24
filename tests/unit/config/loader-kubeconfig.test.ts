@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { parseConfig } from '../../../src/config/loader.js';
-import { callCliPassthrough } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 const VARS = ['KUBECONFIG', 'SPLICEDOCK_TEST_KCFG'] as const;

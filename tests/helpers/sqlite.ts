@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { SqliteDb } from '../../src/adapters/outbound/persistence/sqlite-db.js';
+import { SqliteDb } from '../../src/services/database/adapters/sqlite/db.js';
 
 const wrappers = new WeakMap<Database.Database, SqliteDb>();
 

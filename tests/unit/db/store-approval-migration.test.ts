@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 
 const OLD_TABLE = `
 CREATE TABLE pending_approvals (

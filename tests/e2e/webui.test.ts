@@ -13,22 +13,22 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
-import { createAdminServer } from '../../src/adapters/inbound/admin/server.js';
-import { ToolRegistry } from '../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../src/application/registry/profile-registry.js';
-import { ToolService } from '../../src/application/tools/tool-service.js';
-import { ProfileService } from '../../src/application/profiles/profile-service.js';
-import { SplicedockStore } from '../../src/adapters/outbound/persistence/store.js';
-import { AuditBuffer } from '../../src/application/audit/audit-buffer.js';
-import { ToolMetrics } from '../../src/application/metrics/tool-metrics.js';
-import { PolicyStore } from '../../src/application/policy/policy-store.js';
+import { createAdminServer } from '../../src/services/admin/adapters/fastify/server.js';
+import { ToolRegistry } from '../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../src/services/profiles/profile-registry.js';
+import { ToolService } from '../../src/services/tools/base.js';
+import { ProfileService } from '../../src/services/profiles/base.js';
+import { SplicedockStore } from '../../src/services/database/adapters/store.js';
+import { AuditBuffer } from '../../src/services/audit/base.js';
+import { ToolMetrics } from '../../src/services/metrics/base.js';
+import { PolicyStore } from '../../src/services/policy/base.js';
 import {
   setEffectivePolicyResolver,
   setAuditSink,
   setMetricsSink,
   invalidatePolicyForTool,
   callCliPassthrough,
-} from '../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+} from '../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, SplicedockConfig } from '../../src/config/types.js';
 
 const ADMIN_TOKEN = 'webui-e2e-token';

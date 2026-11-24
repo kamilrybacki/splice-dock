@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ToolMetrics } from '../../../src/application/metrics/tool-metrics.js';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { ToolMetrics } from '../../../src/services/metrics/base.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 
 describe('ToolMetrics', () => {
   let metrics: ToolMetrics;

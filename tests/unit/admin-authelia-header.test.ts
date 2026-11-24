@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { buildSessionCtx, requireSession } from '../../src/adapters/inbound/admin/web/session.js';
+import { buildSessionCtx, requireSession } from '../../src/services/admin/adapters/fastify/web/session.js';
 
 const SECRET = 'edge-secret-value';
 

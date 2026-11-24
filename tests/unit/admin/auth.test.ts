@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/adapters/inbound/admin/auth.js';
+import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/services/admin/adapters/fastify/auth.js';
 
 function run(hook: ReturnType<typeof buildAdminAuthHook>, req: Record<string, unknown>) {
   const done = vi.fn();

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vites
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveAuthValue, resetVaultTokenCache } from '../../../src/application/auth/resolver.js';
+import { resolveAuthValue, resetVaultTokenCache } from '../../../src/services/secrets/adapters/vault/resolver.js';
 
 // Redirect HOME to an empty tmp dir so the resolver's auto-discovery of ~/.vault-token and
 // ~/.vault-approle.yml can't pick up real files from the dev machine and contaminate tests.

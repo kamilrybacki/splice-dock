@@ -1,5 +1,5 @@
 // End-to-end smoke client for a running gateway started with
-// site/examples/quickstart.yaml. Run it from a directory whose node_modules
+// docs/web/examples/quickstart.yaml. Run it from a directory whose node_modules
 // contains @modelcontextprotocol/sdk (the image's /app, or the installed
 // npm package).
 //

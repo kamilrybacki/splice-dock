@@ -1,9 +1,10 @@
+import { resolveBoundProfile } from '../../../src/services/mcp/base.js';
 import { createServer } from 'node:http';
 import { describe, it, expect, afterEach } from 'vitest';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
-import { createMcpExpressApp, resolveBoundProfile } from '../../../src/adapters/inbound/mcp/server.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
 
 describe('resolveBoundProfile', () => {
   it('binds the profile a valid bearer resolves to (the caller then ignores ?profile=)', async () => {

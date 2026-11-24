@@ -1,19 +1,19 @@
 import {it,expect} from 'vitest';
 import Database from 'better-sqlite3';
-import {ShadowObserver} from '../../src/application/shadow/queue.js';
+import {ShadowObserver} from '../../src/services/shadow/base.js';
 it('shadow disabled by default, never calls provider',async()=>{
  let calls=0;const observer=await ShadowObserver.create(sqliteDb(new Database(':memory:')),{enabled:false,queue_max:1,timeout_ms:10,retention_days:30,sample_rate:1},async()=>{calls++;return {label:'allow',confidence:1};});
  observer.submit({tool:'gh',profile:'test',argv:['CANARY'],cwd:null},'deny');
  await new Promise(r=>setTimeout(r,20));expect(calls).toBe(0);
 });
 
-import {features} from '../../src/domain/shadow/features.js';
-import {modelAdapter} from '../../src/ports/shadow-model.js';
+import {features} from '../../src/services/shadow/features.js';
+import {modelAdapter} from '../../src/services/shadow/model.js';
 import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import ts from 'typescript';
 import { sqliteDb } from "../helpers/sqlite.js";
-import {callCliPassthrough,setObservationSink} from '../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
+import {callCliPassthrough,setObservationSink} from '../../src/services/tools/adapters/cli/passthrough.js';
 const config={enabled:true,queue_max:2,timeout_ms:10,retention_days:30,sample_rate:1};
 const observation={tool:'gh',profile:'test',argv:['delete','CANARY_SECRET','--force'],cwd:'/CANARY_SECRET'};
 const wait=()=>new Promise(r=>setTimeout(r,40));
@@ -58,14 +58,14 @@ it('actual CLI decision unaffected by a failing observation sink',async()=>{
 /** Exhaustive transitive local import walk, including re-exports and literal dynamic imports. */
 function reachesShadow(entry:string,seen=new Set<string>()):boolean {
  const path=resolve(entry);if(seen.has(path))return false;seen.add(path);
- if(/\/src\/(?:domain|application|adapters\/outbound)\/shadow\//.test(path))return true;
+ if(/\/src\/(?:services\/shadow\/|contracts\/outbound\/shadow-model\.ts$)/.test(path))return true;
  if(!existsSync(path))return false;
  const parsed=ts.preProcessFile(readFileSync(path,'utf8'),true,true);
  return parsed.importedFiles.some(i=>i.fileName.startsWith('.')&&reachesShadow(resolve(dirname(path),i.fileName.replace(/\.js$/,'.ts')),seen));
 }
 it('policy and approval have no transitive dependency on shadow',()=>{
- const files=readdirSync('src/domain/policy').filter(f=>f.endsWith('.ts')).map(f=>'src/domain/policy/'+f);
- files.push('src/application/approvals/approval-service.ts');
+ const files=readdirSync('src/services/policy', { recursive: true }).filter(f=>f.endsWith('.ts')).map(f=>'src/services/policy/'+f);
+ files.push('src/services/approvals/base.ts');
  for(const file of files)expect(reachesShadow(file),file).toBe(false);
 });
 it('feature PSI waits for observed baseline and measures real distributions',async ()=>{
@@ -79,8 +79,9 @@ it('feature PSI waits for observed baseline and measures real distributions',asy
  expect((await o.psi()).cwd_class).toBe(0);
 });
 it('dependency scanner includes reexports and dynamic imports',()=>{
- const imports=ts.preProcessFile("export * from './bridge.js'; import('./shadow/queue.js');",true,true).importedFiles.map(i=>i.fileName);
- expect(imports).toContain('./bridge.js');expect(imports).toContain('./shadow/queue.js');
+ const imports=ts.preProcessFile("export * from './bridge.js'; import('./shadow/base.js');",true,true).importedFiles.map(i=>i.fileName);
+ expect(imports).toContain('./bridge.js');expect(imports).toContain('./shadow/base.js');
+ expect(reachesShadow('src/services/shadow/base.ts')).toBe(true);
 });
 it('provider cannot mutate the metadata retained for persistence',async()=>{
  const db=new Database(':memory:');const observer=await ShadowObserver.create(sqliteDb(db),config,async f=>{

@@ -34,7 +34,7 @@ is published. Trusted publishing can only be set up for a package that already
 exists, so the first version was published by hand; the `npm` job skips any
 version that is already on the registry.
 
-The user guide is built from `site/` and deployed to GitHub Pages
+The user guide is built from `docs/web/` and deployed to GitHub Pages
 (`https://kamilrybacki.github.io/splice-dock/`) by `.github/workflows/pages.yml`
 on every push to `main` that changes it.
 

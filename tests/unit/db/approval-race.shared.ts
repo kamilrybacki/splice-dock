@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { raceClaims } from '../../helpers/race.js';
 
 const N = 8;

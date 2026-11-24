@@ -1,9 +1,9 @@
 import Fastify from 'fastify';
 import { expect, it } from 'vitest';
-import { registerProfileTokenRoutes } from '../../src/adapters/inbound/admin/routes/profile-tokens.js';
-import { buildAdminAuthHook, buildAdminTokenSet } from '../../src/adapters/inbound/admin/auth.js';
-import { SplicedockStore } from '../../src/adapters/outbound/persistence/store.js';
-import { hashProfileToken } from '../../src/application/auth/profile-token.js';
+import { registerProfileTokenRoutes } from '../../src/services/admin/adapters/fastify/routes/profile-tokens.js';
+import { buildAdminAuthHook, buildAdminTokenSet } from '../../src/services/admin/adapters/fastify/auth.js';
+import { SplicedockStore } from '../../src/services/database/adapters/store.js';
+import { hashProfileToken } from '../../src/services/authentication/base.js';
 it('authenticates admin mutations, binds identity, rotates and immediately revokes', async () => {
   const store = await SplicedockStore.open(':memory:');
   const app = Fastify();

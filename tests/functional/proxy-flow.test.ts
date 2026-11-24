@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { McpProxyDriver } from '../../src/adapters/outbound/drivers/mcp-proxy.js';
+import { McpProxyDriver } from '../../src/services/upstreams/adapters/mcp/driver.js';
 import { createHarness, type Harness } from './harness.js';
 import { createStubUpstream, type StubUpstream } from './stub-upstream.js';
 import type { McpProxyToolConfig } from '../../src/config/types.js';

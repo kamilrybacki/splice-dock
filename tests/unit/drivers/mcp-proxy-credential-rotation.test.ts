@@ -3,7 +3,7 @@ import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 const state = vi.hoisted(() => ({ token: 'tok-1', connects: 0, calls: 0 }));
 
-vi.mock('../../../src/application/credentials/broker.js', () => ({
+vi.mock('../../../src/services/secrets/adapters/resolve-credential.js', () => ({
   resolveCredentialSource: async () => state.token,
 }));
 
@@ -29,7 +29,7 @@ vi.mock('@modelcontextprotocol/sdk/client/sse.js', () => ({
   SSEClientTransport: class {},
 }));
 
-const { McpProxyDriver } = await import('../../../src/adapters/outbound/drivers/mcp-proxy.js');
+const { McpProxyDriver } = await import('../../../src/services/upstreams/adapters/mcp/driver.js');
 
 function makeConfig(auth: McpProxyToolConfig['auth']): McpProxyToolConfig {
   return {

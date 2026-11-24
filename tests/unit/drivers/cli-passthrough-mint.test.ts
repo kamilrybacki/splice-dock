@@ -1,10 +1,10 @@
-import { credentialAdapters } from '../../../src/adapters/outbound/credentials/index.js';
+import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { callCliPassthrough, setProfileEnvResolver } from '../../../src/adapters/outbound/drivers/cli-passthrough-wrapper.js';
-import { configureCredentialBroker, resetCredentialBroker } from '../../../src/application/credentials/broker.js';
+import { callCliPassthrough, setProfileEnvResolver } from '../../../src/services/tools/adapters/cli/passthrough.js';
+import { configureCredentialBroker, resetCredentialBroker } from '../../../src/services/secrets/broker.js';
 import { runWithCaller } from '../../../src/common/request-context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 

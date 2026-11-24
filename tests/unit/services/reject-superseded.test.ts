@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ApprovalService } from '../../../src/application/approvals/approval-service.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ApprovalService } from '../../../src/services/approvals/base.js';
 
 const caller = { profile: 'test', tokenId: 'fixture', authenticated: true };
 const context = 'Clean up completed batch jobs after investigating failed scheduled runs';

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { resolveSecretStrict, configureSecretGuard } from '../../../src/application/auth/secret-guard.js';
+import { resolveSecretStrict, configureSecretGuard } from '../../../src/services/secrets/adapters/vault/guard.js';
 it('bounds stalled resolution and redacts failures', async () => {
   configureSecretGuard({ timeout_ms: 10 });
   vi.stubEnv('VAULT_ADDR', 'http://localhost');

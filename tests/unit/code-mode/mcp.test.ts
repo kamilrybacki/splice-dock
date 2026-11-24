@@ -1,12 +1,12 @@
 import { it, expect, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { buildMcpServer } from '../../../src/adapters/inbound/mcp/server.js';
-import { ToolRegistry } from '../../../src/application/registry/tool-registry.js';
-import { ProfileRegistry } from '../../../src/application/registry/profile-registry.js';
+import { buildMcpServer } from '../../../src/services/mcp/adapters/express/server.js';
+import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
 import { createServer } from 'node:http';
 import { runWithCaller } from '../../../src/common/request-context.js';
-import { ProfileService } from '../../../src/application/profiles/profile-service.js';
+import { ProfileService } from '../../../src/services/profiles/base.js';
 
 it('gates the builtin independently of tool patterns and checks each nested call', async () => {
   const profiles = new ProfileRegistry();

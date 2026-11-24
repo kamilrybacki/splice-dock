@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ToolRefreshService } from '../../../src/application/tools/tool-refresh-service.js';
+import { ToolRefreshService } from '../../../src/services/tools/tool-refresh-service.js';
 
 const mockResolve = vi.fn().mockResolvedValue(['10.0.0.1']);
 const mockPickOne = vi.fn().mockReturnValue('10.0.0.1');

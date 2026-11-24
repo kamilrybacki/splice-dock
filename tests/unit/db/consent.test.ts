@@ -1,7 +1,7 @@
-import { argvHash } from '../../../src/application/approvals/approval-service.js';
+import { argvHash } from '../../../src/services/approvals/base.js';
 import { describe, it, expect } from 'vitest';
-import { SplicedockStore } from '../../../src/adapters/outbound/persistence/store.js';
-import { ConsentStore } from '../../../src/application/approvals/consent-store.js';
+import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
 
 describe('consent persistence', () => {
   it('strong reservation requires WebAuthn, exact identity, digest and enabled service',async ()=>{
