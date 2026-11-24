@@ -1,6 +1,5 @@
 import {breakerReadonly} from './readonly.js';
-import {migrateBreakerState} from './schema.js';
-import { isPostgres, type SqlDb } from '../../database/base.js';
+import type { SqlDb } from '../../database/base.js';
 import {createHash} from 'node:crypto';
 import type {SplicedockConfig} from '../../../config/types.js';
 import type {CallerIdentity} from '../../../common/request/context.js';
@@ -8,18 +7,18 @@ type Config=SplicedockConfig['server']['breaker'];
 type Row={scope:string; family:string; state:string; opened_at:number; cooldown_until:number; trip_count:number; window_at:number; denials:number; probes:number};
 /** Every read-modify-write runs in one transaction that owns the scope row:
  * SQLite serializes writers with BEGIN IMMEDIATE; on Postgres (several
- * replicas, READ COMMITTED) the row is taken with SELECT ... FOR UPDATE and
+ * replicas, READ COMMITTED) the row is row-locked (db.rowLock) and
  * created with an upsert that also locks it. Counters saturate and no argv is retained. */
 export class CircuitBreaker {
  /** The constructor does no I/O; create() migrates the breaker tables first. */
  constructor(readonly db:SqlDb,readonly config:Config,readonly event:(event:string,family:string,state?:string)=>void=()=>{}){}
  static async create(db:SqlDb,config:Config,event:(event:string,family:string,state?:string)=>void=()=>{}):Promise<CircuitBreaker>{
- await migrateBreakerState(db);
+ await db.ensureSchema();
  return new CircuitBreaker(db,config,event);
  }
  /** Row-lock suffixes. Empty on SQLite, where the IMMEDIATE transaction already holds the write lock. */
- private get forUpdate():string{return isPostgres(this.db)?' FOR UPDATE':'';}
- private get skipLocked():string{return isPostgres(this.db)?' FOR UPDATE SKIP LOCKED':'';}
+ private get forUpdate():string{return this.db.rowLock('update');}
+ private get skipLocked():string{return this.db.rowLock('skip_locked');}
  private scopes(c?:CallerIdentity):[string,string][] {return this.config.scopes.flatMap(s=>s==='global'?[[s,s] as [string,string]]:s==='token'?(c?.authenticated?[[`token:${createHash('sha256').update(JSON.stringify([c.profile,c.tokenId])).digest('hex')}`,'token'] as [string,string]]:[]):s===`profile:${c?.profile}`?[[s,s] as [string,string]]:[]);}
  async list():Promise<Row[]>{return await this.db.prepare('SELECT * FROM breaker_state ORDER BY scope LIMIT 4096').all() as Row[];}
  private async row(scope:string,family:string,now:number):Promise<Row> {

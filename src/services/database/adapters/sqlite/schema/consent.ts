@@ -1,6 +1,5 @@
-import type { SqlDb } from '../../database/base.js';
+import type { SqlDb } from '../../../base.js';
 export async function migrateApprovalConsent(db: SqlDb): Promise<void> {
-  if (db.dialect === 'postgres') return; // schema comes from pg-schema.ts
   const cols = new Set((await db.prepare('PRAGMA table_info(pending_approvals)').all() as {name:string}[]).map(c=>c.name));
   for (const [name, type] of Object.entries({level:"TEXT NOT NULL DEFAULT 'weak'",op_digest:'TEXT',link_token_hash:'TEXT',link_expires_at:'INTEGER',link_used_at:'INTEGER',consent_method:'TEXT',consent_attempts:'INTEGER NOT NULL DEFAULT 0',rejected_reason:'TEXT'})) {
     if (!cols.has(name)) await db.exec(`ALTER TABLE pending_approvals ADD COLUMN ${name} ${type}`);

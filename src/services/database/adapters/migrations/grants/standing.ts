@@ -1,6 +1,5 @@
 import type { SqlDb } from '../../../base.js';
 export async function migrateStandingGrants(db:SqlDb):Promise<void> {
-  if (db.dialect === 'postgres') return; // schema comes from pg-schema.ts
   await db.transaction(async ()=>{
     const cols=new Set((await db.prepare('PRAGMA table_info(pending_approvals)').all() as {name:string}[]).map(c=>c.name));
     for(const name of ['shape_key','base_shape_key','grant_id','approval_context'])if(!cols.has(name))await db.exec(`ALTER TABLE pending_approvals ADD COLUMN ${name} TEXT`);

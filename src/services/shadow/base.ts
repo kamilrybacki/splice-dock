@@ -3,7 +3,6 @@ import type {SplicedockConfig} from '../../config/types.js';
 import {features,type Observation} from './features.js';
 import type { Provider, ShadowFeatures } from '../../contracts/outbound/shadow/model.js';
 import { modelAdapter, unavailable } from './model.js';
-import {migrateShadowLog} from './log/schema.js';
 type Config=SplicedockConfig['server']['shadow'];
 type Job={f:ShadowFeatures;decision:string};
 /** An observer only. Submission returns void; neither policy nor consent receives its results. */
@@ -14,7 +13,7 @@ export class ShadowObserver {
  /** The constructor does no I/O; create() migrates the shadow log first. */
  constructor(readonly db:SqlDb,readonly config:Config,private provider:Provider=unavailable,private event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{}){}
  static async create(db:SqlDb,config:Config,provider:Provider=unavailable,event:(outcome:string,latency:number,depth:number,agreement?:string)=>void=()=>{}):Promise<ShadowObserver>{
- await migrateShadowLog(db);
+ await db.ensureSchema();
  return new ShadowObserver(db,config,provider,event);
  }
  submit(o:Observation,decision:string):void {

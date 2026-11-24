@@ -9,6 +9,7 @@
 // immediately, exactly as before.
 import { AsyncLocalStorage } from 'node:async_hooks';
 import Database from 'better-sqlite3';
+import { migrateSqlite } from './schema/index.js';
 import type { SqlDb, SqlRunResult, SqlStatement, SqlTransaction } from '../../base.js';
 
 interface TxCtx {
@@ -28,6 +29,7 @@ export class SqliteDb implements SqlDb {
   private readonly als = new AsyncLocalStorage<TxCtx>();
   private tail: Promise<void> = Promise.resolve();
   private locked = false;
+  private schemaReady: Promise<void> | undefined;
 
   constructor(readonly raw: Database.Database) {}
 
@@ -37,6 +39,20 @@ export class SqliteDb implements SqlDb {
 
   async tryWithAdvisoryLock<T>(_key: number, fn: () => Promise<T>): Promise<{ ran: true; value: T } | { ran: false }> {
     return { ran: true, value: await fn() };
+  }
+
+  /** BEGIN IMMEDIATE already serialises writers, so no row lock is needed. */
+  rowLock(_mode: 'update' | 'skip_locked'): string {
+    return '';
+  }
+
+  /** Single process: the transaction's write lock is the mutex. */
+  async lockInTransaction(_key: string): Promise<void> {}
+
+  ensureSchema(): Promise<void> {
+    const run = (this.schemaReady ??= migrateSqlite(this));
+    run.catch(() => { if (this.schemaReady === run) this.schemaReady = undefined; });
+    return run;
   }
 
   private current(): TxCtx | undefined {

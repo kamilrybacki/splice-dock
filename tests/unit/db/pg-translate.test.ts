@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveDbTarget } from '../../../src/services/database/base.js';
+import { resolveDbTarget } from '../../../src/services/database/adapters/target.js';
 import { translate } from '../../../src/services/database/adapters/postgres/translate.js';
 
 describe('pg translate', () => {

@@ -1,4 +1,4 @@
-import { resolveDbTarget } from './services/database/base.js';
+import { resolveDbTarget } from './services/database/adapters/target.js';
 import { readGrantConfig } from './services/policy/grants/config.js';
 import { setApprovalWaitHandler } from './services/mcp/adapters/express/server.js';
 import {ShadowObserver} from './services/shadow/base.js';

@@ -1,6 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { ConsentStore, hash } from '../../consent/store.js';
-import { isPostgres } from '../../../database/base.js';
 /** Thrown inside the approval transaction to roll back a lost credential race. */
 class CredentialConsumed extends Error {}
 /** Hook consent; disabled by default and never executes an operation. */
@@ -20,7 +19,7 @@ export class WeakConsent {
     // READ COMMITTED) the credential row is locked with FOR UPDATE, so a second
     // approval waits and then sees it revoked; on SQLite BEGIN IMMEDIATE takes the
     // write lock first. The revoke is also conditional, and a lost race rolls back.
-    const lock=isPostgres(this.store.db)?' FOR UPDATE':'';
+    const lock=this.store.db.rowLock('update');
     try { return await this.store.db.transaction(async ()=>{
       const r=await this.store.get(id);
       if(!r || r.level!=='weak' || r.status!=='pending' || r.expires_at<=now || r.requested_at+this.ttlMs<=now)return false;
