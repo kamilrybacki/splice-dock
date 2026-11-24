@@ -1,6 +1,6 @@
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
-import { codeModeDef } from '../../../code/mode/base.js';
-import { executeCode } from '../../../code/mode/adapters/quickjs/executor.js';
+import { codeModeDef } from '../../../code-mode/base.js';
+import { executeCode } from '../../../code-mode/adapters/quickjs/executor.js';
 import {
   APPROVAL_WAIT_TOOL, approvalWaitTool, builtinTool, listedBuiltinTools, registerBuiltinTool,
   unregisterBuiltinTool, type ApprovalWaitHandler,
@@ -12,8 +12,8 @@ import { ListToolsRequestSchema, CallToolRequestSchema, type CompatibilityCallTo
 import type { ProfileAccess } from '../../../profiles/base.js';
 import type { ToolRegistry } from '../../../tools/registry.js';
 import { McpProxyDriver, proxyDriverKey } from '../../../upstreams/adapters/mcp/driver.js';
-import { executeWithPreflight } from '../../../code/mode/preflight.js';
-import { localPreflightServices } from '../../../code/mode/adapters/http/preflight.js';
+import { executeWithPreflight } from '../../../code-mode/preflight.js';
+import { localPreflightServices } from '../../../code-mode/adapters/http/preflight.js';
 import { callHttpTool, type HttpExchange } from '../../../tools/adapters/http/driver.js';
 import { callCliTool } from '../../../tools/adapters/cli/static.js';
 import { callCliPassthrough, callReviewedCliPassthrough } from '../../../tools/adapters/cli/passthrough.js';
