@@ -161,7 +161,7 @@ function runInstallScript(config: CliPassthroughToolConfig): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn('/bin/sh', ['-eu', '-c', script], {
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'ignore', 'pipe'],
     });
     let stderr = '';
     child.stderr.on('data', (chunk: Buffer) => {

@@ -19,12 +19,16 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
+- The gateway waits for policy and approval setup before accepting MCP calls.
+- CLI install scripts can write to stdout without blocking on an unread pipe.
+- The example configuration installs a checksum-verified GitHub CLI on both
+  Linux amd64 and arm64.
 - The example configuration (`splicedock.example.yaml`) now loads: `mcp_proxy`
   entries use `service_dns`, `port` and `transport` instead of the unsupported
   `upstream`, and a `consent` block with `rp_id` and `origin` is included.
 - The README install commands for npm and the container set
   `SPLICEDOCK_ADMIN_TOKEN`, without which the gateway does not start. The npm
-  commands also copy the example configuration into place and set
+  commands also use a writable npm prefix, copy the example into place, and set
   `SPLICEDOCK_BIN` to a directory the user can write to; the default
   `/var/splicedock/bin` stopped startup with `EACCES` for a non-root user.
 - The example configuration lists `gh` and `codex` in `cli_whitelist`. With the

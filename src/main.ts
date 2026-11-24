@@ -211,11 +211,7 @@ async function main() {
   await loadRuntimeTools(store, toolRegistry, toolService, logger, config.server.cli_whitelist);
   await mcpUpstreamManager.syncFromStore();
 
-  // Load the complete catalog before accepting any MCP calls.
   await loadRuntimeProfiles(store, profileRegistry, logger);
-  mcpServer.listen(config.server.port, () => {
-    logger.info('MCP server listening', { port: config.server.port });
-  });
 
   const auditBuffer = new AuditBuffer(2000);
   const toolMetrics = new ToolMetrics(store);
@@ -298,6 +294,11 @@ async function main() {
   );
   await adminServer.listen({ port: config.server.admin_port, host: '0.0.0.0' });
   logger.info('Admin API listening', { port: config.server.admin_port });
+
+  // Accept MCP calls only after the catalog and the policy and approval hooks are ready.
+  mcpServer.listen(config.server.port, () => {
+    logger.info('MCP server listening', { port: config.server.port });
+  });
 
   // Graceful shutdown. Order matters with several replicas behind one Service:
   // first stop taking MCP traffic and let in-flight calls finish (they still

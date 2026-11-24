@@ -23,21 +23,49 @@ else
   mv "$work"/splicedock-*.tgz "$work/splicedock.tgz"
 fi
 cp "$here/client.mjs" "$work/client.mjs"
+chmod a+rx "$work"
+chmod a+r "$work/splicedock.tgz" "$work/client.mjs"
 admin_token="$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
 
-docker run --rm -v "$work:/smoke:ro" -e SPLICEDOCK_ADMIN_TOKEN="$admin_token" "$NODE_IMG" bash -euo pipefail -c '
+docker run --rm --user node -v "$work:/smoke:ro" -e SPLICEDOCK_ADMIN_TOKEN="$admin_token" "$NODE_IMG" bash -euo pipefail -c '
+  export NPM_CONFIG_PREFIX="$HOME/.local"
+  export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
   npm install -g --no-fund --no-audit /smoke/splicedock.tgz >/tmp/install.log 2>&1 || { cat /tmp/install.log >&2; exit 1; }
   pkg="$(npm root -g)/splicedock"
   echo "PASS installed splicedock $(node -p "require(\"$pkg/package.json\").version")"
   data="$(mktemp -d)"
-  export SPLICEDOCK_CONFIG="$pkg/site/examples/quickstart.yaml" SPLICEDOCK_DB_PATH="$data/splicedock.db"
+  export SPLICEDOCK_CONFIG="$data/splicedock.yaml" SPLICEDOCK_DB_PATH="$data/splicedock.db" SPLICEDOCK_BIN="$data/bin"
+  node - "$pkg" <<\NODE
+const { readFileSync, writeFileSync } = require("node:fs");
+const { createRequire } = require("node:module");
+const pkg = process.argv[2];
+const { load, dump } = createRequire(pkg + "/package.json")("js-yaml");
+const config = load(readFileSync(pkg + "/site/examples/quickstart.yaml", "utf8"));
+config.server.cli_whitelist.push("smoke-probe");
+config.profiles.demo.tools.push("smoke_probe__*");
+config.tools.push({
+  type: "cli_passthrough",
+  name: "smoke_probe",
+  description: "Check a locally installed executable",
+  command: "smoke-probe",
+  install: {
+    required: true,
+    script: [
+      "head -c 1048576 /dev/zero",
+      "printf \"#!/bin/sh\\\\necho smoke-probe-ok\\\\n\" > \"$SPLICEDOCK_BIN/smoke-probe\"",
+      "chmod +x \"$SPLICEDOCK_BIN/smoke-probe\"",
+    ].join("\n"),
+  },
+});
+writeFileSync(process.env.SPLICEDOCK_CONFIG, dump(config));
+NODE
   splicedock >"$data/gateway.log" 2>&1 &
   gateway=$!
   trap "kill $gateway 2>/dev/null || true" EXIT
   cp /smoke/client.mjs "$pkg/smoke-client.mjs"
   node "$pkg/site/examples/first-call.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
   echo "PASS first-call.mjs"
-  node "$pkg/smoke-client.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
+  SD_CHECK_INSTALLER=1 node "$pkg/smoke-client.mjs" || { cat "$data/gateway.log" >&2; exit 1; }
   if grep "\"level\":\"error\"" "$data/gateway.log" >&2; then echo "gateway logged errors" >&2; exit 1; fi
   usage="$(splicedock db 2>&1 || true)"
   case "$usage" in *migrate-sqlite-to-pg*) ;; *) echo "splicedock db usage is missing migrate-sqlite-to-pg: $usage" >&2; exit 1 ;; esac
