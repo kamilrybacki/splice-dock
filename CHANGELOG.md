@@ -4,6 +4,14 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- End-to-end smoke tests in `scripts/smoke/`. CI installs the packed npm
+  package in a fresh container and runs the Quickstart against it, and on pull
+  requests starts the built image with SQLite and with PostgreSQL.
+
 ## [1.0.0] - 2026-11-24
 
 First public release.
@@ -35,4 +43,5 @@ First public release.
   `X-Cellarette-CSRF` or `X-Cellarette-Authelia` headers. Use `SPLICEDOCK_*`,
   `X-Splicedock-CSRF` and `X-Splicedock-Authelia`.
 
+[Unreleased]: https://github.com/kamilrybacki/splice-dock/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/kamilrybacki/splice-dock/releases/tag/v1.0.0

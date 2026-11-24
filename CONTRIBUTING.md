@@ -12,6 +12,9 @@ pull request against `main`. Pull requests are reviewed and merged here.
 - Run the same checks as CI:
   `npx tsc --noEmit`, `npm run lint`, `npm run lint:layers`, `npm test`, and
   `npm run docs:build && npm run docs:check` when you change the documentation.
+  If you change the Dockerfile or the package contents, also run
+  `IMG=<local tag> scripts/smoke/run-image.sh` and `scripts/smoke/run-npm.sh`
+  (both need Docker).
 - Keep each pull request focused on one change, and add tests for new behaviour.
 - By contributing, you agree that your work is licensed under the [MIT License](LICENSE).
 
