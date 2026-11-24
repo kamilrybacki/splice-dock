@@ -1,7 +1,7 @@
 import { decodeAttestationObject, convertCertBufferToPEM, validateCertificatePath } from '@simplewebauthn/server/helpers';
 import { verifyAuthenticationResponse, verifyRegistrationResponse, generateRegistrationOptions, type AuthenticationResponseJSON, type RegistrationResponseJSON } from '@simplewebauthn/server';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { ConsentStore, type Credential } from '../../consent-store.js';
+import { ConsentStore, type Credential } from '../../consent/store.js';
 import { isPostgres } from '../../../database/base.js';
 /** Rolls back an approval whose credential counter or revocation changed under it. */
 class CounterRaced extends Error {}

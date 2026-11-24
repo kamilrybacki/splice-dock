@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { baseShapeKey, kubectlBaseShape, kubectlShape } from '../../../src/services/policy/shape/kubectl.js';
-import { contextSimilarity } from '../../../src/services/policy/context-similarity.js';
+import { contextSimilarity } from '../../../src/services/policy/context/similarity.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
 const caller = {profile:'test',tokenId:'fixture',authenticated:true};

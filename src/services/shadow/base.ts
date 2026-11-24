@@ -1,9 +1,9 @@
 import type { SqlDb } from '../database/base.js';
 import type {SplicedockConfig} from '../../config/types.js';
 import {features,type Observation} from './features.js';
-import type { Provider, ShadowFeatures } from '../../contracts/outbound/shadow-model.js';
+import type { Provider, ShadowFeatures } from '../../contracts/outbound/shadow/model.js';
 import { modelAdapter, unavailable } from './model.js';
-import {migrateShadowLog} from './shadow-log-schema.js';
+import {migrateShadowLog} from './log/schema.js';
 type Config=SplicedockConfig['server']['shadow'];
 type Job={f:ShadowFeatures;decision:string};
 /** An observer only. Submission returns void; neither policy nor consent receives its results. */

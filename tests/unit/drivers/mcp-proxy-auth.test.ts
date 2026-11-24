@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/services/secrets/adapters/vault/resolver.js', () => ({ resolveAuthValue: mocks.staticResolve }));
-vi.mock('../../../src/services/secrets/adapters/resolve-credential.js', () => ({
+vi.mock('../../../src/services/secrets/adapters/resolution.js', () => ({
   resolveCredentialSource: (source: { from: string } | { mint: string }, _target: unknown) =>
     'from' in source ? mocks.staticResolve(source.from) : mocks.mintResolve(source),
 }));

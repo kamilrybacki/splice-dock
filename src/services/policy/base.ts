@@ -14,7 +14,7 @@
 // matching config object.
 
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../config/types.js';
-import { compilePolicy, PolicyCompileError, type CompiledCliPolicy, type CompileOptions } from './cli-policy.js';
+import { compilePolicy, PolicyCompileError, type CompiledCliPolicy, type CompileOptions } from './cli/rules.js';
 import { logger } from '../../common/logger.js';
 import type { PolicyOverrideRepository } from '../../contracts/outbound/repositories.js';
 

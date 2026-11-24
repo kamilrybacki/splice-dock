@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { SplicedockConfig, CliPassthroughToolConfig, CliToolPolicy } from '../../../../../config/types.js';
 import { cliToolPolicySchema } from '../../../../../config/schema.js';
-import { compilePolicy, evaluatePolicy, PolicyCompileError } from '../../../../policy/cli-policy.js';
+import { compilePolicy, evaluatePolicy, PolicyCompileError } from '../../../../policy/cli/rules.js';
 import type { PolicyStore } from '../../../../policy/base.js';
 
 function findCliTool(config: SplicedockConfig, name: string): CliPassthroughToolConfig | null {

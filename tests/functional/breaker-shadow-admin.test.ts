@@ -2,14 +2,14 @@ import {it,expect} from 'vitest';
 import {createAdminServer} from '../../src/services/admin/adapters/fastify/server.js';
 import {splicedockConfigSchema} from '../../src/config/schema.js';
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
-import {ToolRegistry} from '../../src/services/tools/tool-registry.js';
-import {ProfileRegistry} from '../../src/services/profiles/profile-registry.js';
+import {ToolRegistry} from '../../src/services/tools/registry.js';
+import {ProfileRegistry} from '../../src/services/profiles/registry.js';
 import {ToolService} from '../../src/services/tools/base.js';
 import {ProfileService} from '../../src/services/profiles/base.js';
 import {PolicyStore} from '../../src/services/policy/base.js';
 import {AuditBuffer} from '../../src/services/audit/base.js';
 import {ToolMetrics} from '../../src/services/metrics/base.js';
-import {CircuitBreaker} from '../../src/services/policy/circuit-breaker.js';
+import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 import {ShadowObserver} from '../../src/services/shadow/base.js';
 it('breaker controls and shadow summary require trusted admin authentication',async()=>{
  const c=splicedockConfigSchema.parse({});const store=await SplicedockStore.open(':memory:');

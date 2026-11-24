@@ -4,8 +4,8 @@
 
 import type { FastifyInstance } from 'fastify';
 
-import type { PushSubscriptionStore } from '../../../../database/adapters/push-store.js';
-import { parseSubscription, type PushNotifier } from '../../../../approvals/adapters/web-push/notifier.js';
+import type { PushSubscriptionStore } from '../../../../database/adapters/push/store.js';
+import { parseSubscription, type PushNotifier } from '../../../../approvals/adapters/push/web/notifier.js';
 
 const DISABLED = { error: { code: 'push_disabled', message: 'Web Push is not configured' } };
 

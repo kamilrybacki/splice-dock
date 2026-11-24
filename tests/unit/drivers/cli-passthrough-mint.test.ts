@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { callCliPassthrough, setProfileEnvResolver } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { configureCredentialBroker, resetCredentialBroker } from '../../../src/services/secrets/broker.js';
-import { runWithCaller } from '../../../src/common/request-context.js';
+import { runWithCaller } from '../../../src/common/request/context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 let dir: string;

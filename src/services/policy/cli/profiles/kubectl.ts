@@ -1,7 +1,7 @@
 // kubectl profile (tables taken from kubectl 1.32 offline help).
 
-import { knownCommandTable } from '../command-table.js';
-import { flagTable } from '../flag-table.js';
+import { knownCommandTable } from '../commands/table.js';
+import { flagTable } from '../flags/table.js';
 import type { CliProfile } from './types.js';
 
 // Only flags whose arity is the same in every subcommand (kubectl `-p` is not).

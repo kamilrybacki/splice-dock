@@ -1,18 +1,18 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { OperationExchange } from '../../../../contracts/outbound/operation-exchange.js';
+import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
 import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createHash } from 'node:crypto';
 import { resolveAuthValue } from '../../../secrets/adapters/vault/resolver.js';
-import { resolveCredentialSource } from '../../../secrets/adapters/resolve-credential.js';
+import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js';
 import type { McpProxyToolConfig } from '../../../../config/types.js';
-import type { McpToolDef } from '../../../tools/tool-registry.js';
+import type { McpToolDef } from '../../../tools/registry.js';
 import { retry } from '../../../../common/retry.js';
 import { PACKAGE_VERSION } from '../../../../common/version.js';
-import type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
-export type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
+import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
+export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 
 /** Who is connecting to the upstream; a minted credential is minted per identity. */
 export interface DriverIdentity {

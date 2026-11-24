@@ -1,5 +1,5 @@
-import type { ToolRegistry } from './tool-registry.js';
-import type { McpToolDef } from '../../contracts/internal/mcp-tool.js';
+import type { ToolRegistry } from './registry.js';
+import type { McpToolDef } from '../../contracts/internal/mcp/tool.js';
 import type { HttpToolConfig, CliToolConfig, CliPassthroughToolConfig } from '../../config/types.js';
 
 export interface ToolDefinitions {

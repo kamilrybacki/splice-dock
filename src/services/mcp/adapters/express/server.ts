@@ -1,32 +1,32 @@
-import type { OperationExchange } from '../../../../contracts/outbound/operation-exchange.js';
-import { codeModeDef } from '../../../code-mode/base.js';
-import { executeCode } from '../../../code-mode/adapters/quickjs/executor.js';
+import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
+import { codeModeDef } from '../../../code/mode/base.js';
+import { executeCode } from '../../../code/mode/adapters/quickjs/executor.js';
 import {
   APPROVAL_WAIT_TOOL, approvalWaitTool, builtinTool, listedBuiltinTools, registerBuiltinTool,
   unregisterBuiltinTool, type ApprovalWaitHandler,
-} from './builtin-tools.js';
+} from './tools/builtin.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, type CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ProfileAccess } from '../../../profiles/base.js';
-import type { ToolRegistry } from '../../../tools/tool-registry.js';
+import type { ToolRegistry } from '../../../tools/registry.js';
 import { McpProxyDriver, proxyDriverKey } from '../../../upstreams/adapters/mcp/driver.js';
-import { executeWithPreflight } from '../../../code-mode/preflight.js';
-import { localPreflightServices } from '../../../code-mode/adapters/http/preflight-sidecar.js';
+import { executeWithPreflight } from '../../../code/mode/preflight.js';
+import { localPreflightServices } from '../../../code/mode/adapters/http/preflight.js';
 import { callHttpTool, type HttpExchange } from '../../../tools/adapters/http/driver.js';
 import { callCliTool } from '../../../tools/adapters/cli/static.js';
 import { callCliPassthrough, callReviewedCliPassthrough } from '../../../tools/adapters/cli/passthrough.js';
 import { logger } from '../../../../common/logger.js';
 import { PACKAGE_VERSION } from '../../../../common/version.js';
-import { createQueryFallbackWarner, type ProfileSelectionSource } from './profile-selection.js';
+import { createQueryFallbackWarner, type ProfileSelectionSource } from './profiles/selection.js';
 import { randomUUID } from 'node:crypto';
 import type { HttpToolConfig, CliToolConfig, CliPassthroughToolConfig, McpProxyToolConfig } from '../../../../config/types.js';
-import type { PodResolver } from '../../../upstreams/adapters/dns/pod-resolver.js';
+import type { PodResolver } from '../../../upstreams/adapters/dns/pods.js';
 import type { Metrics } from '../../../../common/metrics.js';
 import { resolveBoundProfile, type ProfileTokenLookup } from '../../base.js';
-import { clientLogFields } from './client-info.js';
-import { LEGACY_QUERY_TOKEN_ID, currentCaller, runWithCaller } from '../../../../common/request-context.js';
+import { clientLogFields } from './client/info.js';
+import { LEGACY_QUERY_TOKEN_ID, currentCaller, runWithCaller } from '../../../../common/request/context.js';
 
 /** Install (or, with undefined, remove) the approvals__wait built-in. */
 export function setApprovalWaitHandler(handler: ApprovalWaitHandler | undefined): void {

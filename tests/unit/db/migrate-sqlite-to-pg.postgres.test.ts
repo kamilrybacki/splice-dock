@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { ConsentStore, hash } from '../../../src/services/approvals/consent-store.js';
-import { migrateBreakerState } from '../../../src/services/policy/circuit-breaker-schema.js';
-import { migrateShadowLog } from '../../../src/services/shadow/shadow-log-schema.js';
+import { ConsentStore, hash } from '../../../src/services/approvals/consent/store.js';
+import { migrateBreakerState } from '../../../src/services/policy/breaker/schema.js';
+import { migrateShadowLog } from '../../../src/services/shadow/log/schema.js';
 import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
-import { migrateSqliteToPostgres, MigrationError } from '../../../src/services/database/adapters/migrate-sqlite-to-pg.js';
+import { migrateSqliteToPostgres, MigrationError } from '../../../src/services/database/adapters/migrations/sqlite/postgres.js';
 import { runDbCli } from '../../../src/services/database/adapters/cli/migrate.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, type IsolatedSchema } from '../../helpers/pg-test.js';
 

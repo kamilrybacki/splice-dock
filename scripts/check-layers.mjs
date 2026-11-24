@@ -30,7 +30,7 @@ function layerOf(file) {
   if (parts.length === 1) return 'root';
   if (parts[0] === 'services') {
     if (parts.length < 3) return 'unknown';
-    return parts[2] === 'adapters' ? 'adapters' : 'services';
+    return parts.slice(2, -1).includes('adapters') ? 'adapters' : 'services';
   }
   if (parts[0] === 'contracts' && !['internal', 'outbound', 'inbound'].includes(parts[1])) {
     return 'unknown';

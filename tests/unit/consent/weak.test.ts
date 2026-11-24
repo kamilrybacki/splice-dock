@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
-import {ConsentStore,hash} from '../../../src/services/approvals/consent-store.js';
+import {ConsentStore,hash} from '../../../src/services/approvals/consent/store.js';
 import {WeakConsent} from '../../../src/services/approvals/adapters/fastify/weak.js';
 it('dormant weak consent binds credentials per token, limits attempts and never executes',async ()=>{
  const db=await SplicedockStore.open(':memory:');const store=await ConsentStore.open(db.consentDatabase());const now=Date.now();

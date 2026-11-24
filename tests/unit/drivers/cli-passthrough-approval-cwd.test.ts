@@ -9,7 +9,7 @@ import { callCliPassthrough, setApprovalHookFactory, setApprovalSettler } from '
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
-import { runWithCaller } from '../../../src/common/request-context.js';
+import { runWithCaller } from '../../../src/common/request/context.js';
 
 const CALLER = { profile: 'p', tokenId: 'tok-a', authenticated: true };
 

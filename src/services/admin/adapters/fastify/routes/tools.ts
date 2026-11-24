@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import type { ToolRegistry, RegistryEntry } from '../../../../tools/tool-registry.js';
+import type { ToolRegistry, RegistryEntry } from '../../../../tools/registry.js';
 import type { ToolDefinitions } from '../../../../tools/base.js';
 import type { ToolConfig } from '../../../../../config/types.js';
 import type { SplicedockStore } from '../../../../database/adapters/store.js';
 import { toolSchema } from '../../../../../config/schema.js';
-import { exportToolsYaml } from '../yaml-exporter.js';
-import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation-bus.js';
+import { exportToolsYaml } from '../export/yaml.js';
+import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
 
 export function registerToolRoutes(
   app: FastifyInstance,

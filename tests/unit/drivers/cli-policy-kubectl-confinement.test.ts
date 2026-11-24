@@ -10,8 +10,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { compilePolicy, evaluatePolicy, type PolicyDecision } from '../../../src/services/policy/cli-policy.js';
-import { kubectlConfinementBreach } from '../../../src/services/policy/cli/kubectl-confinement.js';
+import { compilePolicy, evaluatePolicy, type PolicyDecision } from '../../../src/services/policy/cli/rules.js';
+import { kubectlConfinementBreach } from '../../../src/services/policy/cli/kubectl/confinement.js';
 import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 

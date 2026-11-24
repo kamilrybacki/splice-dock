@@ -6,7 +6,7 @@
 // Row shapes live here so callers never import the adapter module.
 
 import type { CliToolPolicy, ProfileConfig, ToolConfig } from '../../config/types.js';
-import type { SqlDb } from './sql-db.js';
+import type { SqlDb } from './sql/database.js';
 
 export interface PolicyOverrideRow {
   tool_name: string;

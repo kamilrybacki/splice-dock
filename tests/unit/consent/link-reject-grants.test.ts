@@ -1,7 +1,7 @@
 import { it, expect } from 'vitest';
 import Fastify from 'fastify';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
-import { ConsentStore } from '../../../src/services/approvals/consent-store.js';
+import { ConsentStore } from '../../../src/services/approvals/consent/store.js';
 import { WebAuthnConsent } from '../../../src/services/approvals/adapters/fastify/webauthn.js';
 import { registerConsentRoutes } from '../../../src/services/approvals/adapters/fastify/server.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';

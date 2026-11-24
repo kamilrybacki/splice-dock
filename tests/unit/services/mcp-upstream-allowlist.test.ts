@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isUpstreamHostAllowed } from '../../../src/services/upstreams/mcp-upstream-allowlist.js';
+import { isUpstreamHostAllowed } from '../../../src/services/upstreams/mcp/allowlist.js';
 
 describe('isUpstreamHostAllowed', () => {
   it('denies everything by default', () => {

@@ -2,8 +2,8 @@ import { resolveBoundProfile } from '../../../src/services/mcp/base.js';
 import { createServer } from 'node:http';
 import { describe, it, expect, afterEach } from 'vitest';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
 
 describe('resolveBoundProfile', () => {

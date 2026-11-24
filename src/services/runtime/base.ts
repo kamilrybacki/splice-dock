@@ -11,7 +11,7 @@
 // are coalesced per kind so overlapping triggers cannot apply an older
 // snapshot after a newer one.
 
-import type { InvalidationBus, InvalidationMessage } from '../../contracts/outbound/invalidation-bus.js';
+import type { InvalidationBus, InvalidationMessage } from '../../contracts/outbound/invalidation/bus.js';
 import type { RuntimeFingerprint } from '../../contracts/outbound/repositories.js';
 
 export const DEFAULT_RECONCILE_INTERVAL_MS = 30_000;

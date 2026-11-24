@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProfileService } from '../../../src/services/profiles/base.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
-import type { RegistryEntry } from '../../../src/services/tools/tool-registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
+import type { RegistryEntry } from '../../../src/services/tools/registry.js';
 
 function makeEntry(id: string): RegistryEntry {
   return {

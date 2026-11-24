@@ -1,13 +1,13 @@
-import { migrateStandingGrants } from './migrations/standing-grants.js';
-import { migratePushSubscriptions } from './migrations/push-subscriptions.js';
-import { migrateProfileCatalog } from './migrations/profile-catalog.js';
-import { migrateApprovalBroker } from '../../approvals/approval-broker-schema.js';
+import { migrateStandingGrants } from './migrations/grants/standing.js';
+import { migratePushSubscriptions } from './migrations/push/subscriptions.js';
+import { migrateProfileCatalog } from './migrations/profiles/catalog.js';
+import { migrateApprovalBroker } from '../../approvals/broker/schema.js';
 import { createHash } from 'node:crypto';
-import { ConsentStore } from '../../approvals/consent-store.js';
-import { authEvent, tokenEvent } from '../../authentication/lifecycle-events.js';
-import { migrateApprovalConsent } from '../../approvals/approval-consent-schema.js';
-import { migrateProfileTokenLifecycle } from './migrations/profile-token-lifecycle.js';
-import { migrateProfileTokenAgent } from './migrations/profile-token-agent.js';
+import { ConsentStore } from '../../approvals/consent/store.js';
+import { authEvent, tokenEvent } from '../../authentication/lifecycle/events.js';
+import { migrateApprovalConsent } from '../../approvals/consent/schema.js';
+import { migrateProfileTokenLifecycle } from './migrations/profiles/tokens/lifecycle.js';
+import { migrateProfileTokenAgent } from './migrations/profiles/tokens/agent.js';
 // Splicedock persistent store (SQLite via better-sqlite3).
 //
 // What lives here:

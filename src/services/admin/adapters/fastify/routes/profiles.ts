@@ -1,13 +1,13 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { ProfileEntry, ProfileSource } from '../../../../profiles/profile-registry.js';
-import type { ProfileRegistry } from '../../../../profiles/profile-registry.js';
-import { RESERVED_PROFILE_NAMES } from '../../../../profiles/profile-registry.js';
+import type { ProfileEntry, ProfileSource } from '../../../../profiles/registry.js';
+import type { ProfileRegistry } from '../../../../profiles/registry.js';
+import { RESERVED_PROFILE_NAMES } from '../../../../profiles/registry.js';
 import type { ProfileAccess } from '../../../../profiles/base.js';
 import type { SplicedockStore, RuntimeProfileRow } from '../../../../database/adapters/store.js';
 import { profileSchema } from '../../../../../config/schema.js';
 import type { ProfileConfig } from '../../../../../config/types.js';
-import { exportProfilesYaml } from '../yaml-exporter.js';
-import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation-bus.js';
+import { exportProfilesYaml } from '../export/yaml.js';
+import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
 import { revokeProfileCredentials } from '../../../../secrets/broker.js';
 import { dumpProfileManifest, parseProfileManifest, ProfileManifestError } from '../../../../profiles/manifest.js';
 

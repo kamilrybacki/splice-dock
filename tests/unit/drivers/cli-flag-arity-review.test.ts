@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { extractSubcommandPaths, flagTableFor, invocationFlagTable } from '../../../src/services/policy/cli/flag-arity.js';
+import { extractSubcommandPaths, flagTableFor, invocationFlagTable } from '../../../src/services/policy/cli/flags/arity.js';
 it('does not globally classify kubectl -f (filename versus logs follow)', () => {
   expect(extractSubcommandPaths(['logs', '-f', 'pod'], flagTableFor('kubectl'))).toEqual(expect.arrayContaining([['logs', 'pod']]));
 });

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createHash } from 'node:crypto';
-import { registerProfileTokenRoutes } from '../../../src/services/admin/adapters/fastify/routes/profile-tokens.js';
+import { registerProfileTokenRoutes } from '../../../src/services/admin/adapters/fastify/routes/profiles/tokens.js';
 import { hashProfileToken } from '../../../src/services/authentication/base.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 

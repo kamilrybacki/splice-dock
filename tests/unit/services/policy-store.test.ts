@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { PolicyStore } from '../../../src/services/policy/base.js';
-import { PolicyCompileError } from '../../../src/services/policy/cli-policy.js';
+import { PolicyCompileError } from '../../../src/services/policy/cli/rules.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 function mkConfig(name: string, filePolicy?: CliPassthroughToolConfig['policy']): CliPassthroughToolConfig {

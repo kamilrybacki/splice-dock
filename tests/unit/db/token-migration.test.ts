@@ -3,8 +3,8 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { migrateProfileTokenAgent } from '../../../src/services/database/adapters/migrations/profile-token-agent.js';
-import { migrateProfileTokenLifecycle } from '../../../src/services/database/adapters/migrations/profile-token-lifecycle.js';
+import { migrateProfileTokenAgent } from '../../../src/services/database/adapters/migrations/profiles/tokens/agent.js';
+import { migrateProfileTokenLifecycle } from '../../../src/services/database/adapters/migrations/profiles/tokens/lifecycle.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { sqliteDb } from "../../helpers/sqlite.js";
 

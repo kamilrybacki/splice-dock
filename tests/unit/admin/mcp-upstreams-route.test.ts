@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { registerMcpUpstreamRoutes } from '../../../src/services/admin/adapters/fastify/routes/mcp-upstreams.js';
+import { registerMcpUpstreamRoutes } from '../../../src/services/admin/adapters/fastify/routes/mcp/upstreams.js';
 import { McpUpstreamManager } from '../../../src/services/upstreams/base.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 

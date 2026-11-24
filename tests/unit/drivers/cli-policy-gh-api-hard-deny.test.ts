@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli-policy.js';
+import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli/rules.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 // D14a: `gh api` issues raw HTTP requests and bypasses subcommand

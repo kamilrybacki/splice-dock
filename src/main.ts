@@ -1,20 +1,20 @@
 import { resolveDbTarget } from './services/database/base.js';
-import { readGrantConfig } from './services/policy/grant-config.js';
+import { readGrantConfig } from './services/policy/grants/config.js';
 import { setApprovalWaitHandler } from './services/mcp/adapters/express/server.js';
 import {ShadowObserver} from './services/shadow/base.js';
 import { credentialAdapters } from './services/secrets/adapters/index.js';
 import { McpProxyDriver } from './services/upstreams/adapters/mcp/driver.js';
 import {setObservationSink} from './services/tools/adapters/cli/passthrough.js';
-import {CircuitBreaker} from './services/policy/circuit-breaker.js';
+import {CircuitBreaker} from './services/policy/breaker/index.js';
 import {setCircuitBreaker} from './services/tools/adapters/cli/passthrough.js';
-import { startTokenSweep } from './services/authentication/token-lifecycle.js';
-import { setLifecycleMetrics } from './services/authentication/lifecycle-events.js';
+import { startTokenSweep } from './services/authentication/lifecycle/tokens.js';
+import { setLifecycleMetrics } from './services/authentication/lifecycle/events.js';
 import { configureSecretGuard } from './services/secrets/adapters/vault/guard.js';
 import { configureCredentialBroker } from './services/secrets/broker.js';
 import { createServer } from 'node:http';
 import { loadConfig } from './config/loader.js';
-import { ToolRegistry } from './services/tools/tool-registry.js';
-import { ProfileRegistry } from './services/profiles/profile-registry.js';
+import { ToolRegistry } from './services/tools/registry.js';
+import { ProfileRegistry } from './services/profiles/registry.js';
 import { ToolService } from './services/tools/base.js';
 import { ProfileService } from './services/profiles/base.js';
 import { createMcpExpressApp } from './services/mcp/adapters/express/server.js';
@@ -34,21 +34,21 @@ import {
   invalidatePolicyForTool,
 } from './services/tools/adapters/cli/passthrough.js';
 import { ApprovalService } from './services/approvals/base.js';
-import { PushSubscriptionStore } from './services/database/adapters/push-store.js';
-import { createPushNotifier, vapidFromEnv } from './services/approvals/adapters/web-push/notifier.js';
+import { PushSubscriptionStore } from './services/database/adapters/push/store.js';
+import { createPushNotifier, vapidFromEnv } from './services/approvals/adapters/push/web/notifier.js';
 import { installCliPassthroughTools } from './services/tools/adapters/cli/installer.js';
-import { resolveAndInjectCliPassthroughEnv } from './services/secrets/adapters/env/cli-env.js';
+import { resolveAndInjectCliPassthroughEnv } from './services/secrets/adapters/env/cli.js';
 import { logger } from './common/logger.js';
-import { PodResolver } from './services/upstreams/adapters/dns/pod-resolver.js';
+import { PodResolver } from './services/upstreams/adapters/dns/pods.js';
 import { McpUpstreamManager } from './services/upstreams/base.js';
-import { ToolRefreshService } from './services/tools/tool-refresh-service.js';
-import { loadRuntimeTools, resyncRuntimeTools } from './services/tools/runtime-tool-loader.js';
-import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } from './services/profiles/runtime-profile-loader.js';
-import { createInvalidationBus } from './services/database/adapters/invalidation-bus.js';
+import { ToolRefreshService } from './services/tools/refresh.js';
+import { loadRuntimeTools, resyncRuntimeTools } from './services/tools/runtime/loader.js';
+import { loadRuntimeProfiles, resyncRuntimeProfiles, seedProfilesFromConfig } from './services/profiles/runtime/loader.js';
+import { createInvalidationBus } from './services/database/adapters/invalidation/bus.js';
 import { CacheSync } from './services/runtime/base.js';
 import { hashProfileToken } from './services/authentication/base.js';
 import { createMetrics } from './common/metrics.js';
-import { drainHttpServer } from './common/http-drain.js';
+import { drainHttpServer } from './common/http/drain.js';
 
 const CONFIG_PATH = process.env['SPLICEDOCK_CONFIG'] ?? '/etc/splicedock/splicedock.yaml';
 

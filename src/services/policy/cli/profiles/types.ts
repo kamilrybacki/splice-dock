@@ -9,8 +9,8 @@
 // Profiles are keyed by the binary, never by the YAML tool name: grants and
 // approval shapes that key on tool names stay where they are.
 
-import type { KnownCommandTable } from '../command-table.js';
-import type { FlagTable } from '../flag-table.js';
+import type { KnownCommandTable } from '../commands/table.js';
+import type { FlagTable } from '../flags/table.js';
 
 export interface InvocationContext {
   /** Canonical argv. */

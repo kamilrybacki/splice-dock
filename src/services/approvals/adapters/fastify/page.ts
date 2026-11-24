@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { canonicalizeArgv } from '../../../policy/operation.js';
-import type { ConsentRow } from '../../consent-store.js';
+import type { ConsentRow } from '../../consent/store.js';
 const escape=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function consentPage(r:ConsentRow):{html:string;nonce:string} {
   const nonce=randomBytes(24).toString('base64');

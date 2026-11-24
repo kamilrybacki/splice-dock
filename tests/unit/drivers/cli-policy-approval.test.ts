@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { compilePolicy, evaluatePolicy, type ApprovalHook } from '../../../src/services/policy/cli-policy.js';
+import { compilePolicy, evaluatePolicy, type ApprovalHook } from '../../../src/services/policy/cli/rules.js';
 
 const BASE = { max_args: 256, on_violation: 'deny' as const, audit: false };
 

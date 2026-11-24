@@ -9,7 +9,7 @@ import {
   type CanonicalOperation,
 } from '../../../src/services/policy/operation.js';
 import { argvHash } from '../../../src/services/approvals/base.js';
-import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli-policy.js';
+import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli/rules.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 const LONE_SURROGATE = 'a\uD800b';

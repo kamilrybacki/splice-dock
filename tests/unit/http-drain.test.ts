@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createServer, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { drainHttpServer } from '../../src/common/http-drain.js';
+import { drainHttpServer } from '../../src/common/http/drain.js';
 
 function listen(handler: Parameters<typeof createServer>[0]) {
   const server = createServer(handler);

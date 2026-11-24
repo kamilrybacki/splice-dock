@@ -2,8 +2,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
-import { ToolRegistry } from '../../../src/services/tools/tool-registry.js';
-import { ProfileRegistry } from '../../../src/services/profiles/profile-registry.js';
+import { ToolRegistry } from '../../../src/services/tools/registry.js';
+import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
 import { logger } from '../../../src/common/logger.js';
 

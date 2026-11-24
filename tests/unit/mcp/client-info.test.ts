@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clientLogFields, sanitizeClientField } from '../../../src/services/mcp/adapters/express/client-info.js';
+import { clientLogFields, sanitizeClientField } from '../../../src/services/mcp/adapters/express/client/info.js';
 
 describe('sanitizeClientField', () => {
   it('accepts plain strings', () => expect(sanitizeClientField('claude-code')).toBe('claude-code'));

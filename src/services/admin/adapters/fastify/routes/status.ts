@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { proxyDriverNamespace } from '../../../../upstreams/adapters/mcp/driver.js';
 import type { McpProxyDriver } from '../../../../upstreams/adapters/mcp/driver.js';
-import type { ToolRegistry } from '../../../../tools/tool-registry.js';
+import type { ToolRegistry } from '../../../../tools/registry.js';
 
 export function registerStatusRoutes(
   app: FastifyInstance,

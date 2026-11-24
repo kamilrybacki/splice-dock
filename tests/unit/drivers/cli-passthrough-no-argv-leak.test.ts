@@ -12,7 +12,7 @@ import {
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
-import { runWithCaller } from '../../../src/common/request-context.js';
+import { runWithCaller } from '../../../src/common/request/context.js';
 
 // Obvious placeholder that looks like a credential passed as argv[0].
 const SECRET = 'FAKE-SECRET-PLACEHOLDER-0000';

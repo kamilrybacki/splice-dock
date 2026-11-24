@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import type { ToolRegistry } from '../../../../tools/tool-registry.js';
-import type { ProfileRegistry } from '../../../../profiles/profile-registry.js';
+import type { ToolRegistry } from '../../../../tools/registry.js';
+import type { ProfileRegistry } from '../../../../profiles/registry.js';
 import type { SplicedockConfig } from '../../../../../config/types.js';
-import { exportFullManifest } from '../yaml-exporter.js';
+import { exportFullManifest } from '../export/yaml.js';
 
 export function registerManifestRoutes(
   app: FastifyInstance,

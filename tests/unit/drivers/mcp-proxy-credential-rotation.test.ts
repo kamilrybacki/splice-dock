@@ -3,7 +3,7 @@ import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 const state = vi.hoisted(() => ({ token: 'tok-1', connects: 0, calls: 0 }));
 
-vi.mock('../../../src/services/secrets/adapters/resolve-credential.js', () => ({
+vi.mock('../../../src/services/secrets/adapters/resolution.js', () => ({
   resolveCredentialSource: async () => state.token,
 }));
 

@@ -1,28 +1,28 @@
 import type { CompatibilityCallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { OperationExchange } from '../../../../contracts/outbound/operation-exchange.js';
-import type { CircuitBreaker } from '../../../policy/circuit-breaker.js';
-import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flag-arity.js';
+import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
+import type { CircuitBreaker } from '../../../policy/breaker/index.js';
+import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flags/arity.js';
 import { cliProfileFor } from '../../../policy/cli/profiles/index.js';
 import { requireSecret } from '../../../secrets/adapters/vault/guard.js';
 import { resolveMintedCredential } from '../../../secrets/broker.js';
 import { createIsolatedHome, toolEnvPins, type IsolatedHome } from './isolation.js';
-import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../../../policy/cli/kubeconfig-path.js';
+import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../../../policy/cli/kubeconfig/path.js';
 import { spawn } from 'node:child_process';
 import { accessSync, constants as fsConstants, realpathSync, statSync } from 'node:fs';
 import { delimiter, isAbsolute, join, resolve as resolvePath } from 'node:path';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../../config/types.js';
 import { logger } from '../../../../common/logger.js';
-import { currentCaller, type CallerIdentity } from '../../../../common/request-context.js';
+import { currentCaller, type CallerIdentity } from '../../../../common/request/context.js';
 import {
   compilePolicy,
   evaluatePolicy,
   PolicyCompileError,
   type ApprovalHook,
   type CompiledCliPolicy,
-} from '../../../policy/cli-policy.js';
-import type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
+} from '../../../policy/cli/rules.js';
+import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 import { ArgvCanonicalizationError, canonicalizeArgv } from '../../../policy/operation.js';
-export type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
+export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 
 // Override hook — when a PolicyStore is wired (admin webui mode), it provides
 // the effective policy per call. Default is null; wrapper falls back to the

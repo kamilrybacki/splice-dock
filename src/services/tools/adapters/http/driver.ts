@@ -1,13 +1,13 @@
 import { resolveAuthValue } from '../../../secrets/adapters/vault/resolver.js';
-import { resolveCredentialSource } from '../../../secrets/adapters/resolve-credential.js';
-import { currentCaller } from '../../../../common/request-context.js';
+import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js';
+import { currentCaller } from '../../../../common/request/context.js';
 import type { HttpToolConfig } from '../../../../config/types.js';
 import { retry } from '../../../../common/retry.js';
-import type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
-export type { McpCallResult } from '../../../../contracts/internal/mcp-result.js';
+import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
+export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 
-import type { HttpExchange, HttpRequest } from '../../../../contracts/outbound/http-exchange.js';
-export type { HttpExchange, HttpRequest } from '../../../../contracts/outbound/http-exchange.js';
+import type { HttpExchange, HttpRequest } from '../../../../contracts/outbound/http/exchange.js';
+export type { HttpExchange, HttpRequest } from '../../../../contracts/outbound/http/exchange.js';
 
 export async function callHttpTool(
   config: HttpToolConfig,

@@ -6,7 +6,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { ApprovalService } from '../../../../approvals/base.js';
-import { BUILT_IN_GRANT_EXCEPTION_LABELS } from '../../../../policy/grant-config.js';
+import { BUILT_IN_GRANT_EXCEPTION_LABELS } from '../../../../policy/grants/config.js';
 
 /**
  * The approver is always the authenticated admin identity attached by the auth

@@ -4,12 +4,12 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
-import {ConsentStore} from '../../src/services/approvals/consent-store.js';
+import {ConsentStore} from '../../src/services/approvals/consent/store.js';
 import {WeakConsent} from '../../src/services/approvals/adapters/fastify/weak.js';
 import {ApprovalService} from '../../src/services/approvals/base.js';
-import {CircuitBreaker} from '../../src/services/policy/circuit-breaker.js';
+import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/services/tools/adapters/cli/passthrough.js';
-import {runWithCaller} from '../../src/common/request-context.js';
+import {runWithCaller} from '../../src/common/request/context.js';
 import { sqliteDb } from "../helpers/sqlite.js";
 
 const caller={profile:'test',tokenId:'one',authenticated:true};

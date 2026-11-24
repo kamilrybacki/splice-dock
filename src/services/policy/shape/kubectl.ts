@@ -1,4 +1,4 @@
-import type { CallerIdentity } from '../../../common/request-context.js';
+import type { CallerIdentity } from '../../../common/request/context.js';
 export interface OperationShape {
   profile: string; token_id: string; tool: string; verb_path: string;
   resource_kind: string; namespace: string; object_count_max: number; flags_allowed: readonly string[];

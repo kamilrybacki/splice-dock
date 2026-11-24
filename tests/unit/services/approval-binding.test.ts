@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService, argvHash } from '../../../src/services/approvals/base.js';
-import { LEGACY_QUERY_TOKEN_ID, runWithCaller } from '../../../src/common/request-context.js';
+import { LEGACY_QUERY_TOKEN_ID, runWithCaller } from '../../../src/common/request/context.js';
 import { logger } from '../../../src/common/logger.js';
 
 const INPUT = { tool: 'kubectl', argv: ['rollout', 'undo'], rule: 'approval_subcommand_paths' as const, matched: 'rollout undo' };

@@ -1,7 +1,7 @@
 // Profiles catalog and YAML editor mount.
 //
 // This module returns static markup only. Profile names, manifests, validation
-// errors, and timestamps are rendered by profile-editor/main.ts using DOM APIs
+// errors, and timestamps are rendered by profiles/editor/main.ts using DOM APIs
 // (textContent in particular), never interpolated into this HTML.
 
 const STYLES = `

@@ -9,9 +9,9 @@ import {join} from 'node:path';
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
 import {ApprovalService} from '../../src/services/approvals/base.js';
 import type {SqlDb} from "../../src/services/database/base.js";
-import {CircuitBreaker} from '../../src/services/policy/circuit-breaker.js';
+import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 import {callCliPassthrough,setApprovalHookFactory,setApprovalSettler,setCircuitBreaker} from '../../src/services/tools/adapters/cli/passthrough.js';
-import {runWithCaller} from '../../src/common/request-context.js';
+import {runWithCaller} from '../../src/common/request/context.js';
 import type {CliPassthroughToolConfig} from '../../src/config/types.js';
 
 const PROBES=3;

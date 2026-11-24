@@ -1,6 +1,6 @@
-import { hash } from '../../consent-store.js';
+import { hash } from '../../consent/store.js';
 import { WeakConsent } from './weak.js';
-import { enrollmentPage } from './enrollment-page.js';
+import { enrollmentPage } from './enrollment/page.js';
 import type { FastifyInstance } from 'fastify';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { WebAuthnConsent } from './webauthn.js';

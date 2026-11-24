@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { ConsentStore, hash } from '../../consent-store.js';
+import { ConsentStore, hash } from '../../consent/store.js';
 import { isPostgres } from '../../../database/base.js';
 /** Thrown inside the approval transaction to roll back a lost credential race. */
 class CredentialConsumed extends Error {}

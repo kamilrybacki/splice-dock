@@ -1,4 +1,4 @@
-import { resolveCredentialSource } from '../../../src/services/secrets/adapters/resolve-credential.js';
+import { resolveCredentialSource } from '../../../src/services/secrets/adapters/resolution.js';
 import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

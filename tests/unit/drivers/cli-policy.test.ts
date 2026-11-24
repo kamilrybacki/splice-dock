@@ -4,7 +4,7 @@ import {
   evaluatePolicy,
   PolicyCompileError,
   type CompiledCliPolicy,
-} from '../../../src/services/policy/cli-policy.js';
+} from '../../../src/services/policy/cli/rules.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
 
 function mkPolicy(overrides: Partial<CliToolPolicy> = {}): CliToolPolicy {

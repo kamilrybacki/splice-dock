@@ -1,5 +1,5 @@
-import { runSweepExclusive } from '../database/sweep-lock.js';
-import { StandingGrants, type GrantException } from './standing-grants.js';
+import { runSweepExclusive } from '../database/sweep/lock.js';
+import { StandingGrants, type GrantException } from './grants/standing.js';
 import { kubectlShape, kubectlBaseShape, baseShapeKey } from '../policy/shape/kubectl.js';
 // Approval flow for policies with on_violation: approval.
 //
@@ -26,13 +26,13 @@ import { kubectlShape, kubectlBaseShape, baseShapeKey } from '../policy/shape/ku
 // interface expected by cli-policy.ts::evaluatePolicy().
 
 import { setTimeout as delay } from 'node:timers/promises';
-import { ConsentStore } from './consent-store.js';
+import { ConsentStore } from './consent/store.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 import type { ApprovalRepository } from '../../contracts/outbound/repositories.js';
 import { logger } from '../../common/logger.js';
-import type { ApprovalVerdict, AsyncApprovalHook } from '../policy/cli-policy.js';
-import { currentCaller, type CallerIdentity } from '../../common/request-context.js';
+import type { ApprovalVerdict, AsyncApprovalHook } from '../policy/cli/rules.js';
+import { currentCaller, type CallerIdentity } from '../../common/request/context.js';
 import { opDigest, canonicalizeArgv } from '../policy/operation.js';
 
 export class ApprovalWaitLimitError extends Error {

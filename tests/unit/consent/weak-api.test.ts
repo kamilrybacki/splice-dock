@@ -1,7 +1,7 @@
 import {it,expect} from 'vitest';
 import Fastify from 'fastify';
 import {SplicedockStore} from '../../../src/services/database/adapters/store.js';
-import {ConsentStore,hash} from '../../../src/services/approvals/consent-store.js';
+import {ConsentStore,hash} from '../../../src/services/approvals/consent/store.js';
 import {WebAuthnConsent} from '../../../src/services/approvals/adapters/fastify/webauthn.js';
 import {registerEnrollmentRoutes,registerWeakConsentRoutes} from '../../../src/services/approvals/adapters/fastify/server.js';
 it('configured weak issuance rotates, is single-use and requires the bound profile bearer',async()=>{

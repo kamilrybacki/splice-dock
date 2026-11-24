@@ -2,9 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import Fastify from 'fastify';
 import { buildAdminAuthHook, CSRF_HEADER, ADMIN_SESSION_COOKIE } from '../../../src/services/admin/adapters/fastify/auth.js';
-import { migratePushSubscriptions } from '../../../src/services/database/adapters/migrations/push-subscriptions.js';
-import { PushSubscriptionStore } from '../../../src/services/database/adapters/push-store.js';
-import { createPushNotifier, parseSubscription, vapidFromEnv, type PushSender } from '../../../src/services/approvals/adapters/web-push/notifier.js';
+import { migratePushSubscriptions } from '../../../src/services/database/adapters/migrations/push/subscriptions.js';
+import { PushSubscriptionStore } from '../../../src/services/database/adapters/push/store.js';
+import { createPushNotifier, parseSubscription, vapidFromEnv, type PushSender } from '../../../src/services/approvals/adapters/push/web/notifier.js';
 import { registerPushRoutes } from '../../../src/services/admin/adapters/fastify/routes/push.js';
 import { sqliteDb } from "../../helpers/sqlite.js";
 
