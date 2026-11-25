@@ -31,12 +31,17 @@ export interface CacheSyncDeps {
   readonly reconcileIntervalMs?: number;
   /** Whether a profile still exists in this replica's registry (after a reload). */
   readonly hasProfile?: (name: string) => boolean;
+  /** Names of the profiles currently in this replica's registry. */
+  readonly listProfiles?: () => string[];
   /**
-   * Drop this replica's local per-profile state (e.g. credentials) once a keyed
-   * `profiles` message arrives for a profile that no longer exists. Must be local
-   * only: the replica that served the delete already did the shared cleanup.
+   * Drop this replica's own per-profile state (e.g. credentials) for a profile that
+   * no longer exists: called after any `profiles` reload (bus message, resync or
+   * reconcile) that made a name disappear, and after a keyed message for a missing
+   * profile. May be async; it is not awaited, so a slow provider cannot stall a
+   * reload, and a rejection is logged. Must not do the shared cleanup: the replica
+   * that served the delete already did it.
    */
-  readonly forgetProfile?: (name: string) => void;
+  readonly forgetProfile?: (name: string) => void | Promise<void>;
 }
 
 type Kind = keyof RuntimeFingerprint;
@@ -92,7 +97,7 @@ export class CacheSync {
     this.intervalMs = deps.reconcileIntervalMs ?? DEFAULT_RECONCILE_INTERVAL_MS;
     this.reloaders = {
       tools: coalesce(async () => { await deps.reloadTools(); }, (e) => this.reloadFailed('tools', e)),
-      profiles: coalesce(async () => { await deps.reloadProfiles(); }, (e) => this.reloadFailed('profiles', e)),
+      profiles: coalesce(() => this.reloadProfilesAndPurge(), (e) => this.reloadFailed('profiles', e)),
       policy: coalesce(async () => { deps.invalidatePolicy(); }, (e) => this.reloadFailed('policy', e)),
     };
   }
@@ -132,13 +137,16 @@ export class CacheSync {
   }
 
   /**
-   * After a keyed `profiles` message has been applied, drop this replica's local
-   * credential state if the profile is gone. An update leaves the profile in the
+   * Fallback for a replica without `listProfiles`: after a keyed `profiles` message
+   * has been applied, drop this replica's local credential state if the profile is gone. An update leaves the profile in the
    * registry, so its credentials stay. Fails open: a problem is logged, never thrown.
    */
   private forgetIfDeleted(profile: string, reloaded: boolean): void {
-    const { hasProfile, forgetProfile } = this.deps;
-    if (!hasProfile || !forgetProfile) return;
+    const { hasProfile, forgetProfile, listProfiles } = this.deps;
+    // With `listProfiles` wired, the reload itself diffs the registry and forgets the
+    // profile (and does so again on the retry if this reload failed), so a keyed
+    // check would only repeat it.
+    if (listProfiles || !hasProfile || !forgetProfile) return;
     if (!reloaded) {
       // Without a fresh registry we cannot tell a delete from an update. The
       // retry reconcile reloads profiles but carries no key, so this is best effort.
@@ -147,9 +155,53 @@ export class CacheSync {
     }
     try {
       if (hasProfile(profile)) return;
-      forgetProfile(profile);
     } catch (err) {
       this.deps.log.warn('cache sync: local credential purge failed', { profile, error: errMsg(err) });
+      return;
+    }
+    this.forget(profile);
+  }
+
+  /**
+   * Reload the profile registry and forget every profile that disappeared from it.
+   * Runs inside the coalesced profiles reloader, so the bus, the resync and the
+   * periodic reconcile all purge, including when the keyed message was lost. The
+   * reload's own failure is rethrown (it marks the kind stale and retries); a
+   * problem in the purge itself is only logged.
+   */
+  private async reloadProfilesAndPurge(): Promise<void> {
+    const before = this.snapshotProfiles();
+    await this.deps.reloadProfiles();
+    if (before === null) return;
+    const after = this.snapshotProfiles();
+    if (after === null) return;
+    for (const name of before) {
+      if (!after.has(name)) this.forget(name);
+    }
+  }
+
+  private snapshotProfiles(): Set<string> | null {
+    const { listProfiles, forgetProfile } = this.deps;
+    if (!listProfiles || !forgetProfile) return null;
+    try {
+      return new Set(listProfiles());
+    } catch (err) {
+      this.deps.log.warn('cache sync: listing profiles failed, skipping local credential purge', { error: errMsg(err) });
+      return null;
+    }
+  }
+
+  /** Fire and forget, fail open: neither a throw nor a rejection escapes. */
+  private forget(profile: string): void {
+    const { forgetProfile } = this.deps;
+    if (!forgetProfile) return;
+    const warn = (err: unknown): void => {
+      this.deps.log.warn('cache sync: local credential purge failed', { profile, error: errMsg(err) });
+    };
+    try {
+      void Promise.resolve(forgetProfile(profile)).catch(warn);
+    } catch (err) {
+      warn(err);
     }
   }
 
