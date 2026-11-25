@@ -1,4 +1,5 @@
 import { splicedockConfigSchema, type SplicedockConfig } from './schema.js';
+import { authMintSources, toolLevelMintIssues } from './tool-credentials.js';
 import { compilePolicy, PolicyCompileError } from '../services/policy/cli/rules.js';
 import type { CliProfileRegistry } from '../services/policy/cli/profiles/index.js';
 import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../services/policy/cli/kubeconfig/path.js';
@@ -67,22 +68,6 @@ function normalizeCliPassthroughPolicy(
   return config;
 }
 
-/** Every minting credential source inside an HTTP auth object, with its field name. */
-function authSources(auth: unknown): Array<{ field: string; mint: string }> {
-  if (!auth || typeof auth !== 'object') return [];
-  const record = auth as Record<string, unknown>;
-  if (record['type'] === 'bearer') return mintSource('token', record['token']);
-  if (record['type'] === 'header') return mintSource('value', record['value']);
-  return [];
-}
-
-function mintSource(field: string, source: unknown): Array<{ field: string; mint: string }> {
-  if (source && typeof source === 'object' && typeof (source as { mint?: unknown }).mint === 'string') {
-    return [{ field, mint: (source as { mint: string }).mint }];
-  }
-  return [];
-}
-
 /**
  * Reject credential bindings that cannot be honoured. A typo in the tool or
  * provider name would otherwise fail open: the profile keeps the shared
@@ -102,18 +87,8 @@ function validateCredentialBindings(config: SplicedockConfig): SplicedockConfig 
   };
 
   for (const tool of config.tools) {
-    if (tool.type === 'mcp_proxy' || tool.type === 'http') {
-      for (const { field, mint } of authSources(tool.auth)) {
-        throw new Error(`tools.${tool.name}.auth.${field}: mint '${mint}' is only valid in profiles.<name>.credentials (tool-level auth is resolved without a profile identity)`);
-      }
-    }
-    if (tool.type === 'cli_passthrough') {
-      for (const ref of tool.env) {
-        if (typeof ref !== 'string' && 'mint' in ref) {
-          throw new Error(`tools.${tool.name}.env: 'mint' is only valid in profiles.<name>.credentials (tool-level env is resolved at startup, without a profile identity)`);
-        }
-      }
-    }
+    const [mintIssue] = toolLevelMintIssues(tool);
+    if (mintIssue) throw new Error(mintIssue.message);
   }
 
   const validateMap = (prefix: string, credentials: SplicedockConfig['profiles'][string]['credentials']): void => {
@@ -129,7 +104,7 @@ function validateCredentialBindings(config: SplicedockConfig): SplicedockConfig 
       if (credential.env !== undefined && tool.type !== 'cli_passthrough') {
         throw new Error(`${where}: 'env' is only valid for cli_passthrough tools (this one is ${tool.type})`);
       }
-      for (const { field, mint } of credential.auth ? authSources(credential.auth) : []) {
+      for (const { field, mint } of credential.auth ? authMintSources(credential.auth) : []) {
         requireProvider(`${where}.auth.${field}`, mint);
       }
       for (const ref of credential.env ?? []) {

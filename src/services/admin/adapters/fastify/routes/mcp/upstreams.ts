@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { toolSchema } from '../../../../../../config/schema.js';
+import { runtimeToolSchema } from '../../../../../../config/tool-credentials.js';
 import type { McpProxyToolConfig } from '../../../../../../config/types.js';
 import type { McpUpstreamManager } from '../../../../../upstreams/base.js';
 import { isUpstreamHostAllowed } from '../../../../../upstreams/mcp/allowlist.js';
@@ -24,7 +24,7 @@ export function registerMcpUpstreamRoutes(
   }));
 
   const validate = (body: unknown, reply: Parameters<typeof err>[0]): McpProxyToolConfig | null => {
-    const parsed = toolSchema.safeParse({ ...(body as object), type: 'mcp_proxy' });
+    const parsed = runtimeToolSchema.safeParse({ ...(body as object), type: 'mcp_proxy' });
     if (!parsed.success || parsed.data.type !== 'mcp_proxy') {
       err(reply, 422, 'validation_error', 'Invalid MCP upstream', parsed.success ? undefined : parsed.error.issues);
       return null;

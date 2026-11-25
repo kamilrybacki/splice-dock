@@ -3,7 +3,7 @@ import type { ToolRegistry, RegistryEntry } from '../../../../tools/registry.js'
 import type { ToolDefinitions } from '../../../../tools/base.js';
 import type { ToolConfig } from '../../../../../config/types.js';
 import type { SplicedockStore } from '../../../../database/adapters/store.js';
-import { toolSchema } from '../../../../../config/schema.js';
+import { runtimeToolSchema } from '../../../../../config/tool-credentials.js';
 import { exportToolsYaml } from '../export/yaml.js';
 import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
 
@@ -73,7 +73,7 @@ export function registerToolRoutes(
   });
 
   app.post('/api/v1/tools', async (req, reply) => {
-    const parsed = toolSchema.safeParse(req.body);
+    const parsed = runtimeToolSchema.safeParse(req.body);
     if (!parsed.success) {
       reply.code(422).send({ error: { code: 'validation_error', message: 'Invalid tool config', details: parsed.error.issues } });
       return;
@@ -114,7 +114,7 @@ export function registerToolRoutes(
 
   app.put<{ Params: { id: string } }>('/api/v1/tools/:id', async (req, reply) => {
     const { id } = req.params;
-    const parsed = toolSchema.safeParse(req.body);
+    const parsed = runtimeToolSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(422).send({ error: { code: 'validation_error', message: 'Invalid tool config', details: parsed.error.issues } });
     }
