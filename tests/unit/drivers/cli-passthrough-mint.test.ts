@@ -41,9 +41,14 @@ function configure(providers = {
   broker = memoryBroker(providers);
 }
 
-function printToken(): Promise<{ content: Array<{ text: string }>; isError?: boolean }> {
+// `script` defaults to echoing the credential verbatim, which is fine for values
+// shorter than the redaction minimum. A longer value is redacted from output, so
+// tests that check it print a transformed copy instead.
+function printToken(
+  script = 'printf %s "${GH_TOKEN:-}"',
+): Promise<{ content: Array<{ text: string }>; isError?: boolean }> {
   return runWithCaller({ profile: 'worker', tokenId: 'tok-worker', authenticated: true, agent: 'bot' }, () =>
-    callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh'], broker),
+    callCliPassthrough(makeConfig(), 'run', { args: ['-c', script] }, ['sh'], broker),
   );
 }
 
@@ -131,7 +136,8 @@ describe('cli_passthrough minted env', () => {
     process.env['CLI_TEST_TOKEN'] = 'static-value';
     try {
       configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', from: 'env:CLI_TEST_TOKEN' }]});
-      expect((await printToken()).content[0]!.text).toBe('static-value');
+      const out = await printToken('printf %s "${GH_TOKEN:-}" | tr a-z A-Z');
+      expect(out.content[0]!.text).toBe('STATIC-VALUE');
     } finally {
       delete process.env['CLI_TEST_TOKEN'];
     }

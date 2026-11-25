@@ -82,8 +82,9 @@ describe('configurePassthrough', () => {
       configurePassthrough({ profileEnvResolver: (tool, profile) => tool === 'env_tool' && profile === 'p' ? [{ name: 'INJ_VAR', from: 'env:INJ_TOKEN' }] : undefined });
       const cfg = { ...mkConfig('env_tool', { audit: false }), command: 'sh', known_subcommands: 'off', isolate_config: false } as CliPassthroughToolConfig;
       const r = await runWithCaller({ profile: 'p', tokenId: 't', authenticated: true }, () =>
-        callCliPassthrough(cfg, 'run', { args: ['-c', 'printf %s "${INJ_VAR:-}"'] }, ['sh']));
-      expect(r.content[0]!.text).toBe('injected-value');
+        callCliPassthrough(cfg, 'run', { args: ['-c', 'printf %s "${INJ_VAR:-}" | tr a-z A-Z'] }, ['sh']));
+      // Uppercased copy: the literal credential is redacted from child output.
+      expect(r.content[0]!.text).toBe('INJECTED-VALUE');
     } finally {
       delete process.env['INJ_TOKEN'];
     }
