@@ -7,7 +7,7 @@
 
 import type { RuntimeToolRepository } from '../../contracts/outbound/repositories.js';
 import type { McpProxyToolConfig } from '../../config/types.js';
-import { toolSchema } from '../../config/schema.js';
+import { runtimeToolSchema } from '../../config/tool-credentials.js';
 import type { ToolRegistry } from '../tools/registry.js';
 import type { LogFields } from '../../common/logger.js';
 
@@ -64,7 +64,7 @@ export class McpUpstreamManager {
     const wanted = new Map<string, McpProxyToolConfig>();
     for (const row of await this.store.listRuntimeTools()) {
       if (row.driver !== 'mcp_proxy') continue;
-      const parsed = toolSchema.safeParse(row.config);
+      const parsed = runtimeToolSchema.safeParse(row.config);
       if (!parsed.success || parsed.data.type !== 'mcp_proxy' || this.isFileDefined(parsed.data.name)) {
         this.log.warn('runtime mcp upstream skipped', { id: row.id });
         continue;

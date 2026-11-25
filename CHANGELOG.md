@@ -66,6 +66,10 @@ All notable changes to this project are recorded here. The format follows
   When a lazy `mcp_proxy` connect is refused for this reason, the call now
   returns `credential_identity_unauthenticated` instead of "No proxy driver".
 
+### Fixed
+
+- Tool and upstream definitions added through the admin API, and stored runtime rows reloaded at startup, now reject a tool-level `mint:` exactly as the config loader does.
+
 ## [1.1.1] - 2026-11-24
 
 ### Changed

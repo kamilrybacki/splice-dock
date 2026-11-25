@@ -9,7 +9,7 @@ import type { RuntimeToolRepository } from '../../../contracts/outbound/reposito
 import type { ToolRegistry, RegistryEntry } from '../registry.js';
 import type { ToolDefinitions } from '../base.js';
 import type { HttpToolConfig, CliToolConfig } from '../../../config/types.js';
-import { toolSchema } from '../../../config/schema.js';
+import { runtimeToolSchema } from '../../../config/tool-credentials.js';
 import type { LogFields } from '../../../common/logger.js';
 
 const RESYNC_MAX_ATTEMPTS = 3;
@@ -33,7 +33,7 @@ interface CollectedTools {
 /**
  * Read every persisted runtime tool and turn the valid ones into registry
  * entries. Resilience: every row is re-validated against the current
- * `toolSchema` and wrapped in a per-row try/catch. A single poisoned/stale row
+ * `runtimeToolSchema` and wrapped in a per-row try/catch. A single poisoned/stale row
  * (config drift, manual DB edit, command dropped from cli_whitelist) is
  * skipped — never allowed to throw out of here and crashloop the pod.
  */
@@ -59,7 +59,7 @@ async function collectRuntimeTools(
     try {
       // Re-validate against the live schema — a row that was valid when written
       // may be shape-invalid after a config-type change. safeParse never throws.
-      const parsed = toolSchema.safeParse(row.config);
+      const parsed = runtimeToolSchema.safeParse(row.config);
       if (!parsed.success || (parsed.data.type !== 'http' && parsed.data.type !== 'cli')) {
         summary.skipped_invalid += 1;
         log.warn('runtime tool failed re-validation — skipping', { id: row.id, type: row.config.type });
