@@ -177,10 +177,42 @@ templates `{profile}`, `{agent}`, `{backend}` and `{provider}` are substituted
 inside a single argv element (`shell: false`), so values can never split into
 extra arguments or reach a shell.
 
-The command is trusted operator config and runs with splicedock's privileges,
-including its environment. Treat a `credential_providers` entry like a
-`cli_passthrough` install script: whoever can write the config can run code and
-mint identities the provider is allowed to mint.
+The command is trusted operator config and runs with splicedock's privileges.
+Treat a `credential_providers` entry like a `cli_passthrough` install script:
+whoever can write the config can run code and mint identities the provider is
+allowed to mint.
+
+It does **not** run with splicedock's environment. The command starts with a
+minimal one: `PATH`, `HOME`, `LANG`, `LANGUAGE`, every `LC_*`, `TZ` and
+`TMPDIR`, and nothing else. Anything more is declared on the provider:
+
+```yaml
+credential_providers:
+  gh:
+    type: command
+    command: /usr/local/bin/mint-gh
+    env_allowlist: [GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, HTTPS_PROXY]
+    env:
+      - name: GITHUB_APP_PRIVATE_KEY
+        from: vault:secret/data/example/github-app#private_key
+```
+
+- `env_allowlist` lists names copied from splicedock's own environment. A name
+  that is not set there is skipped, not defined empty.
+- `env` lists `{ name, from }` entries resolved at every mint with the same
+  `env:` / `vault:` references as `cli_passthrough` env. Use it for a secret
+  that only the minter needs, so it does not have to live in splicedock's
+  process environment. A reference that cannot be resolved fails the mint
+  (`mint_env_unresolved: <NAME>`, naming the entry); the command is not started without it.
+- Names are letters, digits and `_`, not starting with a digit. One name may
+  appear once across `env_allowlist` and `env`. An `env` entry may override a
+  base variable (for example `PATH`).
+- There is no "inherit everything" option. Variables such as `VAULT_TOKEN`,
+  `VAULT_ROLE_ID` and the tokens of other backends reach a minting command only
+  when you list them.
+
+A command that needs a proxy or a private CA bundle must list those names too
+(`HTTPS_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, ...).
 
 `mint:` is refused on tool-level `auth` and tool-level `env` — both are
 resolved without a profile identity (startup install, tool discovery).
@@ -202,6 +234,14 @@ credential_providers:
     type: command
     command: node
     args: ["/app/scripts/mint/vault-token.mjs", "{profile}", "{agent}", "{backend}"]
+    # The script reads these; none of them reach it unless listed.
+    env_allowlist:
+      - VAULT_ADDR
+      - VAULT_TOKEN
+      - SPLICEDOCK_VAULT_POLICY_PREFIX
+      - SPLICEDOCK_VAULT_FALLBACK_POLICY
+      - SPLICEDOCK_VAULT_TOKEN_TTL
+      - SPLICEDOCK_VAULT_K8S_ROLE
     output: { format: json, secret_field: token, expires_in_field: expires_in }
 
 credential_defaults:
@@ -248,6 +288,12 @@ credential_providers:
     type: command
     command: node
     args: ["/app/scripts/mint/github-app-token.mjs", "{profile}", "{agent}", "{backend}"]
+    env_allowlist:
+      - GITHUB_APP_ID
+      - GITHUB_APP_PRIVATE_KEY
+      - GITHUB_APP_INSTALLATION_ID
+      - GITHUB_APP_REPOSITORIES
+      - GITHUB_API_BASE
     ttl_seconds: 3600
     max_ttl_seconds: 86400
     output: { format: json, secret_field: token, expires_in_field: expires_in }

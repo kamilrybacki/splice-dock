@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { CommandProviderConfig } from '../../../../config/types.js';
 import type { CredentialProvider, MintContext, MintedCredential } from '../../base.js';
+import { buildMintEnv } from './env.js';
 
 const MAX_OUTPUT_BYTES = 64 * 1024;
 
@@ -8,7 +9,10 @@ const MAX_OUTPUT_BYTES = 64 * 1024;
  * The generic provider: run a command, read the credential it prints. One
  * adapter covers every service with a minting CLI, so adding a backend needs no
  * code. The command is trusted operator config and runs with splicedock's
- * privileges (including its env), exactly like a cli_passthrough install script.
+ * privileges, exactly like a cli_passthrough install script, but NOT with its
+ * environment: it gets a minimal base set plus the configured `env_allowlist`
+ * and `env` entries (see ./env.ts), so a minter never sees backend credentials
+ * it was not given.
  *
  * Templates: `{profile}`, `{agent}`, `{backend}`, `{provider}` are replaced in
  * each argv element. Values are passed as one argv element (shell: false), so
@@ -29,10 +33,11 @@ export function createCommandProvider(): CredentialProvider {
 
 async function runMintCommand(config: CommandProviderConfig, ctx: MintContext): Promise<string> {
   const args = config.args.map(arg => expand(arg, ctx));
+  const env = await buildMintEnv(config);
   return new Promise<string>((resolve, reject) => {
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(config.command, args, { shell: false, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+      child = spawn(config.command, args, { shell: false, env, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch {
       reject(new Error('mint_spawn_failed'));
       return;

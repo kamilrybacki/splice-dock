@@ -301,11 +301,25 @@ export const adminTokenSchema = z
 // adapter: any CLI that prints a credential on stdout mints for any service,
 // so adding a service needs no code. The broker caches each minted value and
 // persists it through credential_storage.
-const commandProviderSchema = z
+//
+// The command runs with a minimal environment, not splicedock's own: it sees
+// PATH, HOME, LANG/LC_*, TZ and TMPDIR, plus whatever `env_allowlist` names
+// (copied from splicedock's process env) and `env` references (resolved at
+// every mint). Nothing else is inherited.
+const commandEnvNameSchema = z
+  .string()
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'env name must be letters, digits and underscores, not starting with a digit');
+
+export const commandProviderSchema = z
   .object({
     type: z.literal('command'),
     command: z.string().min(1),
     args: z.array(z.string()).default([]),
+    // Names copied from splicedock's process env into the command's env (skipped when unset).
+    env_allowlist: z.array(commandEnvNameSchema).default([]),
+    // Extra variables resolved at mint time from env:/vault: references, same
+    // `from` syntax as cli_passthrough env. A name may appear once across env_allowlist and env.
+    env: z.array(z.object({ name: commandEnvNameSchema, from: authFromSchema }).strict()).default([]),
     timeout_ms: z.number().int().min(100).max(120_000).default(10_000),
     // Used when the command reports no expiry of its own.
     ttl_seconds: z.number().int().positive().max(2_592_000).default(3600),
@@ -328,6 +342,29 @@ const commandProviderSchema = z
   .refine(p => p.ttl_seconds <= p.max_ttl_seconds, {
     message: 'ttl_seconds must not exceed max_ttl_seconds',
     path: ['ttl_seconds'],
+  })
+  .superRefine((provider, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, name] of provider.env_allowlist.entries()) {
+      if (seen.has(name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['env_allowlist', index],
+          message: `env name '${name}' is declared twice (env_allowlist and env share one namespace)`,
+        });
+      }
+      seen.add(name);
+    }
+    for (const [index, entry] of provider.env.entries()) {
+      if (seen.has(entry.name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['env', index, 'name'],
+          message: `env name '${entry.name}' is declared twice (env_allowlist and env share one namespace)`,
+        });
+      }
+      seen.add(entry.name);
+    }
   });
 
 const credentialProviderSchema = z.discriminatedUnion('type', [commandProviderSchema]);

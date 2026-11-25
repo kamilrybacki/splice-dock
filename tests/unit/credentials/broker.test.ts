@@ -31,6 +31,8 @@ function commandProvider(
     type: 'command',
     command: 'sh',
     args: ['-c', COUNT_AND_PRINT, counter],
+    env_allowlist: [],
+    env: [],
     timeout_ms: 5000,
     ttl_seconds: 3600,
     max_ttl_seconds: 86_400,

@@ -27,6 +27,7 @@ beforeEach(() => {
       p: {
         type: 'command', command: 'sh',
         args: ['-c', 'n=$(cat "$0"); n=$((n+1)); echo $n > "$0"; echo tok-$n', counter],
+        env_allowlist: [], env: [],
         timeout_ms: 5000, ttl_seconds: 3600, output: { format: 'text', secret_field: 'token' },
       },
     },
