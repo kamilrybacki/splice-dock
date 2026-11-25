@@ -6,6 +6,7 @@ import type { ProfileAccess } from '../../../../profiles/base.js';
 import type { SplicedockStore, RuntimeProfileRow } from '../../../../database/adapters/store.js';
 import { profileSchema } from '../../../../../config/schema.js';
 import type { ProfileConfig } from '../../../../../config/types.js';
+import { logger } from '../../../../../common/logger.js';
 import { exportProfilesYaml } from '../export/yaml.js';
 import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
 import type { CredentialBroker } from '../../../../secrets/base.js';
@@ -245,7 +246,12 @@ export function registerProfileRoutes(
       return;
     }
     profileRegistry.removeProfile(name);
-    await credentials?.revokeProfile(name).catch(() => {});
+    await credentials?.revokeProfile(name).catch((err: unknown) => {
+      logger.warn('profile credential revocation failed', {
+        profile: name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
     await onProfilesChanged?.(name);
     await invalidation?.publish('profiles', name);
     reply.code(204).send();

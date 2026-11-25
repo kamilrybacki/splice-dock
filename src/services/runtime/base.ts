@@ -29,6 +29,14 @@ export interface CacheSyncDeps {
   readonly fingerprint: () => Promise<RuntimeFingerprint>;
   readonly log: CacheSyncLog;
   readonly reconcileIntervalMs?: number;
+  /** Whether a profile still exists in this replica's registry (after a reload). */
+  readonly hasProfile?: (name: string) => boolean;
+  /**
+   * Drop this replica's local per-profile state (e.g. credentials) once a keyed
+   * `profiles` message arrives for a profile that no longer exists. Must be local
+   * only: the replica that served the delete already did the shared cleanup.
+   */
+  readonly forgetProfile?: (name: string) => void;
 }
 
 type Kind = keyof RuntimeFingerprint;
@@ -115,7 +123,34 @@ export class CacheSync {
       this.deps.invalidatePolicy(msg.key);
       return;
     }
-    await this.reloadKind(msg.kind === 'tools' ? 'tools' : 'profiles');
+    if (msg.kind === 'tools') {
+      await this.reloadKind('tools');
+      return;
+    }
+    const reloaded = await this.reloadKind('profiles');
+    if (msg.key) this.forgetIfDeleted(msg.key, reloaded);
+  }
+
+  /**
+   * After a keyed `profiles` message has been applied, drop this replica's local
+   * credential state if the profile is gone. An update leaves the profile in the
+   * registry, so its credentials stay. Fails open: a problem is logged, never thrown.
+   */
+  private forgetIfDeleted(profile: string, reloaded: boolean): void {
+    const { hasProfile, forgetProfile } = this.deps;
+    if (!hasProfile || !forgetProfile) return;
+    if (!reloaded) {
+      // Without a fresh registry we cannot tell a delete from an update. The
+      // retry reconcile reloads profiles but carries no key, so this is best effort.
+      this.deps.log.warn('cache sync: profile reload failed, skipping local credential purge', { profile });
+      return;
+    }
+    try {
+      if (hasProfile(profile)) return;
+      forgetProfile(profile);
+    } catch (err) {
+      this.deps.log.warn('cache sync: local credential purge failed', { profile, error: errMsg(err) });
+    }
   }
 
   async reloadAll(): Promise<void> {
@@ -126,8 +161,9 @@ export class CacheSync {
    * Bus/resync-driven reload. The fingerprint is taken BEFORE reloading so the
    * baseline never claims newer state than was actually loaded; on failure the
    * kind is marked stale and a reconcile runs now instead of at the next tick.
+   * Resolves to whether the reload succeeded.
    */
-  private async reloadKind(kind: Kind): Promise<void> {
+  private async reloadKind(kind: Kind): Promise<boolean> {
     let before: RuntimeFingerprint | null = null;
     try {
       before = await this.deps.fingerprint();
@@ -142,6 +178,7 @@ export class CacheSync {
       if (this.baseline) this.baseline = { ...this.baseline, [kind]: STALE };
       void this.reconcile();
     }
+    return ok;
   }
 
   /** Start the unref'd reconcile poll. Idempotent. */

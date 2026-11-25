@@ -132,16 +132,26 @@ class MintingCredentialBroker implements CredentialBroker {
       this.minted.delete(key);
       this.cache.delete(key);
     }
-    // A failure may have left no `minted` entry at all, so match on the key prefix.
-    const prefix = profileKeyPrefix(profile);
-    for (const key of [...this.mintFailures.keys()]) {
-      if (key.startsWith(prefix)) this.mintFailures.delete(key);
-    }
+    // Entries without a `minted` record (read from the shared store) and backoff state remain.
+    this.forgetProfile(profile);
     try {
       const removed = await this.store.deletePrefix(sanitizePathSegment(profile));
       if (removed > 0) logger.info('purged profile credentials', { profile, removed });
     } catch (err) {
       logger.warn('credential store purge failed', { profile, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  forgetProfile(profile: string): void {
+    this.cleanupEpoch += 1;
+    // Match on the key prefix: a replica that only read the credential from the
+    // shared store has an L1 entry but no `minted` record, and a failed mint has
+    // backoff state but neither.
+    const prefix = profileKeyPrefix(profile);
+    for (const map of [this.cache, this.minted, this.mintFailures] as ReadonlyArray<Map<string, unknown>>) {
+      for (const key of [...map.keys()]) {
+        if (key.startsWith(prefix)) map.delete(key);
+      }
     }
   }
 
