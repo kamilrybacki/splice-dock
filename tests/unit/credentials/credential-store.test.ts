@@ -3,6 +3,7 @@ import { credentialAdapters } from '../../../src/services/secrets/adapters/index
 import { VaultCredentialStore } from '../../../src/services/secrets/adapters/vault/store.js';
 import { MemoryCredentialStore } from '../../../src/services/secrets/memory/store.js';
 import { createCredentialBroker } from '../../../src/services/secrets/broker.js';
+import { logger } from '../../../src/common/logger.js';
 import type { CredentialAdapters, CredentialStore, StoredCredential } from '../../../src/services/secrets/base.js';
 
 const PREFIX = 'secret/data/splicedock/minted';
@@ -140,6 +141,40 @@ describe('VaultCredentialStore paths', () => {
     }
   });
 
+  it('lists the readable entries when one entry fails to read, and logs only a count', async () => {
+    process.env['VAULT_ADDR'] = 'http://vault.test:8200';
+    process.env['VAULT_TOKEN'] = 'test-token';
+    const vault = fakeVault();
+    const warn = vi.spyOn(logger, 'warn');
+    try {
+      const store = new VaultCredentialStore(PREFIX);
+      await store.put('worker/gh/_/p', entry('a'));
+      await store.put('worker/codex/agent/p', entry('b'));
+      const read = store.get.bind(store);
+      vi.spyOn(store, 'get').mockImplementation(async path =>
+        path === 'worker/gh/_/p' ? Promise.reject(new Error('vault 500')) : read(path));
+
+      const listed = await store.listPrefix('worker');
+
+      expect(listed.map(e => e.path)).toEqual(['worker/codex/agent/p']);
+      expect(warn).toHaveBeenCalledWith('credential store skipped unreadable entries', { skipped: 1 });
+    } finally {
+      warn.mockRestore();
+      vault.restore();
+    }
+  });
+
+  it('fails the listing when the folder itself cannot be listed', async () => {
+    process.env['VAULT_ADDR'] = 'http://vault.test:8200';
+    process.env['VAULT_TOKEN'] = 'test-token';
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 503 }));
+    try {
+      await expect(new VaultCredentialStore(PREFIX).listPrefix('worker')).rejects.toThrow();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('fails closed when Vault is not configured', async () => {
     await expect(new VaultCredentialStore(PREFIX).get('k')).rejects.toThrow('vault_unavailable');
   });
@@ -153,10 +188,10 @@ describe('credential adapters', () => {
 });
 
 describe('broker with an injected store', () => {
-  it('persists under relative keys and purges by profile without knowing the backend', async () => {
+  it('persists under relative keys and lists and purges by profile without knowing the backend', async () => {
     const store = new MemoryCredentialStore();
     const put = vi.spyOn(store, 'put');
-    const purge = vi.spyOn(store, 'deletePrefix');
+    const list = vi.spyOn(store, 'listPrefix');
     let mints = 0;
     const adapters: CredentialAdapters = {
       provider: () => ({ mint: async () => ({ secret: `tok-${++mints}` }) }),
@@ -171,7 +206,7 @@ describe('broker with an injected store', () => {
     expect(put).toHaveBeenCalledWith('worker/gh/~/test', expect.objectContaining({ value: 'tok-1' }));
 
     await broker.revokeProfile('worker');
-    expect(purge).toHaveBeenCalledWith('worker');
+    expect(list).toHaveBeenCalledWith('worker');
     expect(await store.get('worker/gh/~/test')).toBeUndefined();
   });
 });

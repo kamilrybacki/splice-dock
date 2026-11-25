@@ -486,6 +486,21 @@ describe('CacheSync purge by profile identity (delete and recreate under one nam
     expect(forgetProfile).not.toHaveBeenCalled();
   });
 
+  it.each([0, ''])('treats a %j identity (legacy default) as unknown, not as a recreate', async legacy => {
+    const registry = new Map<string, string | number>([['legacy', legacy]]);
+    const forgetProfile = vi.fn<(name: string) => void | Promise<void>>();
+    const { sync, deps } = makeSync({
+      listProfiles: () => [...registry.keys()],
+      profileIdentity: (name: string) => registry.get(name),
+      forgetProfile,
+    });
+    deps.reloadProfiles.mockImplementation(async () => { registry.set('legacy', 1_700_000_000_000); });
+
+    await sync.applyMessage(fromSibling('profiles'));
+
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
   it('still works with name-only listing when profileIdentity is not wired', async () => {
     const { sync, deps } = makeSync({ listProfiles: () => ['a'], forgetProfile: vi.fn() });
     await expect(sync.applyMessage(fromSibling('profiles'))).resolves.toBeUndefined();

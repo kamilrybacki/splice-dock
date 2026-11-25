@@ -11,6 +11,8 @@ export const REVOKE_RETRY_MAX_MS = 60_000;
 export interface RevokeRetryInfo {
   readonly provider: string;
   readonly profile: string;
+  /** What is being retried when it is not a single provider revoke, e.g. a store cleanup. */
+  readonly operation?: string;
 }
 
 /**

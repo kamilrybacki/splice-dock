@@ -51,9 +51,8 @@ export async function createCacheSync(deps: CacheSyncDeps): Promise<{ invalidati
     // Revisions restart at 1 on recreate, so the persisted creation time is what tells a
     // recreated profile from an edited one.
     profileIdentity: name => deps.profileRegistry.getProfile(name)?.created_at,
-    // This replica's own state only (cache, mint records, and a provider revoke of
-    // what it minted itself): the replica that served the delete purged the shared
-    // store, so this never calls deletePrefix.
+    // This replica's own state (cache, mint records) plus a provider revoke of what it
+    // minted itself and the serving replica did not list; it never lists the store.
     forgetProfile: name => deps.credentials.forgetProfile(name),
     log: logger,
   });

@@ -87,10 +87,23 @@ describe('CredentialBroker.forgetProfile (this replica only)', () => {
     expect(store.get).not.toHaveBeenCalled(); // served from L1
 
     await broker.forgetProfile('worker');
+    store.get.mockClear();
 
     await broker.resolve('test', targetFor('worker'));
     expect(store.get).toHaveBeenCalledTimes(1); // L1 is gone
-    expect(mint).toHaveBeenCalledTimes(1); // the shared copy was untouched, so no re-mint
+    expect(mint).toHaveBeenCalledTimes(2); // its own entry, which nobody had revoked, went too
+  });
+
+  it('revokes and deletes its own entry when no replica has listed it yet', async () => {
+    const store = spyStore();
+    const { broker, revoke } = replica(store, 'r1');
+    await broker.resolve('test', targetFor('worker', 'vault'));
+
+    await broker.forgetProfile('worker');
+
+    expect(revoke).toHaveBeenCalledTimes(1);
+    expect(revoke.mock.calls[0]?.[1]).toMatchObject({ value: 'r1-tok-1' });
+    expect(await store.get('worker/vault/~/test')).toBeUndefined();
   });
 
   it('drops an L1 entry that was only read from the shared store (no mint record)', async () => {
@@ -134,7 +147,7 @@ describe('CredentialBroker.forgetProfile (this replica only)', () => {
     expect(revoke).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves store-resident credentials to the replica serving the delete, and never touches the shared store', async () => {
+  it('leaves credentials the serving replica listed to it, and never lists the shared store', async () => {
     const store = spyStore();
     const origin = replica(store, 'origin');
     const receiver = replica(store, 'receiver');
@@ -146,16 +159,43 @@ describe('CredentialBroker.forgetProfile (this replica only)', () => {
     await receiver.broker.resolve('test', targetFor('worker', 'git'));
     await expect(receiver.broker.resolve('test', targetFor('worker', 'flaky'))).rejects.toThrow();
     await receiver.broker.resolve('test', targetFor('worker-2', 'vault'));
-    store.get.mockClear();
-    store.put.mockClear();
+    await origin.broker.revokeProfile('worker');
+    expect(origin.revoke).toHaveBeenCalledTimes(2);
+    store.delete.mockClear();
+    store.listPrefix.mockClear();
 
     await receiver.broker.forgetProfile('worker');
 
     expect(receiver.revoke).not.toHaveBeenCalled();
-    expect(origin.revoke).not.toHaveBeenCalled();
+    expect(origin.revoke).toHaveBeenCalledTimes(2);
     expect(store.deletePrefix).not.toHaveBeenCalled();
     expect(store.delete).not.toHaveBeenCalled();
     expect(store.listPrefix).not.toHaveBeenCalled();
+    expect(await store.get('worker-2/vault/~/test')).toBeDefined();
+  });
+
+  it('revokes and deletes a credential it minted after the serving replica listed the store', async () => {
+    const inner = new MemoryCredentialStore();
+    const store = spyStore(inner);
+    const serving = replica(store, 'serving');
+    const sibling = replica(store, 'sibling');
+    await replica(store, 'before').broker.resolve('test', targetFor('worker', 'vault'));
+    // The sibling's mint lands between the serving replica's listing and its purge.
+    store.listPrefix.mockImplementationOnce(async (prefix: string) => {
+      const listed = await inner.listPrefix(prefix);
+      await sibling.broker.resolve('test', targetFor('worker', 'git'));
+      return listed;
+    });
+
+    await serving.broker.revokeProfile('worker');
+    expect(serving.revoke.mock.calls.map(c => c[1].value)).toEqual(['before-tok-1']);
+    expect(await store.get('worker/git/~/test')).toMatchObject({ value: 'sibling-tok-1' }); // not purged blindly
+
+    await sibling.broker.forgetProfile('worker');
+
+    expect(sibling.revoke).toHaveBeenCalledTimes(1);
+    expect(sibling.revoke.mock.calls[0]?.[1]).toMatchObject({ value: 'sibling-tok-1' });
+    expect(await store.get('worker/git/~/test')).toBeUndefined();
   });
 
   it('revokes a credential only this replica holds: its store write failed', async () => {
@@ -164,6 +204,7 @@ describe('CredentialBroker.forgetProfile (this replica only)', () => {
     const { broker, revoke } = replica(store, 'r1');
     await broker.resolve('test', targetFor('worker', 'git'));
     await broker.resolve('test', targetFor('worker', 'vault')); // stored normally
+    await replica(store, 'serving').broker.revokeProfile('worker'); // lists and revokes the stored one
 
     await broker.forgetProfile('worker');
 
@@ -198,20 +239,38 @@ describe('CredentialBroker.forgetProfile (this replica only)', () => {
     expect(mint).toHaveBeenCalledTimes(2);
   });
 
+  it('logs a failed provider revoke by error class only, never by message', async () => {
+    const store = spyStore();
+    store.put.mockRejectedValueOnce(new Error('store down'));
+    const { broker, revoke } = replica(store, 'r1');
+    await broker.resolve('test', targetFor('worker'));
+    revoke.mockRejectedValueOnce(new TypeError('provider down'));
+    const warn = vi.spyOn(logger, 'warn');
+    try {
+      await broker.forgetProfile('worker');
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).toContain('TypeError');
+      expect(logged).not.toContain('provider down');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('leaves other profiles untouched, including a profile whose name extends the deleted one', async () => {
     const store = spyStore();
     const { broker, mint } = replica(store, 'r1');
     await broker.resolve('test', targetFor('worker'));
     await broker.resolve('test', targetFor('worker-2'));
     await expect(broker.resolve('test', targetFor('other', 'flaky'))).rejects.toThrow('credential_unavailable');
-    store.get.mockClear();
 
     await broker.forgetProfile('worker');
+    store.get.mockClear();
 
     await broker.resolve('test', targetFor('worker-2'));
     expect(store.get).not.toHaveBeenCalled(); // still in L1
     await expect(broker.resolve('test', targetFor('other', 'flaky'))).rejects.toThrow('credential_mint_backoff');
     expect(mint).toHaveBeenCalledTimes(3); // two good mints and one failed; nothing re-minted
+    expect(await store.get('worker-2/vault/~/test')).toBeDefined();
   });
 
   it('is a no-op for a profile it has never seen', async () => {
@@ -330,8 +389,11 @@ describe('CredentialBroker.revokeProfile (originating replica, unchanged)', () =
     await broker.revokeProfile('worker');
 
     expect(revoke).toHaveBeenCalledTimes(2);
-    expect(store.deletePrefix).toHaveBeenCalledTimes(1);
-    expect(store.deletePrefix).toHaveBeenCalledWith('worker');
+    expect(store.listPrefix).toHaveBeenCalledTimes(1);
+    expect(store.listPrefix).toHaveBeenCalledWith('worker');
+    expect(store.deletePrefix).not.toHaveBeenCalled(); // only the listed entries, one by one
+    expect(await store.get('worker/vault/~/test')).toBeUndefined();
+    expect(await store.get('worker/git/~/test')).toBeUndefined();
 
     // L1, mint records and backoff are all gone: the next resolve mints afresh.
     const before = mint.mock.calls.length;
@@ -342,7 +404,7 @@ describe('CredentialBroker.revokeProfile (originating replica, unchanged)', () =
 
   it('still purges local state when the shared purge fails', async () => {
     const store = spyStore();
-    store.deletePrefix.mockRejectedValueOnce(new Error('store down'));
+    store.delete.mockRejectedValueOnce(new Error('store down'));
     const { broker, mint } = replica(store, 'r1');
     await broker.resolve('test', targetFor('worker'));
 
@@ -394,7 +456,7 @@ describe('CredentialBroker.revokeProfile revokes what the shared store holds', (
 
     expect(store.listPrefix).toHaveBeenCalledWith('worker');
     const [listed] = store.listPrefix.mock.invocationCallOrder;
-    const [purged] = store.deletePrefix.mock.invocationCallOrder;
+    const [purged] = store.delete.mock.invocationCallOrder;
     const [revoked] = serving.revoke.mock.invocationCallOrder;
     expect(listed).toBeLessThan(purged!);
     expect(purged).toBeLessThan(revoked!);
@@ -424,18 +486,45 @@ describe('CredentialBroker.revokeProfile revokes what the shared store holds', (
     expect(serving.revoke.mock.calls.map(c => c[1].value).sort()).toEqual(['before-tok-1', 'serving-tok-1']);
   });
 
-  it('falls back to its own credentials, warns and still purges when the listing fails', async () => {
+  it('revokes its own credentials, purges nothing it could not list, and retries the listing', async () => {
     const warn = warnings();
     const store = spyStore();
     const serving = replica(store, 'serving');
+    await replica(store, 'before').broker.resolve('test', targetFor('worker', 'git'));
     await serving.broker.resolve('test', targetFor('worker', 'vault'));
     store.listPrefix.mockRejectedValueOnce(new Error('store down'));
 
     await expect(serving.broker.revokeProfile('worker')).resolves.toBeUndefined();
 
-    expect(serving.revoke).toHaveBeenCalledTimes(1);
-    expect(store.deletePrefix).toHaveBeenCalledWith('worker');
+    expect(serving.revoke.mock.calls.map(c => c[1].value)).toEqual(['serving-tok-1']);
+    expect(store.deletePrefix).not.toHaveBeenCalled();
+    expect(await store.get('worker/git/~/test')).toMatchObject({ value: 'before-tok-1' }); // kept for the retry
     expect(warn).toHaveBeenCalledWith('credential store listing failed', expect.objectContaining({ profile: 'worker' }));
+
+    // A profile recreated under the same name mints again before the retry runs.
+    await vi.advanceTimersByTimeAsync(1_000);
+    await replica(store, 'later').broker.resolve('test', targetFor('worker', 'gh'));
+    await vi.advanceTimersByTimeAsync(REVOKE_RETRY_BASE_MS);
+
+    expect(serving.revoke.mock.calls.map(c => c[1].value)).toEqual(['serving-tok-1', 'before-tok-1']);
+    expect(await store.get('worker/git/~/test')).toBeUndefined();
+    expect(await store.get('worker/gh/~/test')).toMatchObject({ value: 'later-tok-1' }); // issued after the delete
+  });
+
+  it('keeps retrying the listing with backoff while it fails', async () => {
+    warnings();
+    const store = spyStore();
+    await replica(store, 'before').broker.resolve('test', targetFor('worker', 'git'));
+    const serving = replica(store, 'serving');
+    store.listPrefix.mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('down'));
+
+    await serving.broker.revokeProfile('worker');
+    await vi.advanceTimersByTimeAsync(REVOKE_RETRY_BASE_MS);
+    expect(serving.revoke).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(REVOKE_RETRY_BASE_MS * 2);
+
+    expect(serving.revoke.mock.calls.map(c => c[1].value)).toEqual(['before-tok-1']);
+    expect(await store.get('worker/git/~/test')).toBeUndefined();
   });
 
   it('skips, with a warning, an entry whose provider is not configured or whose path is malformed', async () => {

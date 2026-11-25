@@ -57,11 +57,18 @@ export class VaultCredentialStore implements CredentialStore {
   async listPrefix(prefix: string): Promise<StoredCredentialEntry[]> {
     const leaves = await this.collectLeaves(this.metadataPath(this.dataPath(prefix)), 0);
     const entries: StoredCredentialEntry[] = [];
+    let skipped = 0;
     for (const leaf of leaves) {
       const path = prefix === '' ? leaf : `${prefix}/${leaf}`;
-      const credential = await this.get(path);
-      if (credential) entries.push({ path, credential });
+      try {
+        const credential = await this.get(path);
+        if (credential) entries.push({ path, credential });
+      } catch {
+        // One unreadable entry must not hide the rest of the listing.
+        skipped += 1;
+      }
     }
+    if (skipped > 0) logger.warn('credential store skipped unreadable entries', { skipped });
     return entries;
   }
 

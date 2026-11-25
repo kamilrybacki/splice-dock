@@ -43,9 +43,12 @@ interface RevocableCredential {
 
 /** What this replica remembers of a credential it minted. */
 interface MintRecord extends RevocableCredential {
-  /** True when the entry was written to a store the other replicas can list, so the serving replica revokes it. */
-  readonly inStore: boolean;
+  /** Where the credential was written in the store; undefined when the write failed. */
+  readonly path: string | undefined;
 }
+
+/** Outcome of deleting one store entry only if it still holds the expected value. */
+type RemoveOutcome = 'removed' | 'absent' | 'failed';
 
 interface CacheEntry {
   value: string;
@@ -144,16 +147,61 @@ class MintingCredentialBroker implements CredentialBroker {
     // listed before it is purged: the entries are the only record of credentials a
     // replica that has since restarted minted, and they are gone after the purge.
     const own = this.dropLocalState(profile);
+    const deleteStartedAt = Date.now();
     const listed = await this.listStored(profile);
-    await this.purgeStored(profile);
+    if (listed === undefined) {
+      // Purging what could not be listed would delete the only record of those
+      // credentials without revoking them, so nothing else is touched now. The
+      // listing is retried in the background (see `cleanUpStored`).
+      const revoked = await this.revokeAll(await this.ownToRevoke(own));
+      this.retrier.retry(() => this.cleanUpStored(profile, deleteStartedAt, revoked), {
+        provider: '*', profile, operation: 'credential store cleanup',
+      });
+      return;
+    }
+    await this.purgeListed(profile, listed);
     await this.revokeAll([...own, ...listed.flatMap(entry => this.rebuildRevocable(profile, entry))]);
   }
 
   async forgetProfile(profile: string): Promise<void> {
     const own = this.dropLocalState(profile);
-    // Entries in a shared store are revoked by the replica serving the delete, which
-    // lists them; revoking them here too would revoke each credential once per replica.
-    await this.revokeAll(own.filter(record => !record.inStore));
+    await this.revokeAll(await this.ownToRevoke(own));
+  }
+
+  /**
+   * The mint records this replica still has to revoke itself. The serving replica
+   * deletes, one by one, exactly the entries it listed, and revokes each of them; so
+   * an entry of ours that is gone (or now holds another value) was listed and revoked
+   * there. One that is still present was written after that listing, or the listing
+   * has not happened yet: it is deleted here and revoked here. When both replicas race
+   * on the same entry a credential may be revoked twice, never zero times. A record
+   * whose store write failed, or whose entry cannot be checked, is revoked too.
+   */
+  private async ownToRevoke(own: readonly MintRecord[]): Promise<MintRecord[]> {
+    const pending: MintRecord[] = [];
+    for (const record of own) {
+      if (record.path === undefined) {
+        pending.push(record);
+        continue;
+      }
+      const outcome = await this.removeIfUnchanged(record.path, record.stored.value, record.ctx.profile);
+      if (outcome !== 'absent') pending.push(record);
+    }
+    return pending;
+  }
+
+  /**
+   * Background retry after the serving replica could not list the store. Revokes and
+   * deletes only entries issued before the delete started: a later entry may belong to
+   * a profile recreated under the same name since. Entries a sibling minted while the
+   * delete ran are handled by that sibling's `forgetProfile`. Throws when the listing
+   * fails again, so the retrier tries once more.
+   */
+  private async cleanUpStored(profile: string, deleteStartedAt: number, revoked: Set<string>): Promise<void> {
+    const entries = await this.store.listPrefix(sanitizePathSegment(profile));
+    const old = entries.filter(entry => issuedAt(entry.credential) <= deleteStartedAt);
+    await this.purgeListed(profile, old);
+    await this.revokeAll(old.flatMap(entry => this.rebuildRevocable(profile, entry)), revoked);
   }
 
   /**
@@ -180,22 +228,39 @@ class MintingCredentialBroker implements CredentialBroker {
     return own;
   }
 
-  /** Every entry the shared store holds for the profile. A failure is logged and reads as "nothing listed". */
-  private async listStored(profile: string): Promise<StoredCredentialEntry[]> {
+  /** Every entry the shared store holds for the profile, or undefined (logged) when the listing failed. */
+  private async listStored(profile: string): Promise<StoredCredentialEntry[] | undefined> {
     try {
       return await this.store.listPrefix(sanitizePathSegment(profile));
     } catch (err) {
-      logger.warn('credential store listing failed', { profile, error: err instanceof Error ? err.message : String(err) });
-      return [];
+      logger.warn('credential store listing failed', { profile, error_class: errorClass(err) });
+      return undefined;
     }
   }
 
-  private async purgeStored(profile: string): Promise<void> {
+  /**
+   * Delete exactly the listed entries, each only while it still holds the listed
+   * value. Not a prefix delete: an entry written after the listing must stay, so the
+   * replica that wrote it can tell it was never revoked (see `ownToRevoke`).
+   */
+  private async purgeListed(profile: string, entries: readonly StoredCredentialEntry[]): Promise<void> {
+    let removed = 0;
+    for (const entry of entries) {
+      if (await this.removeIfUnchanged(entry.path, entry.credential.value, profile) === 'removed') removed += 1;
+    }
+    if (removed > 0) logger.info('purged profile credentials', { profile, removed });
+  }
+
+  /** Delete a store entry only if it still holds `value`. A failure is logged without the path or value. */
+  private async removeIfUnchanged(path: string, value: string, profile: string): Promise<RemoveOutcome> {
     try {
-      const removed = await this.store.deletePrefix(sanitizePathSegment(profile));
-      if (removed > 0) logger.info('purged profile credentials', { profile, removed });
+      const current = await this.store.get(path);
+      if (current?.value !== value) return 'absent';
+      await this.store.delete(path);
+      return 'removed';
     } catch (err) {
-      logger.warn('credential store purge failed', { profile, error: err instanceof Error ? err.message : String(err) });
+      logger.warn('credential store purge failed', { profile, error_class: errorClass(err) });
+      return 'failed';
     }
   }
 
@@ -223,9 +288,12 @@ class MintingCredentialBroker implements CredentialBroker {
     return [{ ctx, stored: entry.credential }];
   }
 
-  /** Revoke each distinct credential once, in order. Earlier entries carry the exact mint context, so they win a tie. */
-  private async revokeAll(candidates: readonly RevocableCredential[]): Promise<void> {
-    const seen = new Set<string>();
+  /**
+   * Revoke each distinct credential once, in order, skipping those already in `seen`.
+   * Earlier entries carry the exact mint context, so they win a tie. Returns `seen`,
+   * now holding every credential revoked (or attempted) here.
+   */
+  private async revokeAll(candidates: readonly RevocableCredential[], seen = new Set<string>()): Promise<Set<string>> {
     for (const { ctx, stored } of candidates) {
       // Identity is provider + value; held in memory only, never logged.
       const identity = `${stored.provider}\u0000${stored.value}`;
@@ -233,6 +301,7 @@ class MintingCredentialBroker implements CredentialBroker {
       seen.add(identity);
       await this.revokeAtProvider(ctx, stored);
     }
+    return seen;
   }
 
   close(): void {
@@ -266,10 +335,11 @@ class MintingCredentialBroker implements CredentialBroker {
     try {
       await attempt();
     } catch (err) {
+      // The provider's error text may echo what it was asked to revoke, so only its class is logged.
       logger.warn('credential provider revoke failed', {
         provider: stored.provider,
         profile: ctx.profile,
-        error: err instanceof Error ? err.message : String(err),
+        error_class: errorClass(err),
       });
       // Detached: the retries run on unref'd timers and are never awaited.
       this.retrier.retry(attempt, { provider: stored.provider, profile: ctx.profile });
@@ -435,7 +505,7 @@ class MintingCredentialBroker implements CredentialBroker {
       // expiry than `ttl_seconds`.
       ttlMs: lifetime,
     });
-    this.minted.set(key, { ctx, stored, inStore: written && this.store.shared !== false });
+    this.minted.set(key, { ctx, stored, path: written ? storedPath : undefined });
     logger.info('credential minted', {
       provider: providerName,
       profile: target.profile,
@@ -488,4 +558,15 @@ function ttlMs(config: CredentialProviderConfig | undefined): number {
 function maxTtlMs(config: CredentialProviderConfig | undefined): number {
   const seconds = config?.type === 'command' ? config.max_ttl_seconds : undefined;
   return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_MAX_TTL_MS;
+}
+
+/** When a stored entry was issued, by its writer's clock; -Infinity when it records no lifetime (treated as old). */
+function issuedAt(credential: StoredCredential): number {
+  if (credential.expiresAt === undefined || credential.ttlMs === undefined) return Number.NEGATIVE_INFINITY;
+  return credential.expiresAt - credential.ttlMs;
+}
+
+/** An error's class name, safe to log where its message might not be. */
+function errorClass(err: unknown): string {
+  return err instanceof Error ? err.name : typeof err;
 }
