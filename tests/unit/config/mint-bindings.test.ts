@@ -48,8 +48,54 @@ describe('credential_providers and mint bindings', () => {
       args: [],
       timeout_ms: 10_000,
       ttl_seconds: 3000,
+      max_ttl_seconds: 86_400,
       output: { format: 'text', secret_field: 'token' },
     });
+  });
+
+  it('accepts an explicit max_ttl_seconds on a command provider', () => {
+    const parsed = parseConfig(config(`credential_providers:
+  gh:
+    type: command
+    command: /usr/local/bin/mint-gh
+    ttl_seconds: 3000
+    max_ttl_seconds: 7200
+${TOOLS}`));
+    expect(parsed.credential_providers['gh']).toMatchObject({ ttl_seconds: 3000, max_ttl_seconds: 7200 });
+  });
+
+  it('rejects a ttl_seconds above max_ttl_seconds', () => {
+    expect(() =>
+      parseConfig(config(`credential_providers:
+  gh:
+    type: command
+    command: /usr/local/bin/mint-gh
+    ttl_seconds: 7200
+    max_ttl_seconds: 3600
+${TOOLS}`)),
+    ).toThrow(/ttl_seconds must not exceed max_ttl_seconds/);
+  });
+
+  it('rejects a ttl_seconds above the default max_ttl_seconds', () => {
+    expect(() =>
+      parseConfig(config(`credential_providers:
+  gh:
+    type: command
+    command: /usr/local/bin/mint-gh
+    ttl_seconds: 172800
+${TOOLS}`)),
+    ).toThrow(/ttl_seconds must not exceed max_ttl_seconds/);
+  });
+
+  it.each([0, -1, 2_592_001])('rejects max_ttl_seconds of %i', value => {
+    expect(() =>
+      parseConfig(config(`credential_providers:
+  gh:
+    type: command
+    command: /usr/local/bin/mint-gh
+    max_ttl_seconds: ${value}
+${TOOLS}`)),
+    ).toThrow();
   });
 
   it('accepts mint bindings in a profile and in credential_defaults', () => {

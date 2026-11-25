@@ -309,6 +309,10 @@ const commandProviderSchema = z
     timeout_ms: z.number().int().min(100).max(120_000).default(10_000),
     // Used when the command reports no expiry of its own.
     ttl_seconds: z.number().int().positive().max(2_592_000).default(3600),
+    // Upper bound on how long the broker keeps any credential from this
+    // provider, whatever expiry the command reports (or none). Counted from the
+    // moment of minting.
+    max_ttl_seconds: z.number().int().positive().max(2_592_000).default(86_400),
     output: z
       .object({
         format: z.enum(['text', 'json']).default('text'),
@@ -320,7 +324,11 @@ const commandProviderSchema = z
       .strict()
       .prefault({}),
   })
-  .strict();
+  .strict()
+  .refine(p => p.ttl_seconds <= p.max_ttl_seconds, {
+    message: 'ttl_seconds must not exceed max_ttl_seconds',
+    path: ['ttl_seconds'],
+  });
 
 const credentialProviderSchema = z.discriminatedUnion('type', [commandProviderSchema]);
 

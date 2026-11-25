@@ -46,7 +46,8 @@ server:
 #     command: /usr/local/bin/mint-credential
 #     args: ["--profile", "{profile}", "--agent", "{agent}"]
 #     timeout_ms: 10000
-#     ttl_seconds: 3600
+#     ttl_seconds: 3600               # used when the command reports no expiry
+#     max_ttl_seconds: 86400          # never keep a credential longer than this
 #     output: { format: json, secret_field: token, expires_in_field: expires_in }
 # credential_storage:
 #   type: vault                        # default; 'memory' for local experiments

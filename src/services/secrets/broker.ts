@@ -17,6 +17,10 @@ export interface MintTarget {
 const KEY_SEPARATOR = '\u0000';
 const MAX_REFRESH_SKEW_MS = 60_000;
 const DEFAULT_TTL_MS = 3_600_000;
+const DEFAULT_MAX_TTL_MS = 86_400_000;
+// Replicas share the store but not a clock; an entry a writer capped exactly at
+// its cap must not look over-long to a reader whose clock runs slightly behind.
+const CLOCK_SKEW_TOLERANCE_MS = 60_000;
 const PATH_SAFE = /[^A-Za-z0-9_.-]/g;
 
 interface CacheEntry {
@@ -86,7 +90,7 @@ export async function resolveMintedCredential(providerName: string, target: Mint
   if (running) return running;
 
   const work = (async (): Promise<string> => {
-    const stored = await readStored(providerName, target);
+    const stored = await readStored(providerName, providerConfig, target);
     if (stored !== undefined) return stored;
     return mintAndStore(key, providerName, provider, providerConfig, target);
   })();
@@ -121,7 +125,11 @@ export async function revokeProfileCredentials(profile: string): Promise<void> {
   }
 }
 
-async function readStored(providerName: string, target: MintTarget): Promise<string | undefined> {
+async function readStored(
+  providerName: string,
+  providerConfig: CredentialProviderConfig,
+  target: MintTarget,
+): Promise<string | undefined> {
   let stored: StoredCredential | undefined;
   try {
     stored = await store.get(entryPath(providerName, target));
@@ -139,13 +147,31 @@ async function readStored(providerName: string, target: MintTarget): Promise<str
   // Every value this broker writes carries an expiry; an entry without one is
   // foreign or corrupt, so remint rather than trust it indefinitely.
   if (stored.expiresAt === undefined) return undefined;
+  // Every value this broker writes lives at most max_ttl from the moment it was
+  // minted, and records that lifetime as ttlMs. Judge the lifetime it was issued
+  // with (independent of any clock), so an old entry that merely has little time
+  // left still fails a cap it was never allowed to exceed. Entries written
+  // before the cap existed or under a looser one are reminted: capping them at
+  // now + max_ttl would move their deadline forward on every restart.
+  const maxMs = maxTtlMs(providerConfig);
+  const issuedLifetime = stored.ttlMs;
+  const remaining = stored.expiresAt - Date.now();
+  // An entry that records no lifetime cannot be shown to respect the cap.
+  if (issuedLifetime === undefined || issuedLifetime > maxMs || remaining > maxMs + CLOCK_SKEW_TOLERANCE_MS) {
+    logger.warn('credential store entry exceeds max_ttl; reminting', {
+      provider: providerName,
+      profile: target.profile,
+      backend: target.backend,
+      expires_at: stored.expiresAt,
+      max_ttl_seconds: maxMs / 1000,
+    });
+    return undefined;
+  }
   const entry: CacheEntry = {
     value: stored.value,
     expiresAt: stored.expiresAt,
     provider: providerName,
-    // Fall back to the remaining lifetime only for entries written before
-    // ttl_ms was persisted.
-    ttlMs: stored.ttlMs ?? Math.max(0, stored.expiresAt - Date.now()),
+    ttlMs: issuedLifetime,
   };
   if (!isFresh(entry)) return undefined;
   cache.set(cacheKey(providerName, target), entry);
@@ -173,9 +199,23 @@ async function mintAndStore(
     });
     throw new Error('credential_unavailable', { cause: err });
   }
-  const ttl = ttlMs(providerConfig);
-  const expiresAt = mintedCredential.expiresAt ?? Date.now() + ttl;
-  const lifetime = Math.max(0, expiresAt - Date.now());
+  const now = Date.now();
+  const reportedExpiresAt = mintedCredential.expiresAt ?? now + ttlMs(providerConfig);
+  const maxMs = maxTtlMs(providerConfig);
+  const expiresAt = Math.min(reportedExpiresAt, now + maxMs);
+  if (expiresAt < reportedExpiresAt) {
+    logger.warn('credential lifetime capped', {
+      provider: providerName,
+      profile: target.profile,
+      agent: target.agent,
+      backend: target.backend,
+      token_id: target.tokenId,
+      reported_expires_at: reportedExpiresAt,
+      expires_at: expiresAt,
+      max_ttl_seconds: maxMs / 1000,
+    });
+  }
+  const lifetime = Math.max(0, expiresAt - now);
   const stored: StoredCredential = {
     value: mintedCredential.secret,
     expiresAt,
@@ -224,6 +264,12 @@ function isFresh(entry: CacheEntry): boolean {
 
 function ttlMs(config: CredentialProviderConfig | undefined): number {
   return config?.type === 'command' ? config.ttl_seconds * 1000 : DEFAULT_TTL_MS;
+}
+
+/** Upper bound on a credential's lifetime. Configs built without the schema fall back to the default. */
+function maxTtlMs(config: CredentialProviderConfig | undefined): number {
+  const seconds = config?.type === 'command' ? config.max_ttl_seconds : undefined;
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_MAX_TTL_MS;
 }
 
 function cacheKey(providerName: string, target: MintTarget): string {
