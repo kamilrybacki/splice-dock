@@ -79,7 +79,7 @@ function renderKpiStrip(view: ToolsViewInput, now: number): string {
   // Calls KPI: when buckets are plumbed, this is a genuine 24h window.
   // Otherwise, fall back to all-time totals with a relabeled KPI so we
   // don't silently fabricate a "24h" claim.
-  const callsLabel = hasBuckets ? 'calls 24h' : 'total calls';
+  const callsLabel = hasBuckets ? 'calls, last 24 h' : 'total calls';
   const callsValue = hasBuckets ? totalCalls24h : sum(view.metrics.map((m) => m.total));
 
   // Denies: only all-time `deny` counters are available per-tool, so this
@@ -87,7 +87,7 @@ function renderKpiStrip(view: ToolsViewInput, now: number): string {
   const totalDenies = sum(view.metrics.map((m) => m.deny));
   const totalCalls = sum(view.metrics.map((m) => m.total));
 
-  const callsHint = hasBuckets ? 'last 24 hours' : 'cumulative since process start';
+  const callsHint = hasBuckets ? 'sum of the last 24 hourly buckets' : 'cumulative since process start';
   const blockedHint =
     totalCalls > 0 ? `${formatDenyRate(totalDenies, totalCalls)} · ${formatDenyBasis(totalDenies, totalCalls)}` : 'No calls yet';
 
@@ -98,7 +98,10 @@ function renderKpiStrip(view: ToolsViewInput, now: number): string {
     kpi('pending approvals', formatNumber(view.pending_approvals_count ?? 0)),
     kpi('top deny rule', topDenyRuleLabel(view.recent_denies), 'Most frequent rule in the last 50 denies'),
   ].join('\n');
-  return `<p class="metrics-scope">CLI calls · cumulative counters since process start · generated ${renderGeneratedAt(now)}.</p>
+  const scope = hasBuckets
+    ? 'CLI calls · calls from the last 24 hourly buckets; denies cumulative since process start'
+    : 'CLI calls · cumulative counters since process start';
+  return `<p class="metrics-scope">${scope} · generated ${renderGeneratedAt(now)}.</p>
 <div class="kpi-strip">${cells}</div>
 <p class="metrics-actions"><a href="${SHOW_DENIES_HREF}">Show denies</a> in the audit log</p>`;
 }

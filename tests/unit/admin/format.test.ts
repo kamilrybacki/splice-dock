@@ -56,6 +56,13 @@ describe('relative time', () => {
     expect(html).toContain('5 min ago');
     expect(html).toContain('2026-01-01 11:55 UTC</span>');
   });
+  it('labels a timestamp ahead of the clock instead of "just now"', () => {
+    expect(formatRelativeTime(now + 5 * 60_000, now)).toBe('in the future');
+  });
+  it('renders a finite timestamp outside the Date range as an em dash, without throwing', () => {
+    expect(() => renderTime(9e15, now)).not.toThrow();
+    expect(renderTime(9e15, now)).toContain('—');
+  });
   it('renders a missing timestamp as an em dash', () => {
     expect(renderTime(0, now)).toContain('—');
     expect(renderTime(0, now)).not.toContain('<time');

@@ -89,6 +89,16 @@ describe('renderToolsPage', () => {
     const html = renderToolsPage({ policies: [], recent_denies: [], metrics: [], now: NOW });
     expect(html).toContain('Most frequent rule in the last 50 denies');
   });
+  it('scopes the calls KPI to hourly buckets when they exist', () => {
+    const html = renderToolsPage({
+      policies: [],
+      recent_denies: [],
+      metrics: [{ tool: 'gh', total: 900, allow: 898, deny: 2, buckets_24h: [4, 6] }],
+      now: NOW,
+    } as Parameters<typeof renderToolsPage>[0]);
+    expect(html).toContain('calls from the last 24 hourly buckets; denies cumulative since process start');
+    expect(html).not.toContain('CLI calls · cumulative counters since process start');
+  });
 });
 
 describe('parseDecisionFilter', () => {
