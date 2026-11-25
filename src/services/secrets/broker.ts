@@ -1,9 +1,11 @@
 import { logger } from '../../common/logger.js';
 import type { CredentialProviderConfig, CredentialStorageConfig } from '../../config/types.js';
 import type {
-  CredentialAdapters, CredentialBroker, CredentialProvider, CredentialStore, MintedCredential, MintContext, MintTarget, StoredCredential,
+  CredentialAdapters, CredentialBroker, CredentialProvider, CredentialStore, MintedCredential, MintContext, MintTarget,
+  StoredCredential, StoredCredentialEntry,
 } from './base.js';
-import { credentialCacheKey, credentialEntryPath, profileKeyPrefix, sanitizePathSegment } from './keys.js';
+import { credentialCacheKey, credentialEntryPath, parseCredentialEntryPath, profileKeyPrefix, sanitizePathSegment } from './keys.js';
+import { RevokeRetrier } from './revoke-retry.js';
 
 const MAX_REFRESH_SKEW_MS = 60_000;
 const DEFAULT_TTL_MS = 3_600_000;
@@ -31,6 +33,18 @@ interface MintFailure {
   failures: number;
   /** Epoch ms before which the provider is not called again. */
   until: number;
+}
+
+/** A credential that can be revoked at its provider, with the context the provider needs. */
+interface RevocableCredential {
+  readonly ctx: MintContext;
+  readonly stored: StoredCredential;
+}
+
+/** What this replica remembers of a credential it minted. */
+interface MintRecord extends RevocableCredential {
+  /** True when the entry was written to a store the other replicas can list, so the serving replica revokes it. */
+  readonly inStore: boolean;
 }
 
 interface CacheEntry {
@@ -79,7 +93,9 @@ class MintingCredentialBroker implements CredentialBroker {
    */
   private readonly generations = new Map<string, number>();
   /** Mint contexts kept only so a profile deletion can revoke at the provider. */
-  private readonly minted = new Map<string, { ctx: MintContext; stored: StoredCredential }>();
+  private readonly minted = new Map<string, MintRecord>();
+  /** Background retries of provider revokes that failed. */
+  private readonly retrier = new RevokeRetrier();
 
   constructor(
     private readonly providerConfigs: ReadonlyMap<string, CredentialProviderConfig>,
@@ -124,9 +140,57 @@ class MintingCredentialBroker implements CredentialBroker {
   }
 
   async revokeProfile(profile: string): Promise<void> {
-    // Local state and this replica's own provider credentials first; the shared
-    // purge below runs only here, on the replica that served the delete.
-    await this.forgetProfile(profile);
+    // Local state first (synchronously, see `dropLocalState`). The shared store is
+    // listed before it is purged: the entries are the only record of credentials a
+    // replica that has since restarted minted, and they are gone after the purge.
+    const own = this.dropLocalState(profile);
+    const listed = await this.listStored(profile);
+    await this.purgeStored(profile);
+    await this.revokeAll([...own, ...listed.flatMap(entry => this.rebuildRevocable(profile, entry))]);
+  }
+
+  async forgetProfile(profile: string): Promise<void> {
+    const own = this.dropLocalState(profile);
+    // Entries in a shared store are revoked by the replica serving the delete, which
+    // lists them; revoking them here too would revoke each credential once per replica.
+    await this.revokeAll(own.filter(record => !record.inStore));
+  }
+
+  /**
+   * Forget everything this replica holds for a profile and return its mint records.
+   * Synchronous, so two concurrent forgets cannot both see (and revoke) the same
+   * record, and a mint that resolves while the revokes are running already sees the
+   * new generation.
+   */
+  private dropLocalState(profile: string): MintRecord[] {
+    this.generations.set(profile, this.generation(profile) + 1);
+    // Match on the key prefix: a replica that only read the credential from the
+    // shared store has an L1 entry but no `minted` record, and a failed mint has
+    // backoff state but neither.
+    const prefix = profileKeyPrefix(profile);
+    const own: MintRecord[] = [];
+    for (const [key, record] of [...this.minted]) {
+      if (key.startsWith(prefix)) own.push(record);
+    }
+    for (const map of [this.cache, this.minted, this.mintFailures] as ReadonlyArray<Map<string, unknown>>) {
+      for (const key of [...map.keys()]) {
+        if (key.startsWith(prefix)) map.delete(key);
+      }
+    }
+    return own;
+  }
+
+  /** Every entry the shared store holds for the profile. A failure is logged and reads as "nothing listed". */
+  private async listStored(profile: string): Promise<StoredCredentialEntry[]> {
+    try {
+      return await this.store.listPrefix(sanitizePathSegment(profile));
+    } catch (err) {
+      logger.warn('credential store listing failed', { profile, error: err instanceof Error ? err.message : String(err) });
+      return [];
+    }
+  }
+
+  private async purgeStored(profile: string): Promise<void> {
     try {
       const removed = await this.store.deletePrefix(sanitizePathSegment(profile));
       if (removed > 0) logger.info('purged profile credentials', { profile, removed });
@@ -135,27 +199,44 @@ class MintingCredentialBroker implements CredentialBroker {
     }
   }
 
-  async forgetProfile(profile: string): Promise<void> {
-    // Everything up to the first await is synchronous, so two concurrent forgets
-    // cannot both see (and revoke) the same `minted` entry, and a mint that
-    // resolves while the revokes below are running already sees the new generation.
-    this.generations.set(profile, this.generation(profile) + 1);
-    // Match on the key prefix: a replica that only read the credential from the
-    // shared store has an L1 entry but no `minted` record, and a failed mint has
-    // backoff state but neither.
-    const prefix = profileKeyPrefix(profile);
-    const own: Array<{ ctx: MintContext; stored: StoredCredential }> = [];
-    for (const [key, entry] of [...this.minted]) {
-      if (key.startsWith(prefix)) own.push(entry);
+  /**
+   * The context a provider needs to revoke a stored entry, rebuilt from its path and
+   * value. Exact for the profile, provider and the unsanitized parts; backend and
+   * agent are as sanitized as they were stored. An entry that cannot be rebuilt is
+   * skipped (it is still purged) and logged without its path or value.
+   */
+  private rebuildRevocable(profile: string, entry: StoredCredentialEntry): RevocableCredential[] {
+    const parsed = parseCredentialEntryPath(entry.path);
+    const config = this.providerConfigs.get(entry.credential.provider);
+    const reason =
+      parsed === undefined || parsed.profile !== sanitizePathSegment(profile) ? 'unrecognised_path'
+        : config === undefined ? 'unknown_provider'
+          : undefined;
+    if (reason !== undefined || parsed === undefined || config === undefined) {
+      logger.warn('skipped unrevocable credential store entry', { profile, reason: reason ?? 'unrecognised_path' });
+      return [];
     }
-    for (const map of [this.cache, this.minted, this.mintFailures] as ReadonlyArray<Map<string, unknown>>) {
-      for (const key of [...map.keys()]) {
-        if (key.startsWith(prefix)) map.delete(key);
-      }
+    const ctx: MintContext = {
+      profile, agent: parsed.agent, backend: parsed.backend, authenticated: false, tokenId: null,
+      provider: entry.credential.provider, config,
+    };
+    return [{ ctx, stored: entry.credential }];
+  }
+
+  /** Revoke each distinct credential once, in order. Earlier entries carry the exact mint context, so they win a tie. */
+  private async revokeAll(candidates: readonly RevocableCredential[]): Promise<void> {
+    const seen = new Set<string>();
+    for (const { ctx, stored } of candidates) {
+      // Identity is provider + value; held in memory only, never logged.
+      const identity = `${stored.provider}\u0000${stored.value}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      await this.revokeAtProvider(ctx, stored);
     }
-    // Only credentials this replica minted itself have a record here, so revoking
-    // them is never a second revocation of one a sibling minted.
-    for (const entry of own) await this.revokeAtProvider(entry.ctx, entry.stored);
+  }
+
+  close(): void {
+    this.retrier.close();
   }
 
   private generation(profile: string): number {
@@ -179,15 +260,19 @@ class MintingCredentialBroker implements CredentialBroker {
   /** Best effort: a provider that cannot revoke, or fails to, never blocks the local cleanup. */
   private async revokeAtProvider(ctx: MintContext, stored: StoredCredential): Promise<void> {
     const provider = this.providers.get(stored.provider);
-    if (!provider?.revoke) return;
+    const revoke = provider?.revoke?.bind(provider);
+    if (!revoke) return;
+    const attempt = (): Promise<void> => revoke(ctx, stored);
     try {
-      await provider.revoke(ctx, stored);
+      await attempt();
     } catch (err) {
       logger.warn('credential provider revoke failed', {
         provider: stored.provider,
         profile: ctx.profile,
         error: err instanceof Error ? err.message : String(err),
       });
+      // Detached: the retries run on unref'd timers and are never awaited.
+      this.retrier.retry(attempt, { provider: stored.provider, profile: ctx.profile });
     }
   }
 
@@ -350,7 +435,7 @@ class MintingCredentialBroker implements CredentialBroker {
       // expiry than `ttl_seconds`.
       ttlMs: lifetime,
     });
-    this.minted.set(key, { ctx, stored });
+    this.minted.set(key, { ctx, stored, inStore: written && this.store.shared !== false });
     logger.info('credential minted', {
       provider: providerName,
       profile: target.profile,

@@ -180,11 +180,11 @@ async function startAdminServer(config: Config, reg: Registries, db: Persistence
 
 type AdminServer = Awaited<ReturnType<typeof startAdminServer>>;
 
-function installShutdown(env: NodeJS.ProcessEnv, db: Persistence, svc: PolicyServices, adminServer: AdminServer): void {
+function installShutdown(env: NodeJS.ProcessEnv, reg: Registries, db: Persistence, svc: PolicyServices, adminServer: AdminServer): void {
   registerShutdown({
     mcpServer: db.mcpServer,
     drainTimeoutMs: drainTimeoutMs(env),
-    stops: [() => adminServer.close(), () => db.cacheSync.stop(), () => db.invalidationBus.stop(), () => svc.toolMetrics.stop(), () => svc.approvalService.stop(), db.stopTokenSweep, () => db.store.close()],
+    stops: [() => adminServer.close(), () => db.cacheSync.stop(), () => db.invalidationBus.stop(), () => svc.toolMetrics.stop(), () => svc.approvalService.stop(), () => reg.credentials.close(), db.stopTokenSweep, () => db.store.close()],
   });
 }
 
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
   const db = await openPersistence(config, env, reg, up);
   const svc = await buildPolicyServices(config, env, reg, db);
   const adminServer = await startAdminServer(config, reg, db, svc);
-  installShutdown(env, db, svc, adminServer);
+  installShutdown(env, reg, db, svc, adminServer);
   // Accept MCP calls only after the catalog and the policy and approval hooks are ready.
   const listen = mcpListenOptions(config.server);
   db.mcpServer.listen(listen, () => {

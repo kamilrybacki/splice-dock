@@ -4,6 +4,8 @@ export type ProfileSource = 'file' | 'runtime';
 
 export type ProfileInput = Partial<Omit<ProfileConfig, 'tools'>> & Pick<ProfileConfig, 'tools'> & {
   revision?: number;
+  /** Persisted creation time: the identity that tells a recreated profile from an edited one. */
+  created_at?: number;
   updated_at?: number;
   updated_by?: string | null;
 };

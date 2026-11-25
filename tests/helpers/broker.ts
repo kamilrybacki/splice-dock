@@ -11,6 +11,7 @@ export function unusedBroker(): CredentialBroker {
     },
     async revokeProfile(): Promise<void> {},
     async forgetProfile(): Promise<void> {},
+    close(): void {},
   };
 }
 

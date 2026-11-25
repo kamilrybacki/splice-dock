@@ -418,3 +418,77 @@ describe('CacheSync purge by registry diff (missed delete notification)', () => 
     expect(forgetProfile).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('CacheSync purge by profile identity (delete and recreate under one name)', () => {
+  /** name -> creation stamp: a recreate keeps the name but gets a new stamp. */
+  function withIdentities(initial: Record<string, number>) {
+    const registry = new Map(Object.entries(initial));
+    const forgetProfile = vi.fn<(name: string) => void | Promise<void>>();
+    const warn = vi.fn();
+    const { sync, deps } = makeSync({
+      listProfiles: () => [...registry.keys()],
+      profileIdentity: (name: string) => registry.get(name),
+      forgetProfile,
+      log: { info: () => {}, warn },
+    });
+    return { registry, forgetProfile, warn, sync, deps };
+  }
+
+  it('forgets a profile that was deleted and recreated under the same name', async () => {
+    const { registry, forgetProfile, sync, deps } = withIdentities({ worker: 100, other: 100 });
+    // This replica missed both messages: the registry now holds a new "worker".
+    deps.reloadProfiles.mockImplementation(async () => { registry.set('worker', 200); });
+
+    await sync.applyMessage(fromSibling('profiles'));
+
+    expect(forgetProfile).toHaveBeenCalledExactlyOnceWith('worker');
+  });
+
+  it('does not forget a profile whose identity is unchanged (a plain update)', async () => {
+    const { forgetProfile, sync, deps } = withIdentities({ worker: 100 });
+    deps.reloadProfiles.mockImplementation(async () => undefined);
+
+    await sync.applyMessage(fromSibling('profiles', 'worker'));
+
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
+  it('forgets a recreated profile once even for a keyed message', async () => {
+    const { registry, forgetProfile, sync, deps } = withIdentities({ worker: 100 });
+    deps.reloadProfiles.mockImplementation(async () => { registry.set('worker', 200); });
+
+    await sync.applyMessage(fromSibling('profiles', 'worker'));
+
+    expect(forgetProfile).toHaveBeenCalledExactlyOnceWith('worker');
+  });
+
+  it('forgets a deleted profile and a recreated one in the same reload', async () => {
+    const { registry, forgetProfile, sync, deps } = withIdentities({ gone: 1, again: 1, kept: 1 });
+    deps.reloadProfiles.mockImplementation(async () => { registry.delete('gone'); registry.set('again', 2); });
+
+    await sync.applyMessage(fromSibling('profiles'));
+
+    expect(forgetProfile.mock.calls.map(c => c[0]).sort()).toEqual(['again', 'gone']);
+  });
+
+  it('does not treat a profile with no recorded identity as recreated', async () => {
+    const registry = new Map<string, number | undefined>([['legacy', undefined]]);
+    const forgetProfile = vi.fn<(name: string) => void | Promise<void>>();
+    const { sync, deps } = makeSync({
+      listProfiles: () => [...registry.keys()],
+      profileIdentity: (name: string) => registry.get(name),
+      forgetProfile,
+    });
+    deps.reloadProfiles.mockImplementation(async () => { registry.set('legacy', 5); });
+
+    await sync.applyMessage(fromSibling('profiles'));
+
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
+  it('still works with name-only listing when profileIdentity is not wired', async () => {
+    const { sync, deps } = makeSync({ listProfiles: () => ['a'], forgetProfile: vi.fn() });
+    await expect(sync.applyMessage(fromSibling('profiles'))).resolves.toBeUndefined();
+    expect(deps.reloadProfiles).toHaveBeenCalledTimes(1);
+  });
+});

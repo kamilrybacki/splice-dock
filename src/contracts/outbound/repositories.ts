@@ -60,6 +60,8 @@ export interface RuntimeProfileRow {
   manifest_yaml: string | null;
   revision: number;
   origin: ProfileOrigin;
+  /** Epoch ms of the first insert; never changes on update, so a delete-and-recreate is distinguishable (revisions reset). */
+  created_at: number;
   updated_at: number;
   updated_by: string | null;
 }

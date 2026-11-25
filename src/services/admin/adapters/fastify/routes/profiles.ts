@@ -79,6 +79,7 @@ export function registerProfileRoutes(
         source: result.row.origin,
         ...profile,
         revision: result.row.revision,
+        created_at: result.row.created_at,
         updated_at: result.row.updated_at,
         updated_by: result.row.updated_by,
       });
@@ -98,7 +99,7 @@ export function registerProfileRoutes(
       updated_at: Date.now(),
       updated_by: 'admin-ui',
     };
-    profileRegistry.loadCatalogProfile(name, { source: origin, ...profile, ...document });
+    profileRegistry.loadCatalogProfile(name, { source: origin, ...profile, ...document, created_at: entry?.created_at ?? document.updated_at });
     await onProfilesChanged?.(name);
     await invalidation?.publish('profiles', name);
     return { status: 'ok', document };

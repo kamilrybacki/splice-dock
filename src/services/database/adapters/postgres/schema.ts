@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS deleted_config_profiles (name TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS runtime_profiles (
   name TEXT PRIMARY KEY, tools_json TEXT NOT NULL, manifest_yaml TEXT,
   revision BIGINT NOT NULL DEFAULT 1, origin TEXT NOT NULL DEFAULT 'runtime',
-  updated_at BIGINT NOT NULL, updated_by TEXT);
+  created_at BIGINT NOT NULL DEFAULT 0, updated_at BIGINT NOT NULL, updated_by TEXT);
 ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS manifest_yaml TEXT;
 ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS origin TEXT NOT NULL DEFAULT 'runtime';
+ALTER TABLE runtime_profiles ADD COLUMN IF NOT EXISTS created_at BIGINT NOT NULL DEFAULT 0;
+UPDATE runtime_profiles SET created_at = updated_at WHERE created_at = 0;
 CREATE TABLE IF NOT EXISTS profile_tokens (
   id TEXT PRIMARY KEY, profile TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at BIGINT NOT NULL,
   last_used_at BIGINT, expires_at BIGINT, revoked_at BIGINT, revoked_reason TEXT, revoked_by TEXT,
