@@ -147,6 +147,8 @@ describe('calls dialog', () => {
     expect(isValidHourly({ buckets: [1], startTs: 0, lastInProgress: false })).toBe(false);
     expect(isValidHourly({ buckets: [-1], startTs: 1, lastInProgress: false })).toBe(false);
     expect(isValidHourly(null)).toBe(false);
+    expect(isValidHourly({ buckets: new Array(25).fill(1), startTs: 1, lastInProgress: false })).toBe(false);
+    expect(isValidHourly({ buckets: new Array(24).fill(1), startTs: 1, lastInProgress: false })).toBe(true);
   });
   it('histogram sum equals the dialog total; last bucket marked in progress; table present', () => {
     const html = renderCallsDialog({ totalCalls: 9999, hourly, now: NOW });
@@ -181,5 +183,15 @@ describe('metrics page integration', () => {
     expect(ok).toContain('<dialog id="md-denied"');
     const bad = renderMetricsPage({ metrics: null, now: NOW });
     expect(bad).not.toContain('<dialog');
+  });
+  it('counts a rule named __proto__ instead of reporting it as unattributed', () => {
+    const rule_denies = JSON.parse('{"__proto__": 2}') as Record<string, number>;
+    const html = renderMetricsPage({
+      metrics: [{ tool: 'gh', total: 10, allow: 8, deny: 2, rule_denies, last_ts: 0 }],
+      now: NOW,
+    });
+    expect(html).toContain('<span class="rule-name">__proto__</span>');
+    expect(html).not.toContain('No rule attribution recorded');
+    expect(html).not.toContain('Unattributed');
   });
 });

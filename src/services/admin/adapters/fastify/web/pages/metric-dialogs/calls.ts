@@ -26,11 +26,15 @@ export interface CallsInput {
   now: number;
 }
 
+/** The dialog describes the last 24 hours, so longer histories are rejected. */
+export const MAX_HOURLY_BUCKETS = 24;
+
 export function isValidHourly(h: HourlyHistory | null | undefined): h is HourlyHistory {
   return (
     !!h &&
     Array.isArray(h.buckets) &&
     h.buckets.length > 0 &&
+    h.buckets.length <= MAX_HOURLY_BUCKETS &&
     Number.isFinite(h.startTs) &&
     h.startTs > 0 &&
     h.buckets.every((n) => Number.isFinite(n) && n >= 0)
