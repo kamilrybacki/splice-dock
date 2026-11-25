@@ -348,7 +348,7 @@ export async function callCliPassthrough(
     // collapsed to the historical single message.
     return errorResult(
       code === 'credential_unavailable' || code === 'unknown_credential_provider' || code === 'credential_identity_missing'
-        || code === 'credential_identity_unauthenticated'
+        || code === 'credential_identity_unauthenticated' || code === 'credential_mint_backoff'
         ? code
         : 'vault_unavailable',
     );

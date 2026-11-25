@@ -22,6 +22,27 @@ const DEFAULT_MAX_TTL_MS = 86_400_000;
 // its cap must not look over-long to a reader whose clock runs slightly behind.
 const CLOCK_SKEW_TOLERANCE_MS = 60_000;
 const PATH_SAFE = /[^A-Za-z0-9_.-]/g;
+/** First backoff window after a failed mint; doubles on each consecutive failure. */
+export const MINT_BACKOFF_BASE_MS = 1_000;
+/** Ceiling for the backoff window. Jitter only ever shortens a window, never exceeds this. */
+export const MINT_BACKOFF_MAX_MS = 60_000;
+/** Largest fraction of a window that jitter may remove, so retries do not align. */
+const MINT_BACKOFF_JITTER_RATIO = 0.25;
+
+/** Raised instead of calling the provider while a key is backing off after a failed mint. */
+export class CredentialMintBackoffError extends Error {
+  constructor(readonly retryAfterMs: number) {
+    super('credential_mint_backoff');
+    this.name = 'CredentialMintBackoffError';
+  }
+}
+
+interface MintFailure {
+  /** Consecutive failed mints for the key; reset by a successful mint. */
+  failures: number;
+  /** Epoch ms before which the provider is not called again. */
+  until: number;
+}
 
 interface CacheEntry {
   value: string;
@@ -37,6 +58,16 @@ let store: CredentialStore = new MemoryCredentialStore();
 const cache = new Map<string, CacheEntry>();
 /** Single-flight: one mint per key however many callers race for it. */
 const inflight = new Map<string, Promise<string>>();
+/**
+ * Negative cache: keys whose last mint failed, same key as L1. Holds no error
+ * object (a provider error may echo command output), only the retry state.
+ */
+const mintFailures = new Map<string, MintFailure>();
+/**
+ * Bumped by every cleanup (reset, revoke). A mint that began before a cleanup must
+ * not write its failure back afterwards, or the cleanup would be undone.
+ */
+let cleanupEpoch = 0;
 /** Mint contexts kept only so a profile deletion can revoke at the provider. */
 const minted = new Map<string, { ctx: MintContext; stored: StoredCredential }>();
 
@@ -59,8 +90,10 @@ export function configureCredentialBroker(config: {
 
 /** Drop cached credentials. Test hook; not called on the request path. */
 export function resetCredentialCache(): void {
+  cleanupEpoch += 1;
   cache.clear();
   inflight.clear();
+  mintFailures.clear();
   minted.clear();
 }
 
@@ -86,6 +119,10 @@ export async function resolveMintedCredential(providerName: string, target: Mint
   const cached = cache.get(key);
   if (cached && isFresh(cached)) return cached.value;
 
+  // After the identity checks and the L1 hit: a fresh credential is still served
+  // while the key is backing off, but a failed mint is not retried early.
+  assertNotBackingOff(key);
+
   const running = inflight.get(key);
   if (running) return running;
 
@@ -104,6 +141,7 @@ export async function resolveMintedCredential(providerName: string, target: Mint
 
 /** Best-effort revocation when a profile is deleted: provider revoke, then purge storage. */
 export async function revokeProfileCredentials(profile: string): Promise<void> {
+  cleanupEpoch += 1;
   for (const [key, entry] of [...minted]) {
     if (entry.ctx.profile !== profile) continue;
     const provider = providers.get(entry.stored.provider);
@@ -116,6 +154,10 @@ export async function revokeProfileCredentials(profile: string): Promise<void> {
     }
     minted.delete(key);
     cache.delete(key);
+  }
+  // A failure may have left no `minted` entry at all, so match on the key prefix.
+  for (const key of [...mintFailures.keys()]) {
+    if (key.startsWith(profile + KEY_SEPARATOR)) mintFailures.delete(key);
   }
   try {
     const removed = await store.deletePrefix(sanitize(profile));
@@ -186,6 +228,7 @@ async function mintAndStore(
   target: MintTarget,
 ): Promise<string> {
   const ctx: MintContext = { ...target, provider: providerName, config: providerConfig };
+  const epoch = cleanupEpoch;
   let mintedCredential: MintedCredential;
   try {
     mintedCredential = await provider.mint(ctx);
@@ -197,8 +240,10 @@ async function mintAndStore(
       backend: target.backend,
       error: err instanceof Error ? err.message : String(err),
     });
+    if (epoch === cleanupEpoch) recordMintFailure(key);
     throw new Error('credential_unavailable', { cause: err });
   }
+  mintFailures.delete(key);
   const now = Date.now();
   const reportedExpiresAt = mintedCredential.expiresAt ?? now + ttlMs(providerConfig);
   const maxMs = maxTtlMs(providerConfig);
@@ -252,6 +297,30 @@ async function mintAndStore(
     expires_at: expiresAt,
   });
   return mintedCredential.secret;
+}
+
+function assertNotBackingOff(key: string): void {
+  const failure = mintFailures.get(key);
+  if (!failure) return;
+  const now = Date.now();
+  if (now < failure.until) throw new CredentialMintBackoffError(failure.until - now);
+  // Past the window the provider may be called again; the streak is kept so the
+  // next failure backs off for longer, unless the key has been quiet for so long
+  // that the streak is no longer evidence of anything.
+  if (now - failure.until > MINT_BACKOFF_MAX_MS) mintFailures.delete(key);
+}
+
+function recordMintFailure(key: string): void {
+  const now = Date.now();
+  // Keys are not revisited after a profile or agent goes away, so sweep streaks
+  // that expired long ago instead of letting them accumulate.
+  for (const [other, failure] of mintFailures) {
+    if (now - failure.until > MINT_BACKOFF_MAX_MS) mintFailures.delete(other);
+  }
+  const failures = (mintFailures.get(key)?.failures ?? 0) + 1;
+  const delay = Math.min(MINT_BACKOFF_MAX_MS, MINT_BACKOFF_BASE_MS * 2 ** Math.min(failures - 1, 30));
+  const jittered = Math.round(delay * (1 - MINT_BACKOFF_JITTER_RATIO * Math.random()));
+  mintFailures.set(key, { failures, until: now + jittered });
 }
 
 function isFresh(entry: CacheEntry): boolean {

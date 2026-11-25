@@ -26,6 +26,13 @@ All notable changes to this project are recorded here. The format follows
   reminted instead of reused. **Migration:** a
   `command` provider with `ttl_seconds` above 86400 now needs `max_ttl_seconds`
   at least as large, because `ttl_seconds` must not exceed it.
+- A failed credential mint now backs off per profile, agent, backend and
+  provider instead of running the provider again on every call. The window
+  starts at 1s, doubles on each consecutive failure up to 60s, and has up to
+  25% jitter. Calls inside it fail immediately with the new error code
+  `credential_mint_backoff` (the first failure still reports
+  `credential_unavailable`). A successful mint resets it. Identity refusals are
+  not affected.
 - **BREAKING:** `server.require_profile_token` now defaults to `true`. `POST /mcp`
   requires a valid profile-token bearer and ignores `?profile=`; a request
   without one gets HTTP 401 (`profile_token_required`). To migrate, create a
