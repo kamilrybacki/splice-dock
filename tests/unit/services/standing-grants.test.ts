@@ -1,4 +1,4 @@
-import { builtinShapes } from '../../../src/services/policy/builtin.js';
+import { builtinShapes } from '../../../src/builtin-backends.js';
 import { describe, it, expect, vi } from 'vitest';
 import { baseShapeKey } from '../../../src/services/policy/shape/base.js';
 import { kubectlBaseShape, kubectlShape } from '../../../src/services/policy/shape/kubectl.js';

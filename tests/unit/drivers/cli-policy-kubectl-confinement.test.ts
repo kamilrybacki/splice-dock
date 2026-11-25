@@ -14,6 +14,9 @@ import { compilePolicy, evaluatePolicy, type PolicyDecision } from '../../../src
 import { kubectlConfinementBreach } from '../../../src/services/policy/cli/kubectl/confinement.js';
 import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../../src/config/types.js';
+import { cliProfile, useBuiltinCliProfiles } from '../../helpers/cli-profiles.js';
+
+useBuiltinCliProfiles();
 
 type Extra = {
   require_args?: string[];
@@ -23,7 +26,7 @@ type Extra = {
   boolean_flags?: string[];
 };
 const kube = (extra: Extra, command = 'kubectl') =>
-  compilePolicy({ max_args: 256, audit: false, on_violation: 'deny', ...extra }, { command });
+  compilePolicy({ max_args: 256, audit: false, on_violation: 'deny', ...extra }, { profile: cliProfile(command) });
 const confined = (extra: Extra = {}) => kube({ require_args: ['--namespace=isolated'], ...extra });
 const denied = (d: PolicyDecision): boolean => d.ok === false;
 

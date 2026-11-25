@@ -17,7 +17,7 @@
 // listed here that an older binary lacks are harmless (the binary errors out).
 // The tables themselves live in the per-CLI profiles (./profiles/).
 
-import { cliProfileFor } from '../profiles/index.js';
+import type { CliProfile } from '../profiles/types.js';
 import type { KnownCommandTable } from './table.js';
 
 export {
@@ -26,7 +26,7 @@ export {
   type KnownCommandTable,
 } from './table.js';
 
-/** Table for a tool, selected by the executable's basename. */
-export function knownCommandsFor(command: string | undefined): KnownCommandTable | undefined {
-  return cliProfileFor(command)?.knownCommands;
+/** The profile's known-command table; tools without a profile have none. */
+export function knownCommandsFor(profile: CliProfile | undefined): KnownCommandTable | undefined {
+  return profile?.knownCommands;
 }

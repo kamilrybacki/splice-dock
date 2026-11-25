@@ -1,4 +1,4 @@
-import { builtinShapes } from '../../../src/services/policy/builtin.js';
+import { builtinShapes } from '../../../src/builtin-backends.js';
 import { describe, it, expect } from 'vitest';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';

@@ -93,10 +93,10 @@ name and injected through two registries:
 - `ReadonlyProbes` (`policy/breaker/readonly.ts`) maps a tool name to a
   read-only argv probe, used by the circuit breaker's `read_allowlist`.
 
-Both default to empty. The built-in entries (`policy/builtin.ts`, with the
-kubectl implementation in `policy/shape/kubectl.ts`) are passed in by the
-composition root. Other keyed data, such as operator grant exceptions, stays
-data in the same way.
+Both default to empty. The built-in entries are defined in the composition
+root (`src/builtin-backends.ts`, with the kubectl implementation in
+`policy/shape/kubectl.ts`) and passed in from there. Other keyed data, such as
+operator grant exceptions, stays data in the same way.
 
 ### CLI profiles (`src/services/policy/cli/profiles/`)
 
@@ -107,9 +107,18 @@ What the runtime knows about a particular executable lives in a `CliProfile`:
 - pinned environment variables
 - whether namespace confinement applies
 
-Profiles are selected by the executable's basename. A CLI without a profile gets
-generic, conservative handling. To support a new CLI, add one profile module and
-list it in `profiles/index.ts`.
+Profiles are selected by the executable's basename through a
+`CliProfileRegistry` (`profiles/index.ts`). The core never imports a profile:
+the composition root builds `builtinCliProfiles` in `src/builtin-backends.ts`
+and injects it (`ToolHooks.cliProfiles` for the passthrough, the admin
+policy routes, `validateConfig`). Without a registry no CLI has a profile, and
+every tool gets generic, conservative handling. To support a new CLI, add one
+profile module and list it in `src/builtin-backends.ts`.
+
+The `backends-only-from-root` rule in `.dependency-cruiser.cjs` keeps it that
+way: the gh and kubectl modules (`cli/profiles/gh.ts`, `cli/profiles/kubectl.ts`,
+`cli/kubectl/`, `shape/kubectl.ts`) may be imported only by root files and by
+each other, not by the core or by adapters.
 
 ### Built-in MCP tools (`src/services/mcp/adapters/express/tools/builtin.ts`)
 

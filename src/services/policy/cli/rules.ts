@@ -32,8 +32,7 @@ export interface ApprovalPayload { approval_id:string; op_hash:string; canonical
 
 import type { CliToolPolicy } from '../../../config/types.js';
 import { extractSubcommandPaths, flagTableFor, invocationFlagTable, type FlagTable } from './flags/arity.js';
-import { cliProfileFor } from './profiles/index.js';
-import type { NamespaceConfinement } from './profiles/types.js';
+import type { CliProfile } from './profiles/types.js';
 import { ArgvCanonicalizationError, canonicalizeArgv } from '../operation.js';
 import {
   canonicalizeCommandPath,
@@ -112,7 +111,8 @@ export interface CompiledCliPolicy {
   audit: boolean;
   /** Flag arity table used to extract the subcommand path from argv. */
   flagTable: FlagTable;
-  command?:string;
+  /** The tool's CLI profile, if it has one. */
+  profile?: CliProfile;
   optionAliases?: Readonly<Record<string, string>>;
   /** Built-in, non-configurable deny paths for the tool (D14a). Checked
    *  before every configured rule; approval can never override them. */
@@ -124,8 +124,9 @@ export interface CompiledCliPolicy {
 }
 
 export interface CompileOptions {
-  /** The tool's executable (path or name); selects the built-in flag table. */
-  command?: string;
+  /** The tool's CLI profile (from the composition root's registry). Tools
+   *  without one get the generic defaults. */
+  profile?: CliProfile;
   /** Tool-level `known_subcommands` (default 'enforce'). 'off' drops the
    *  known-command table; the hard denies stay. */
   knownSubcommands?: 'enforce' | 'off';
@@ -134,13 +135,13 @@ export interface CompileOptions {
 export class PolicyCompileError extends Error {}
 
 /** Short → long option spellings from the CLI's profile (none for unknown CLIs). */
-function optionAliasesFor(command: string | undefined): Readonly<Record<string, string>> {
-  return cliProfileFor(command)?.optionAliases ?? {};
+function optionAliasesFor(profile: CliProfile | undefined): Readonly<Record<string, string>> {
+  return profile?.optionAliases ?? {};
 }
 
 /** Built-in hard denies from the CLI's profile (e.g. `gh api`, D14a). No kill switch. */
-function hardDenyPathsFor(command: string | undefined): readonly (readonly string[])[] | undefined {
-  return cliProfileFor(command)?.hardDenyPaths;
+function hardDenyPathsFor(profile: CliProfile | undefined): readonly (readonly string[])[] | undefined {
+  return profile?.hardDenyPaths;
 }
 
 /** Whole-token prefix test: is `prefix` a (non-strict) token prefix of `full`? */
@@ -222,10 +223,10 @@ const NAMESPACE_NAME = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/;
  *  must be spelled so the gate recognises it (`--namespace=x` or `-n=x`). */
 function assertNamespaceConfinement(
   p: CliToolPolicy,
-  command: string | undefined,
+  profile: CliProfile | undefined,
   aliases: Readonly<Record<string, string>>,
 ): void {
-  const confinement = namespaceConfinementOf(command);
+  const confinement = profile?.namespaceConfinement;
   if (!confinement) return;
   const fields = [['require_args', p.require_args ?? []], ['require_any_of', (p.require_any_of ?? []).flat()]] as const;
   let confined = false;
@@ -282,16 +283,16 @@ function canonicalizeRules(p: CliToolPolicy, table: KnownCommandTable): CliToolP
 }
 
 export function compilePolicy(raw: CliToolPolicy | undefined, opts: CompileOptions = {}): CompiledCliPolicy {
-  const knownCommands = opts.knownSubcommands === 'off' ? undefined : knownCommandsFor(opts.command);
+  const knownCommands = opts.knownSubcommands === 'off' ? undefined : knownCommandsFor(opts.profile);
   if (!raw) {
     // Permissive default. max_args still applies as DoS guard.
     return {
       maxArgs: 256,
       audit: false,
-      command:opts.command,
-      flagTable: flagTableFor(opts.command),
-      optionAliases: optionAliasesFor(opts.command),
-      hardDenyPaths: hardDenyPathsFor(opts.command),
+      profile: opts.profile,
+      flagTable: flagTableFor(opts.profile),
+      optionAliases: optionAliasesFor(opts.profile),
+      hardDenyPaths: hardDenyPathsFor(opts.profile),
       knownCommands,
     };
   }
@@ -329,13 +330,13 @@ export function compilePolicy(raw: CliToolPolicy | undefined, opts: CompileOptio
   };
 
   assertNoUnreachableApprovals(p);
-  const flagTable = flagTableFor(opts.command, {
+  const flagTable = flagTableFor(opts.profile, {
     value_flags: p.value_flags,
     boolean_flags: p.boolean_flags,
   });
-  const optionAliases = optionAliasesFor(opts.command);
+  const optionAliases = optionAliasesFor(opts.profile);
   assertSatisfiableRequirements(p, flagTable, optionAliases);
-  assertNamespaceConfinement(p, opts.command, optionAliases);
+  assertNamespaceConfinement(p, opts.profile, optionAliases);
 
   return {
     allowSubcommands:
@@ -362,9 +363,9 @@ export function compilePolicy(raw: CliToolPolicy | undefined, opts: CompileOptio
     maxArgs: p.max_args,
     audit: p.audit,
     optionAliases,
-    command:opts.command,
+    profile: opts.profile,
     flagTable,
-    hardDenyPaths: hardDenyPathsFor(opts.command),
+    hardDenyPaths: hardDenyPathsFor(opts.profile),
     knownCommands,
   };
 }
@@ -555,10 +556,6 @@ function evaluatePath(subPath: readonly string[], policy: CompiledCliPolicy): Pa
   return { kind: 'ok' };
 }
 
-/** Does the CLI's profile confine namespaced policies to their namespace? */
-const namespaceConfinementOf = (command: string | undefined): NamespaceConfinement | undefined =>
-  cliProfileFor(command)?.namespaceConfinement;
-const hasNamespaceConfinement = (command: string | undefined): boolean => namespaceConfinementOf(command) !== undefined;
 
 /** Whether a requirement names the namespace (`--namespace=x`, `-n=x`). */
 function isNamespaceRequirement(needed: string, aliases: Readonly<Record<string, string>> | undefined): boolean {
@@ -591,7 +588,7 @@ interface NamespaceGate {
 }
 
 function namespaceGate(argv: readonly string[], policy: CompiledCliPolicy): NamespaceGate | undefined {
-  const confinement = namespaceConfinementOf(policy.command);
+  const confinement = policy.profile?.namespaceConfinement;
   if (!confinement) return undefined;
   const isNamespace = (needed: string): boolean => isNamespaceRequirement(needed, policy.optionAliases);
   const required = policy.requireArgs?.find(isNamespace);
@@ -725,11 +722,11 @@ function evaluateCore(
     if (!(err instanceof ArgvCanonicalizationError)) throw err;
     return { ok: false, rule: 'invalid_argv', message: err.message };
   }
-  const invocationTable = invocationFlagTable(policy.command, argv, policy.flagTable);
+  const invocationTable = invocationFlagTable(policy.profile, argv, policy.flagTable);
   const invocationPath = policy.knownCommands
     ? canonicalizeCommandPath(argv.slice(0, 2), policy.knownCommands)?.join(' ')
     : '';
-  const invocationAliases = cliProfileFor(policy.command)?.invocationOptionAliases?.({
+  const invocationAliases = policy.profile?.invocationOptionAliases?.({
     argv,
     path: invocationPath ?? '',
     table: invocationTable,
@@ -806,7 +803,7 @@ function evaluateCore(
   // namespace gate below (step 8b), which reads argv exactly as the CLI does.
   // This arity pre-check then only guards the remaining requirements.
   const gateHandles = (needed: string): boolean =>
-    hasNamespaceConfinement(policy.command) && isNamespaceRequirement(needed, policy.optionAliases);
+    policy.profile?.namespaceConfinement !== undefined && isNamespaceRequirement(needed, policy.optionAliases);
   const ungated = [...(policy.requireArgs ?? []), ...(policy.requireAnyOf ?? []).flat()].filter(r => !gateHandles(r));
   if(ungated.length > 0) {
     for(let i=0;i<argv.length;i++) {

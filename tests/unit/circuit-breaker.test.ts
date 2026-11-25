@@ -47,7 +47,7 @@ it('actual CLI path refuses weak consent, creates strong, preserves hard deny',a
  const weak=await svc.makeHook('echo',process.cwd(),caller)(input);
  if(!('id' in weak))throw new Error('missing id');await svc.approve(weak.id,'admin');
  await b.record(caller,true);
- configurePassthrough({circuitBreaker: b, approvalHookFactory: (t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong), approvalSettler: svc});
+ configurePassthrough({ cliProfiles: builtinCliProfiles, circuitBreaker: b, approvalHookFactory: (t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong), approvalSettler: svc});
  try{
  const config={type:'cli_passthrough' as const,name:'echo',description:'test',command:'echo',deny_subcommands:[],env:[],timeout_ms:5000};
  const out=await runWithCaller(caller,()=>callCliPassthrough(config,'run',{args:['hello']},['echo']));
@@ -55,7 +55,7 @@ it('actual CLI path refuses weak consent, creates strong, preserves hard deny',a
  expect((await svc.get(weak.id))?.status).toBe('approved');
  const denied=await runWithCaller(caller,()=>callCliPassthrough({...config,deny_subcommands:['delete']},'run',{args:['delete']},['echo']));
  expect(denied.content[0].text).toContain('deny_subcommands');
- }finally{configurePassthrough({});await store.close();}
+ }finally{configurePassthrough({ cliProfiles: builtinCliProfiles });await store.close();}
 });
 it('counts a sliding window across first-event window boundaries',async ()=>{
  const b=await CircuitBreaker.create(sqliteDb(new Database(':memory:')),{...cfg,deny_threshold:3});
@@ -84,9 +84,9 @@ it.each(['observe','enforce'] as const)('storage failure semantics %s',async mod
 
 // repo delete is covered with a fake gh in tests/unit/drivers/cli-strong-approval-paths.test.ts.
 it.each([['api','/repos']])('counts early gh security refusal %j',async(...argv)=>{
- const db=new Database(':memory:');const b=await CircuitBreaker.create(sqliteDb(db),{...cfg,deny_threshold:1});configurePassthrough({circuitBreaker: b});
+ const db=new Database(':memory:');const b=await CircuitBreaker.create(sqliteDb(db),{...cfg,deny_threshold:1});configurePassthrough({ cliProfiles: builtinCliProfiles, circuitBreaker: b});
  try{await runWithCaller(caller,()=>callCliPassthrough({type:'cli_passthrough',name:'gh',command:'gh',description:'test',env:[],timeout_ms:5000},'run',{args:argv},['gh']));expect((await b.list())[0]?.state).toBe('open');}
- finally{configurePassthrough({});db.close();}
+ finally{configurePassthrough({ cliProfiles: builtinCliProfiles });db.close();}
 });
 it.each(['observe','enforce'] as const)('full scope storage preserves %s semantics',async mode=>{
  const db=new Database(':memory:');const b=await CircuitBreaker.create(sqliteDb(db),{...cfg,mode});
@@ -108,6 +108,9 @@ it('strengthened policy replaces pending weak consent without changing binding',
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import { builtinCliProfiles, useBuiltinCliProfiles } from '../helpers/cli-profiles.js';
+
+useBuiltinCliProfiles();
 it('disk restart and idempotent migration cannot bless an old weak approval',async ()=>{
  const dir=mkdtempSync(join(tmpdir(),'approval-strength-'));const path=join(dir,'state.sqlite');
  try{

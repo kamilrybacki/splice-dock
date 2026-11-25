@@ -1,4 +1,4 @@
-import { builtinReadonlyProbes } from '../../src/services/policy/builtin.js';
+import { builtinReadonlyProbes } from '../../src/builtin-backends.js';
 import {afterEach,expect,it,vi} from 'vitest';
 import Database from 'better-sqlite3';
 import {mkdtempSync,rmSync} from 'node:fs';
@@ -12,18 +12,21 @@ import {CircuitBreaker} from '../../src/services/policy/breaker/index.js';
 import { callCliPassthrough, configurePassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 import {runWithCaller} from '../../src/common/request/context.js';
 import { sqliteDb } from "../helpers/sqlite.js";
+import { builtinCliProfiles, useBuiltinCliProfiles } from '../helpers/cli-profiles.js';
+
+useBuiltinCliProfiles();
 
 const caller={profile:'test',tokenId:'one',authenticated:true};
 const cfg={enabled:true,mode:'enforce' as const,window_seconds:60,deny_threshold:1,cooldown_seconds:1800,half_open_probes:3,scopes:['global','profile:test','token'],read_allowlist:[{tool:'kubectl',argv:['get','pods']}]};
 const config={type:'cli_passthrough' as const,name:'kubectl',command:'echo',description:'local harmless substitute',env:[],deny_subcommands:[],timeout_ms:5000,policy:{approval_subcommands:['get'],on_violation:'deny' as const,audit:false}};
-afterEach(()=>{configurePassthrough({});});
+afterEach(()=>{configurePassthrough({ cliProfiles: builtinCliProfiles });});
 
 it.each(['open','half_open'])('real weak consent in %s never advances any recovery scope',async phase=>{
  const store=await SplicedockStore.open(':memory:');const db=store.consentDatabase();
  try{
  const b=await CircuitBreaker.create(db,cfg,()=>{},builtinReadonlyProbes);const probes=vi.spyOn(b,'approved');const svc=new ApprovalService({store,sweepIntervalMs:0,strongTools:[]});
  const weak=new WeakConsent(await ConsentStore.open(db),true);await store.insertProfileToken(caller.tokenId,caller.profile,'test-hash');
- configurePassthrough({circuitBreaker: b, approvalHookFactory: (t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong), approvalSettler: svc});
+ configurePassthrough({ cliProfiles: builtinCliProfiles, circuitBreaker: b, approvalHookFactory: (t,c)=>svc.makeHook(t,c.cwd,undefined,c.requireStrong), approvalSettler: svc});
  await b.record(caller,true);
  if(phase==='half_open')await db.prepare('UPDATE breaker_state SET cooldown_until=0').run();
  const run=(args=['get','pods'])=>runWithCaller(caller,()=>callCliPassthrough(config,'run',{args},['echo']));

@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
+import { builtinCliProfiles, useBuiltinCliProfiles } from '../../helpers/cli-profiles.js';
+
+useBuiltinCliProfiles();
 
 function mkConfig(overrides: Partial<CliPassthroughToolConfig> = {}): CliPassthroughToolConfig {
   const base: CliPassthroughToolConfig = {
@@ -157,13 +160,13 @@ describe('callCliPassthrough — policy decision metric sink', () => {
     const { configurePassthrough } = await import('../../../src/services/tools/adapters/cli/passthrough.js');
     const { runWithCaller } = await import('../../../src/common/request/context.js');
     const seen: unknown[] = [];
-    configurePassthrough({policyDecisionSink: e => seen.push(e)});
+    configurePassthrough({ cliProfiles: builtinCliProfiles, policyDecisionSink: e => seen.push(e)});
     const cfg = mkConfig({ policy: { deny_subcommands: ['bad'], max_args: 32, on_violation: 'deny', audit: false } });
     await runWithCaller({ profile: 'p1', tokenId: 't1', authenticated: true }, async () => {
       await callCliPassthrough(cfg, 'run', { args: ['ok'] }, ['echo']);
       await callCliPassthrough(cfg, 'run', { args: ['bad', 'secret-value'] }, ['echo']);
     });
-    configurePassthrough({});
+    configurePassthrough({ cliProfiles: builtinCliProfiles });
     expect(seen).toEqual([
       { tool: 'echo_pass', profile: 'p1', decision: 'allow', rule: 'none' },
       { tool: 'echo_pass', profile: 'p1', decision: 'deny', rule: 'deny_subcommands' },

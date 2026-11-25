@@ -2,7 +2,7 @@ import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { OperationExchange } from '../../../../contracts/outbound/operation/exchange.js';
 import type { PolicyDecisionEvent, ToolHooks } from '../../hooks.js';
 import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flags/arity.js';
-import { cliProfileFor } from '../../../policy/cli/profiles/index.js';
+import { NO_CLI_PROFILES, type CliProfile } from '../../../policy/cli/profiles/index.js';
 import { requireSecret } from '../../../secrets/adapters/vault/guard.js';
 import { resolveMintedCredential } from '../../../secrets/broker.js';
 import { createIsolatedHome, toolEnvPins, type IsolatedHome } from './isolation.js';
@@ -41,6 +41,12 @@ let injected: ToolHooks = {};
 /** Install the passthrough's collaborators (called once at startup; tests
  *  call it per case). Replaces the whole set, so omitted hooks fall back to
  *  their defaults, and drops compiled policies since the resolver may differ. */
+/** The CLI profile for a command, from the injected registry. Without one,
+ *  no CLI gets profile-specific rules (the composition root always injects). */
+function cliProfileOf(command: string): CliProfile | undefined {
+  return (injected.cliProfiles ?? NO_CLI_PROFILES).profileFor(command);
+}
+
 export function configurePassthrough(next: ToolHooks): void {
   injected = { ...next };
   policyCache = new WeakMap();
@@ -126,7 +132,7 @@ async function policyFor(config: CliPassthroughToolConfig): Promise<CompiledCliP
 
   let compiled: CompiledCliPolicy;
   try {
-    compiled = compilePolicy(synthesized, { command: config.command, knownSubcommands: config.known_subcommands });
+    compiled = compilePolicy(synthesized, { profile: cliProfileOf(config.command), knownSubcommands: config.known_subcommands });
   } catch (err) {
     if (err instanceof PolicyCompileError) {
       logger.error('policy compile failed', { tool: config.name, error: err.message });
@@ -212,10 +218,11 @@ export async function callCliPassthrough(
     }
     // Paths the CLI's profile refuses outright (gh: api) or admits only through
     // a strong approval (gh: repo delete). Ambiguous argv is refused.
-    const { requiresBroker, strongApprovalPaths } = cliProfileFor(config.command) ?? {};
+    const cliProfile = cliProfileOf(config.command);
+    const { requiresBroker, strongApprovalPaths } = cliProfile ?? {};
     let needsStrong = false;
     if (kind === 'run' && (requiresBroker || strongApprovalPaths)) {
-      const candidates = extractSubcommandPaths(cmdArgs, flagTableFor(config.command));
+      const candidates = extractSubcommandPaths(cmdArgs, flagTableFor(cliProfile));
       needsStrong = Boolean(strongApprovalPaths && candidates?.some(strongApprovalPaths));
       if (!candidates || (requiresBroker && candidates.some(requiresBroker))) {
         try {
@@ -366,12 +373,12 @@ export async function callCliPassthrough(
   let isolatedHome: IsolatedHome | undefined;
   try {
     if (config.isolate_config !== false) {
-      isolatedHome = createIsolatedHome(config.command);
+      isolatedHome = createIsolatedHome(cliProfileOf(config.command));
       Object.assign(env, isolatedHome.env);
       env['GH_NO_EXTENSIONS'] = '1';
     }
     // Forced last, with or without isolation, over any declared value.
-    Object.assign(env, toolEnvPins(config.command));
+    Object.assign(env, toolEnvPins(cliProfileOf(config.command)));
   } catch {
     await safeHook(hooks.onPreSpawnError, 'release');
     return errorResult('could not create an isolated config dir for this call');

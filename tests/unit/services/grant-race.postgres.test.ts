@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { PgDb } from '../../../src/services/database/adapters/postgres/db.js';
 import { SplicedockStore } from '../../../src/services/database/adapters/store.js';
 import { ApprovalService } from '../../../src/services/approvals/base.js';
-import { builtinShapes } from '../../../src/services/policy/builtin.js';
+import { builtinShapes } from '../../../src/builtin-backends.js';
 import { TEST_PG_DSN, PG_SKIP_REASON, createIsolatedSchema, holdRowLocks, untilLockWaiters, type IsolatedSchema } from '../../helpers/pg-test.js';
 
 // Two ApprovalService instances, each on its own SplicedockStore pool over one

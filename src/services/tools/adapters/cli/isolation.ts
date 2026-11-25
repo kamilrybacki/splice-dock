@@ -23,7 +23,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { logger } from '../../../../common/logger.js';
-import { cliProfileFor } from '../../../policy/cli/profiles/index.js';
+import type { CliProfile } from '../../../policy/cli/profiles/types.js';
 
 export const ISOLATED_ENV_KEYS: ReadonlySet<string> = new Set([
   'HOME',
@@ -54,15 +54,15 @@ export class IsolationError extends Error {
 
 /** Env entries forced for a tool on every call, after the declared env and
  *  the isolated home. They come from the CLI's profile (kubectl: kuberc off). */
-export function toolEnvPins(command: string): Readonly<Record<string, string>> {
-  return cliProfileFor(command)?.envPins ?? {};
+export function toolEnvPins(profile: CliProfile | undefined): Readonly<Record<string, string>> {
+  return profile?.envPins ?? {};
 }
 
 function errName(err: unknown): string {
   return err instanceof Error ? ((err as NodeJS.ErrnoException).code ?? err.name) : 'unknown';
 }
 
-export function createIsolatedHome(command: string): IsolatedHome {
+export function createIsolatedHome(profile: CliProfile | undefined): IsolatedHome {
   const root = process.env['SPLICEDOCK_TOOL_HOME'] || tmpdir();
   let dir: string;
   try {
@@ -91,7 +91,7 @@ export function createIsolatedHome(command: string): IsolatedHome {
     const env: Record<string, string> = {
       HOME: dir,
       ...xdg,
-      ...(cliProfileFor(command)?.isolatedConfigEnv?.(xdg.XDG_CONFIG_HOME) ?? {}),
+      ...(profile?.isolatedConfigEnv?.(xdg.XDG_CONFIG_HOME) ?? {}),
     };
     return { dir, env, cleanup };
   } catch (err) {

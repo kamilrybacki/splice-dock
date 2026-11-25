@@ -19,6 +19,7 @@ import { registerProfileTokenRoutes } from './routes/profiles/tokens.js';
 import { registerManifestRoutes } from './routes/manifest.js';
 import { registerStatusRoutes } from './routes/status.js';
 import { registerPolicyRoutes } from './routes/policies.js';
+import type { CliProfileRegistry } from '../../../policy/cli/profiles/index.js';
 import { registerAuditRoutes } from './routes/audit.js';
 import { registerUsageRoutes } from './routes/usage.js';
 import { registerApprovalRoutes } from './routes/approvals.js';
@@ -44,6 +45,8 @@ export interface AdminExtras {
   auditBuffer: AuditBuffer;
   toolMetrics: ToolMetrics;
   policyStore: PolicyStore;
+  // CLI profiles for compiling policy overrides (composition root supplies builtins).
+  cliProfiles: CliProfileRegistry;
   approvalService?: ApprovalService;
   breaker?:CircuitBreaker;
   shadow?:ShadowObserver;
@@ -151,7 +154,7 @@ export async function createAdminServer(
     if (extras?.store) registerProfileTokenRoutes(authed, extras.store, config.server.token_policy);
 
     if (extras) {
-      registerPolicyRoutes(authed, config, extras.policyStore, () => profileRegistry.getAllProfiles().map(p => p.name));
+      registerPolicyRoutes(authed, config, extras.policyStore, extras.cliProfiles, () => profileRegistry.getAllProfiles().map(p => p.name));
       registerAuditRoutes(authed, extras.auditBuffer);
       registerUsageRoutes(authed, extras.toolMetrics);
       if (extras.approvalService) {

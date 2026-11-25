@@ -9,11 +9,12 @@ import {
   knownCommandsFor,
 } from '../../../src/services/policy/cli/commands/known.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 
 const BASE = { max_args: 256, on_violation: 'deny', audit: false } as const;
 const mk = (command: string, p?: Partial<CliToolPolicy>, known?: 'enforce' | 'off') =>
   compilePolicy(p ? ({ ...BASE, ...p } as CliToolPolicy) : undefined, {
-    command,
+    profile: cliProfile(command),
     ...(known ? { knownSubcommands: known } : {}),
   });
 
@@ -23,15 +24,15 @@ function rule(d: PolicyDecision): string | undefined {
 
 describe('knownCommandsFor / canonicalizeCommandPath', () => {
   it('has tables for gh and kubectl (by basename) and none for other tools', () => {
-    expect(knownCommandsFor('gh')).toBeDefined();
-    expect(knownCommandsFor('/usr/local/bin/kubectl')).toBeDefined();
-    expect(knownCommandsFor('codex')).toBeUndefined();
-    expect(knownCommandsFor('ssh')).toBeUndefined();
-    expect(knownCommandsFor(undefined)).toBeUndefined();
+    expect(knownCommandsFor(cliProfile('gh'))).toBeDefined();
+    expect(knownCommandsFor(cliProfile('/usr/local/bin/kubectl'))).toBeDefined();
+    expect(knownCommandsFor(cliProfile('codex'))).toBeUndefined();
+    expect(knownCommandsFor(cliProfile('ssh'))).toBeUndefined();
+    expect(knownCommandsFor(cliProfile(undefined))).toBeUndefined();
   });
 
   it('maps top-level and nested aliases to canonical names', () => {
-    const t = knownCommandsFor('gh')!;
+    const t = knownCommandsFor(cliProfile('gh'))!;
     expect(canonicalizeCommandPath(['ext', 'uninstall', 'x'], t)).toEqual(['extension', 'remove', 'x']);
     expect(canonicalizeCommandPath(['cs', 'ls'], t)).toEqual(['codespace', 'list']);
     expect(canonicalizeCommandPath(['secret', 'remove'], t)).toEqual(['secret', 'delete']);
@@ -40,7 +41,7 @@ describe('knownCommandsFor / canonicalizeCommandPath', () => {
   });
 
   it('returns null for an unknown first token, including prototype names', () => {
-    const t = knownCommandsFor('gh')!;
+    const t = knownCommandsFor(cliProfile('gh'))!;
     for (const tok of ['myext', 'co', 'constructor', '__proto__', 'toString']) {
       expect(canonicalizeCommandPath([tok], t)).toBeNull();
     }

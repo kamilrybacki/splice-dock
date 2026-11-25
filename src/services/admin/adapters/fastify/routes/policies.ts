@@ -8,6 +8,7 @@ import type { SplicedockConfig, CliPassthroughToolConfig, CliToolPolicy } from '
 import { cliToolPolicySchema } from '../../../../../config/schema.js';
 import { compilePolicy, evaluatePolicy, PolicyCompileError } from '../../../../policy/cli/rules.js';
 import type { PolicyStore } from '../../../../policy/base.js';
+import type { CliProfileRegistry } from '../../../../policy/cli/profiles/index.js';
 
 function findCliTool(config: SplicedockConfig, name: string): CliPassthroughToolConfig | null {
   for (const tool of config.tools) {
@@ -20,6 +21,8 @@ export function registerPolicyRoutes(
   app: FastifyInstance,
   config: SplicedockConfig,
   policyStore: PolicyStore,
+  // CLI profiles, the same registry the loader and the passthrough use.
+  cliProfiles: CliProfileRegistry,
   // Known profile names; scoped overrides are only accepted for these.
   profileNames: () => string[] = () => [],
 ): void {
@@ -69,7 +72,7 @@ export function registerPolicyRoutes(
       reply.code(400).send({ error: { code: 'invalid_policy', message: parsed.error.message } });
       return;
     }
-    const opts = { command: tool.command, knownSubcommands: tool.known_subcommands };
+    const opts = { profile: cliProfiles.profileFor(tool.command), knownSubcommands: tool.known_subcommands };
     try {
       if (scope) {
         await policyStore.setProfileOverride(tool.name, scope, parsed.data as CliToolPolicy, req.body?.updated_by ?? null, opts);
@@ -135,7 +138,7 @@ export function registerPolicyRoutes(
     }
 
     try {
-      const compiled = compilePolicy(policyForRun, { command: tool.command, knownSubcommands: tool.known_subcommands });
+      const compiled = compilePolicy(policyForRun, { profile: cliProfiles.profileFor(tool.command), knownSubcommands: tool.known_subcommands });
       const decision = evaluatePolicy(argv as string[], compiled);
       reply.send({ data: decision });
     } catch (err) {
