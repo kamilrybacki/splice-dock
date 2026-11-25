@@ -42,6 +42,8 @@ const DAY = 24 * HOUR;
 /** Coarse relative time ("just now", "5 min ago", "3 h ago", "2 d ago"). */
 export function formatRelativeTime(ts: number, now: number): string {
   const diff = now - ts;
+  // A timestamp ahead of the clock (skew or bad data) is labelled, not "just now".
+  if (diff < 0) return 'in the future';
   if (diff < MINUTE) return 'just now';
   if (diff < HOUR) return `${Math.floor(diff / MINUTE)} min ago`;
   if (diff < DAY) return `${Math.floor(diff / HOUR)} h ago`;
@@ -58,7 +60,10 @@ function utcStamp(ts: number): string {
  * to it (not only in a tooltip). A missing timestamp (0 / not finite) is "—".
  */
 export function renderTime(ts: number, now: number): string {
-  if (!Number.isFinite(ts) || ts <= 0) return '<span class="muted">—</span>';
+  // Finite values outside the Date range (|ts| > 8.64e15) make toISOString() throw.
+  if (!Number.isFinite(ts) || ts <= 0 || Number.isNaN(new Date(ts).getTime())) {
+    return '<span class="muted">—</span>';
+  }
   const iso = new Date(ts).toISOString();
   const exact = escapeHtml(utcStamp(ts));
   return `<time datetime="${escapeHtml(iso)}" title="${exact}">${escapeHtml(
