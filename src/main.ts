@@ -32,6 +32,7 @@ import { createCacheSync } from './create-cache-sync.js';
 import { createToolHooks } from './create-hooks.js';
 import { createMcpServer } from './create-mcp.js';
 import { createBreaker, createShadow } from './create-observers.js';
+import { builtinCliProfiles } from './builtin-backends.js';
 import { proxyConfigsOf, registerFileTools, resolveAvailablePassthroughs } from './create-tools.js';
 import { drainTimeoutMs, registerShutdown } from './shutdown.js';
 
@@ -162,7 +163,7 @@ async function startAdminServer(config: Config, reg: Registries, db: Persistence
   const adminServer = await createAdminServer(
     reg.toolRegistry, reg.profileRegistry, reg.toolService, reg.profileService, new Map(), config, reg.metrics,
     {
-      auditBuffer: svc.auditBuffer, toolMetrics: svc.toolMetrics, policyStore: svc.policyStore, approvalService: svc.approvalService,
+      auditBuffer: svc.auditBuffer, toolMetrics: svc.toolMetrics, policyStore: svc.policyStore, cliProfiles: builtinCliProfiles, approvalService: svc.approvalService,
       store: db.store, mcpUpstreams: db.upstreams, breaker: svc.breaker, shadow: svc.shadow,
       pushStore: svc.pushStore, pushNotifier: svc.pushNotifier, invalidation: db.invalidationBus,
     },

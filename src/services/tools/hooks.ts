@@ -1,6 +1,7 @@
 import type { CliPassthroughToolConfig, CliToolPolicy } from '../../config/types.js';
 import type { CircuitBreaker } from '../policy/breaker/index.js';
 import type { ApprovalHook } from '../policy/cli/rules.js';
+import type { CliProfileRegistry } from '../policy/cli/profiles/index.js';
 
 /** When a PolicyStore is wired (admin webui mode) it provides the effective
  *  policy per call; absent, the config's own `policy` field is used. */
@@ -63,4 +64,6 @@ export interface ToolHooks {
   readonly approvalHookFactory?: ApprovalHookFactory;
   readonly approvalSettler?: ApprovalSettler;
   readonly profileEnvResolver?: ProfileEnvResolver;
+  /** Per-CLI rules (gh, kubectl, ...). Absent: no CLI gets profile rules. */
+  readonly cliProfiles?: CliProfileRegistry;
 }

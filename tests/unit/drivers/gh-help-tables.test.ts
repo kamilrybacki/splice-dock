@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { flagTableFor, invocationFlagTable, type FlagArity } from '../../../src/services/policy/cli/flags/arity.js';
 import { knownCommandsFor } from '../../../src/services/policy/cli/commands/known.js';
 import { PINNED_GH_VERSION } from '../../../src/services/policy/cli/gh/version.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 
 const configDir = mkdtempSync(join(tmpdir(), 'splicedock-gh-help-'));
 afterAll(() => rmSync(configDir, { recursive: true, force: true }));
@@ -112,7 +113,7 @@ describe.skipIf(reason !== null)(
   () => {
     const sections = reason ? new Map<string, Section>() : parseReference(gh('help', 'reference').out);
     const topics = reason ? [] : parseHelpTopics(gh('--help').out);
-    const known = knownCommandsFor('gh')!;
+    const known = knownCommandsFor(cliProfile('gh'))!;
     const allFlags = [...sections.values()].flatMap(s => s.flags);
 
     it('parsed the reference and the help topics', () => {
@@ -158,7 +159,7 @@ describe.skipIf(reason !== null)(
 
     it('every global long flag exists with the same arity in every command', () => {
       const seen = aritiesBy(allFlags, 'long');
-      const drift = [...flagTableFor('gh').long]
+      const drift = [...flagTableFor(cliProfile('gh')).long]
         .map(([name, arity]) => ({ flag: `--${name}`, table: arity, help: sorted(seen.get(name) ?? []) }))
         .filter(d => d.help.join() !== d.table);
       expect(drift).toEqual([]);
@@ -166,19 +167,19 @@ describe.skipIf(reason !== null)(
 
     it('every global short flag exists with the same arity in every command', () => {
       const seen = aritiesBy(allFlags, 'short');
-      const drift = [...flagTableFor('gh').short]
+      const drift = [...flagTableFor(cliProfile('gh')).short]
         .map(([name, arity]) => ({ flag: `-${name}`, table: arity, help: sorted(seen.get(name) ?? []) }))
         .filter(d => d.help.join() !== d.table);
       expect(drift).toEqual([]);
     });
 
     it.each(['short', 'long'] as const)("per-command %s flags never contradict that command's help", key => {
-      const base = flagTableFor('gh');
+      const base = flagTableFor(cliProfile('gh'));
       const dash = key === 'short' ? '-' : '--';
       let checked = 0;
       const drift: { path: string; flag: string; table: FlagArity; help: string[] }[] = [];
       for (const path of [...sections.keys()].filter(p => p.split(' ').length >= 2)) {
-        const entries = invocationFlagTable('gh', path.split(' '), base)[key];
+        const entries = invocationFlagTable(cliProfile('gh'), path.split(' '), base)[key];
         const visible = aritiesBy(effectiveFlags(sections, path), key);
         for (const [name, arity] of entries) {
           if (base[key].get(name) === arity) continue; // global entry, verified above

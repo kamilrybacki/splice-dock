@@ -1,5 +1,6 @@
 import {it,expect} from 'vitest';
 import {createAdminServer} from '../../src/services/admin/adapters/fastify/server.js';
+import {builtinCliProfiles} from '../helpers/cli-profiles.js';
 import {splicedockConfigSchema} from '../../src/config/schema.js';
 import {SplicedockStore} from '../../src/services/database/adapters/store.js';
 import {ToolRegistry} from '../../src/services/tools/registry.js';
@@ -17,7 +18,7 @@ it('breaker controls and shadow summary require trusted admin authentication',as
  const breaker=await CircuitBreaker.create(store.consentDatabase(),c.server.breaker);await breaker.record(undefined,true);
  const shadow=await ShadowObserver.create(store.consentDatabase(),c.server.shadow);
  const env=c.server.admin_token_env,previous=process.env[env];process.env[env]='local-test-admin';
- const server=await createAdminServer(tools,profiles,new ToolService(tools),new ProfileService(profiles,tools),new Map(),c,undefined,{store,breaker,shadow,policyStore:new PolicyStore(store),auditBuffer:new AuditBuffer(),toolMetrics:new ToolMetrics(store)});
+ const server=await createAdminServer(tools,profiles,new ToolService(tools),new ProfileService(profiles,tools),new Map(),c,undefined,{store,breaker,shadow,policyStore:new PolicyStore(store),auditBuffer:new AuditBuffer(),toolMetrics:new ToolMetrics(store),cliProfiles:builtinCliProfiles});
  try{
  for(const [method,url] of [['GET','/api/v1/shadow/summary'],['GET','/api/v1/breaker'],['POST','/api/v1/breaker/global/reset']] as const){
  expect((await server.inject({method,url})).statusCode).toBe(401);

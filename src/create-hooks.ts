@@ -7,6 +7,7 @@ import type { ToolMetrics } from './services/metrics/base.js';
 import type { PolicyStore } from './services/policy/base.js';
 import type { PrometheusMetrics } from './services/metrics/adapters/prometheus/index.js';
 import type { CliPassthroughToolConfig } from './config/types.js';
+import { builtinCliProfiles } from './builtin-backends.js';
 
 export interface ToolHooksDeps {
   readonly policyStore: PolicyStore;
@@ -34,5 +35,6 @@ export function createToolHooks(deps: ToolHooksDeps): ToolHooks {
       approvalService.makeHook(tool, cwd, undefined, requireStrong, approvalContext),
     approvalSettler: approvalService,
     profileEnvResolver: deps.profileEnvFor,
+    cliProfiles: builtinCliProfiles,
   };
 }

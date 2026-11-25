@@ -26,11 +26,10 @@
 //   --                ends flag parsing; every remaining token is positional
 //   -                 positional (conventionally stdin)
 
-import { cliProfileFor } from '../profiles/index.js';
+import type { CliProfile } from '../profiles/types.js';
 import { EMPTY_FLAG_TABLE, type FlagArity, type FlagTable } from './table.js';
 
 export type { FlagArity, FlagTable } from './table.js';
-export { GH_SHORT_H_VALUE } from '../profiles/gh.js';
 
 /** Hard cap on enumerated interpretations (2^6). Beyond it the argv is too
  *  ambiguous to reason about and path extraction fails closed. */
@@ -41,10 +40,10 @@ export interface FlagOverrides {
   boolean_flags?: readonly string[];
 }
 
-/** Built-in table for a tool command (basename), merged with operator-declared
- *  overrides from the policy. Unknown tools start from an empty table. */
-export function flagTableFor(command: string | undefined, overrides?: FlagOverrides): FlagTable {
-  const base = cliProfileFor(command)?.flags ?? EMPTY_FLAG_TABLE;
+/** The profile's flag table, merged with operator-declared overrides from the
+ *  policy. A tool without a profile starts from an empty table. */
+export function flagTableFor(profile: CliProfile | undefined, overrides?: FlagOverrides): FlagTable {
+  const base = profile?.flags ?? EMPTY_FLAG_TABLE;
   if (!overrides?.value_flags?.length && !overrides?.boolean_flags?.length) return base;
   const long = new Map(base.long);
   const short = new Map(base.short);
@@ -125,6 +124,6 @@ export function extractSubcommandPaths(argv: readonly string[], t: FlagTable): s
 /** Subcommand-specific shorthand meanings, from the CLI's profile. Resolve
  *  only an explicit leading command path; flags before it retain conservative
  *  unknown-arity handling. */
-export function invocationFlagTable(command: string | undefined, argv: readonly string[], base: FlagTable): FlagTable {
-  return cliProfileFor(command)?.invocationFlagTable?.(argv, base) ?? base;
+export function invocationFlagTable(profile: CliProfile | undefined, argv: readonly string[], base: FlagTable): FlagTable {
+  return profile?.invocationFlagTable?.(argv, base) ?? base;
 }

@@ -24,6 +24,7 @@ import { ToolMetrics } from '../../src/services/metrics/base.js';
 import { PolicyStore } from '../../src/services/policy/base.js';
 import { configurePassthrough, invalidatePolicyForTool, callCliPassthrough } from '../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig, SplicedockConfig } from '../../src/config/types.js';
+import { builtinCliProfiles } from '../helpers/cli-profiles.js';
 
 const ADMIN_TOKEN = 'webui-e2e-token';
 
@@ -85,6 +86,7 @@ beforeAll(async () => {
   policyStore = new PolicyStore(store);
 
   configurePassthrough({
+    cliProfiles: builtinCliProfiles,
     effectivePolicyResolver: async cfg => await policyStore.effective(cfg),
     auditSink: entry => auditBuffer.push({ ...entry, ts: Date.now() }),
     metricsSink: entry => toolMetrics.record(entry),
@@ -94,7 +96,7 @@ beforeAll(async () => {
   server = await createAdminServer(
     toolRegistry, profileRegistry, toolService, profileService,
     new Map(), config, undefined,
-    { auditBuffer, toolMetrics, policyStore },
+    { auditBuffer, toolMetrics, policyStore, cliProfiles: builtinCliProfiles },
   );
   await server.listen({ port: 0, host: '127.0.0.1' });
   const addr = server.server.address();

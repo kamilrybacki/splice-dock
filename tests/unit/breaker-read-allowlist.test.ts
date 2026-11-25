@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
 import { CircuitBreaker } from '../../src/services/policy/breaker/index.js';
-import { builtinReadonlyProbes } from '../../src/services/policy/builtin.js';
+import { builtinReadonlyProbes } from '../../src/builtin-backends.js';
 import { NO_READONLY_PROBES } from '../../src/services/policy/breaker/readonly.js';
 import { sqliteDb } from '../helpers/sqlite.js';
 

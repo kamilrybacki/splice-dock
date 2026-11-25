@@ -2,7 +2,7 @@ import type { SplicedockConfig } from './config/types.js';
 import type { Env } from './env-config.js';
 import { shadowKillSwitchFromEnv } from './env-config.js';
 import { CircuitBreaker } from './services/policy/breaker/index.js';
-import { builtinReadonlyProbes } from './services/policy/builtin.js';
+import { builtinReadonlyProbes } from './builtin-backends.js';
 import { ShadowObserver } from './services/shadow/base.js';
 import type { SplicedockStore } from './services/database/adapters/store.js';
 import type { PrometheusMetrics } from './services/metrics/adapters/prometheus/index.js';

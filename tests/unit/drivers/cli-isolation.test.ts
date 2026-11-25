@@ -9,6 +9,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIsolatedHome, ISOLATED_ENV_KEYS } from '../../../src/services/tools/adapters/cli/isolation.js';
 import { callCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
+import { cliProfile, useBuiltinCliProfiles } from '../../helpers/cli-profiles.js';
+
+useBuiltinCliProfiles();
 
 const mode = (p: string) => statSync(p).mode & 0o777;
 
@@ -26,7 +29,7 @@ afterEach(() => {
 
 describe('createIsolatedHome', () => {
   it('creates a private 0700 tree under SPLICEDOCK_TOOL_HOME with HOME and XDG_* set', () => {
-    const iso = createIsolatedHome('echo');
+    const iso = createIsolatedHome(cliProfile('echo'));
     try {
       expect(iso.dir.startsWith(root + '/')).toBe(true);
       expect(mode(iso.dir)).toBe(0o700);
@@ -46,7 +49,7 @@ describe('createIsolatedHome', () => {
   });
 
   it('sets GH_CONFIG_DIR only for gh (by basename)', () => {
-    const iso = createIsolatedHome('/usr/local/bin/gh');
+    const iso = createIsolatedHome(cliProfile('/usr/local/bin/gh'));
     try {
       expect(iso.env['GH_CONFIG_DIR']).toBe(join(iso.dir, '.config/gh'));
     } finally {
@@ -55,8 +58,8 @@ describe('createIsolatedHome', () => {
   });
 
   it('every call gets a different directory', () => {
-    const a = createIsolatedHome('echo');
-    const b = createIsolatedHome('echo');
+    const a = createIsolatedHome(cliProfile('echo'));
+    const b = createIsolatedHome(cliProfile('echo'));
     try {
       expect(a.dir).not.toBe(b.dir);
     } finally {
@@ -66,7 +69,7 @@ describe('createIsolatedHome', () => {
   });
 
   it('cleanup is idempotent and never throws', () => {
-    const iso = createIsolatedHome('echo');
+    const iso = createIsolatedHome(cliProfile('echo'));
     iso.cleanup();
     expect(() => iso.cleanup()).not.toThrow();
   });

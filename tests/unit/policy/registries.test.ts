@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createReadonlyProbes, NO_READONLY_PROBES } from '../../../src/services/policy/breaker/readonly.js';
-import { builtinReadonlyProbes, builtinShapes } from '../../../src/services/policy/builtin.js';
+import { builtinReadonlyProbes, builtinShapes } from '../../../src/builtin-backends.js';
 import { createShapeRegistry, NO_SHAPES } from '../../../src/services/policy/shape/registry.js';
 
 describe('createShapeRegistry', () => {

@@ -114,6 +114,13 @@ describe('dependency-cruiser layer rules', () => {
     write('src/services/stray.ts', "import { readFileSync } from 'node:fs';\nexport const b = readFileSync;");
     write('src/contracts/other/stray.ts', "import { u } from '../../common/util.js';\nexport const b = u;");
     write('src/config/ok.ts', "import { z } from 'zod';\nimport { ok } from '../services/x/ok.js';\nexport const c = [z, ok];");
+    // Backend modules: importable only by root files and by each other.
+    write('src/services/policy/cli/profiles/gh.ts', 'export const gh = 1;');
+    write('src/services/policy/cli/kubectl/flags.ts', 'export const kf = 1;');
+    write('src/services/policy/cli/profiles/kubectl.ts', "import { kf } from '../kubectl/flags.js';\nexport const k = kf;");
+    write('src/wire.ts', "import { gh } from './services/policy/cli/profiles/gh.js';\nexport const w = gh;");
+    write('src/services/policy/bad-backend.ts', "import { gh } from './cli/profiles/gh.js';\nexport const b = gh;");
+    write('src/services/x/adapters/bad-backend.ts', "import { k } from '../../policy/cli/profiles/kubectl.js';\nexport const b = k;");
   });
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -134,7 +141,11 @@ describe('dependency-cruiser layer rules', () => {
       'src/services/x/bad-root.ts',
       'src/services/x/bad-type.ts',
       'src/services/stray.ts',
+      'src/services/policy/bad-backend.ts',
+      'src/services/x/adapters/bad-backend.ts',
     ].sort());
+    expect(found.get('src/services/policy/bad-backend.ts')).toEqual(['backends-only-from-root']);
+    expect(found.get('src/services/x/adapters/bad-backend.ts')).toEqual(['backends-only-from-root']);
     expect(found.get('src/services/stray.ts')).toContain('unknown-layer');
     expect(found.get('src/contracts/other/stray.ts')).toContain('unknown-layer');
     expect(found.get('src/services/x/bad-adapter.ts')).toContain('core-local-imports');

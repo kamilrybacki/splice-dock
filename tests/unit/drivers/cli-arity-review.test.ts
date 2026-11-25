@@ -1,19 +1,20 @@
 import {describe,it,expect} from 'vitest';
 import {compilePolicy,evaluatePolicy,PolicyCompileError} from '../../../src/services/policy/cli/rules.js';
 import {flagTableFor,invocationFlagTable} from '../../../src/services/policy/cli/flags/arity.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 describe('Review D command-dependent arity',()=>{
   it.each([
     [['pr','create'],'f','bool'],[['pr','create'],'F','value'],
     [['pr','merge'],'m','bool'],[['issue','edit'],'m','value'],
     [['auth','status'],'h','value'],[['pr','view'],'q','value'],
   ] as const)('resolves %j %s as %s',(argv,flag,arity)=>{
-    expect(invocationFlagTable('gh',argv,flagTableFor('gh')).short.get(flag)).toBe(arity);
+    expect(invocationFlagTable(cliProfile('gh'),argv,flagTableFor(cliProfile('gh'))).short.get(flag)).toBe(arity);
   });
   it('ambiguous shorthand before the command stays unknown',()=>{
-    expect(invocationFlagTable('gh',['-f','pr','create'],flagTableFor('gh')).short.get('f')).toBeUndefined();
+    expect(invocationFlagTable(cliProfile('gh'),['-f','pr','create'],flagTableFor(cliProfile('gh'))).short.get('f')).toBeUndefined();
   });
   it('duplicate fill aliases cannot satisfy a single required option',()=>{
-    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--fill']},{command:'gh'});
+    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--fill']},{ profile: cliProfile('gh') });
     expect(evaluatePolicy(['pr','create','--fill','-f'],p).ok).toBe(false);
     expect(evaluatePolicy(['pr','create','--fill'],p).ok).toBe(true);
   });
@@ -22,22 +23,22 @@ describe('Review D command-dependent arity',()=>{
     expect(evaluatePolicy(['--foo','--foo'],p).ok).toBe(false);
   });
   it('short clusters fail closed when required evidence is needed',()=>{
-    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--namespace=ns']},{command:'kubectl'});
+    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--namespace=ns']},{ profile: cliProfile('kubectl') });
     expect(evaluatePolicy(['get','pods','-Anns'],p).ok).toBe(false);
   });
 });
 
 it('body-file aliases cannot override a required safe file',()=>{
- const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--body-file=/safe']},{command:'gh'});
+ const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--body-file=/safe']},{ profile: cliProfile('gh') });
  expect(evaluatePolicy(['pr','create','--body-file=/safe','-F','/evil'],p).ok).toBe(false);
 });
 it.each(['require_args','require_any_of'] as const)('required draft must be enabled: %s',key=>{
- const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',[key]:key==='require_args'?['--draft']:[['--draft']]},{command:'gh'});
+ const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',[key]:key==='require_args'?['--draft']:[['--draft']]},{ profile: cliProfile('gh') });
  expect(evaluatePolicy(['pr','create','--draft=false'],p).ok).toBe(false);
  expect(evaluatePolicy(['pr','create','--draft'],p).ok).toBe(true);
 });
 it.each(['create','new'])('canonical pr %s aliases enforce body-file and draft',verb=>{
- const policy=(require_args:string[])=>compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args},{command:'gh'});
+ const policy=(require_args:string[])=>compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args},{ profile: cliProfile('gh') });
  expect(evaluatePolicy(['pr',verb,'--body-file=/safe','-F','/evil'],policy(['--body-file=/safe'])).ok).toBe(false);
  expect(evaluatePolicy(['pr',verb,'-F','/safe'],policy(['--body-file=/safe'])).ok).toBe(true);
  expect(evaluatePolicy(['pr',verb,'-d=false'],policy(['--draft'])).ok).toBe(false);
@@ -48,7 +49,7 @@ it.each(['create','new'])('canonical pr %s aliases enforce body-file and draft',
 
 describe('bare requirements on value-taking flags are rejected at compile time',()=>{
   const compile=(policy:{require_args?:string[];require_any_of?:string[][];value_flags?:string[]},command?:string)=>
-    compilePolicy({max_args:256,audit:false,on_violation:'deny',...policy},{command});
+    compilePolicy({max_args:256,audit:false,on_violation:'deny',...policy},{ profile: cliProfile(command) });
   it.each([
     ['require_args',{require_args:['--namespace']},'--namespace'],
     ['require_args',{require_args:['-n']},'-n'],
@@ -79,7 +80,7 @@ describe('bare requirements on value-taking flags are rejected at compile time',
 
 describe('kubectl required namespace conflicts with all-namespaces',()=>{
   const ns=(policy:{require_args?:string[];require_any_of?:string[][]})=>
-    compilePolicy({max_args:256,audit:false,on_violation:'deny',...policy},{command:'kubectl'});
+    compilePolicy({max_args:256,audit:false,on_violation:'deny',...policy},{ profile: cliProfile('kubectl') });
   it.each([
     [['get','pods','--namespace=s','-A']],
     [['get','pods','-n','s','--all-namespaces']],
@@ -117,7 +118,7 @@ describe('kubectl required namespace conflicts with all-namespaces',()=>{
     expect(evaluatePolicy(['get','pods','-n','s'],ns({require_args:['--namespace=s']})).ok).toBe(true);
   });
   it('non-kubectl tools keep their own semantics',()=>{
-    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--namespace=s'],boolean_flags:['--all-namespaces']},{command:'other'});
+    const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--namespace=s'],boolean_flags:['--all-namespaces']},{ profile: cliProfile('other') });
     expect(evaluatePolicy(['--namespace=s','--all-namespaces'],p).ok).toBe(true);
   });
 });
@@ -126,6 +127,6 @@ it.each([
   [['issue','edit','1','-l','ok'],false],[['pr','edit','1','-l','ok'],false],
     [['issue','edit','1','-lok'],false],[['pr','edit','1','-l=ok'],false],
 ] as const)('gh -l satisfies --label only where gh 2.102 defines it: %j',(argv,ok)=>{
-  const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--label=ok']},{command:'gh'});
+  const p=compilePolicy({max_args:256,audit:false,on_violation:'deny',require_args:['--label=ok']},{ profile: cliProfile('gh') });
   expect(evaluatePolicy(argv,p).ok).toBe(ok);
 });

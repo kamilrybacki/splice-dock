@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { compilePolicy, evaluatePolicy } from '../../../src/services/policy/cli/rules.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 
 // D14a: `gh api` issues raw HTTP requests and bypasses subcommand
 // classification, so it is denied for every gh policy and approval cannot
@@ -11,7 +12,7 @@ const BASE = { max_args: 256, on_violation: 'deny', audit: false } as const;
 
 async function expectHardDeny(argv: string[], p: CliToolPolicy | undefined, command = 'gh'): Promise<void> {
   const fn = vi.fn(() => ({ approved: true as const, id: 'approved-row' }));
-  const d = await evaluatePolicy(argv, compilePolicy(p, { command }), { tool: 'gh', fn });
+  const d = await evaluatePolicy(argv, compilePolicy(p, { profile: cliProfile(command) }), { tool: 'gh', fn });
   expect(d.ok).toBe(false);
   if (!d.ok) expect(['hard_deny', 'ambiguous_argv']).toContain(d.rule);
   expect(fn).not.toHaveBeenCalled();
@@ -44,12 +45,12 @@ describe('gh api hard deny', () => {
   });
 
   it('does not affect other tools or other gh subcommands', () => {
-    expect(evaluatePolicy(['api', 'x'], compilePolicy(undefined, { command: 'sometool' })).ok).toBe(true);
-    expect(evaluatePolicy(['pr', 'list'], compilePolicy(undefined, { command: 'gh' })).ok).toBe(true);
+    expect(evaluatePolicy(['api', 'x'], compilePolicy(undefined, { profile: cliProfile('sometool') })).ok).toBe(true);
+    expect(evaluatePolicy(['pr', 'list'], compilePolicy(undefined, { profile: cliProfile('gh') })).ok).toBe(true);
   });
 
   it('does not echo argv in the denial message', () => {
-    const d = evaluatePolicy(['api', 'repos/secret-owner-xyz'], compilePolicy(undefined, { command: 'gh' }));
+    const d = evaluatePolicy(['api', 'repos/secret-owner-xyz'], compilePolicy(undefined, { profile: cliProfile('gh') }));
     expect(d.ok).toBe(false);
     if (!d.ok) expect(d.message).not.toContain('secret-owner-xyz');
   });

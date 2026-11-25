@@ -3,6 +3,7 @@ import { SplicedockStore } from '../../../src/services/database/adapters/store.j
 import { PolicyStore } from '../../../src/services/policy/base.js';
 import { PolicyCompileError } from '../../../src/services/policy/cli/rules.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 
 function mkConfig(name: string, filePolicy?: CliPassthroughToolConfig['policy']): CliPassthroughToolConfig {
   return {
@@ -52,9 +53,9 @@ describe('PolicyStore', () => {
 
   it('rejects an override whose bare requirement names a value-taking flag of the tool', async () => {
     const policy = { max_args: 256, on_violation: 'deny' as const, audit: false, require_args: ['--namespace'] };
-    await expect(async () => await store.setOverride('k', policy, null, { command: 'kubectl' })).rejects.toThrow(/bare requirement "--namespace"/);
+    await expect(async () => await store.setOverride('k', policy, null, { profile: cliProfile('kubectl') })).rejects.toThrow(/bare requirement "--namespace"/);
     expect((await store.view(mkConfig('k'))).override).toBeNull();
-    await store.setOverride('k', { ...policy, require_args: ['--namespace=apps'] }, null, { command: 'kubectl' });
+    await store.setOverride('k', { ...policy, require_args: ['--namespace=apps'] }, null, { profile: cliProfile('kubectl') });
   });
 
   it('deleteOverride returns true on hit, false otherwise', async () => {

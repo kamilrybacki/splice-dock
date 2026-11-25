@@ -17,13 +17,14 @@ import {
   MAX_PATH_CANDIDATES,
 } from '../../../src/services/policy/cli/flags/arity.js';
 import type { CliToolPolicy } from '../../../src/config/types.js';
+import { cliProfile } from '../../helpers/cli-profiles.js';
 
 const BASE = { max_args: 256, on_violation: 'deny', audit: false } as const;
-const gh = (p: Partial<CliToolPolicy>) => compilePolicy({ ...BASE, ...p } as CliToolPolicy, { command: 'gh' });
+const gh = (p: Partial<CliToolPolicy>) => compilePolicy({ ...BASE, ...p } as CliToolPolicy, { profile: cliProfile('gh') });
 const kubectl = (p: Partial<CliToolPolicy>) =>
-  compilePolicy({ ...BASE, ...p } as CliToolPolicy, { command: '/usr/local/bin/kubectl' });
+  compilePolicy({ ...BASE, ...p } as CliToolPolicy, { profile: cliProfile('/usr/local/bin/kubectl') });
 const unknownTool = (p: Partial<CliToolPolicy>) =>
-  compilePolicy({ ...BASE, ...p } as CliToolPolicy, { command: 'sometool' });
+  compilePolicy({ ...BASE, ...p } as CliToolPolicy, { profile: cliProfile('sometool') });
 
 function denied(d: PolicyDecision, rule?: string): void {
   expect(d.ok).toBe(false);
@@ -164,8 +165,8 @@ describe('unknown tools (empty flag table)', () => {
 });
 
 describe('extractSubcommandPaths', () => {
-  const ghT = flagTableFor('gh');
-  const kT = flagTableFor('kubectl');
+  const ghT = flagTableFor(cliProfile('gh'));
+  const kT = flagTableFor(cliProfile('kubectl'));
 
   it('returns a single candidate when every flag is known', () => {
     expect(extractSubcommandPaths(['pr', '--state', 'open', 'list'], ghT)).toEqual([['pr', 'list']]);
@@ -203,14 +204,14 @@ describe('extractSubcommandPaths', () => {
 
 describe('flagTableFor', () => {
   it('selects by command basename and falls back to an empty table', () => {
-    expect(flagTableFor('/opt/bin/gh').long.get('repo')).toBe('value');
-    expect(flagTableFor('kubectl').short.get('n')).toBe('value');
-    expect(flagTableFor('other').long.size).toBe(0);
-    expect(flagTableFor(undefined).short.size).toBe(0);
+    expect(flagTableFor(cliProfile('/opt/bin/gh')).long.get('repo')).toBe('value');
+    expect(flagTableFor(cliProfile('kubectl')).short.get('n')).toBe('value');
+    expect(flagTableFor(cliProfile('other')).long.size).toBe(0);
+    expect(flagTableFor(cliProfile(undefined)).short.size).toBe(0);
   });
 
   it('overrides win over built-ins', () => {
-    const t = flagTableFor('gh', { boolean_flags: ['--repo'], value_flags: ['-z'] });
+    const t = flagTableFor(cliProfile('gh'), { boolean_flags: ['--repo'], value_flags: ['-z'] });
     expect(t.long.get('repo')).toBe('bool');
     expect(t.short.get('z')).toBe('value');
   });

@@ -1,28 +1,9 @@
 // kubectl profile (tables taken from kubectl 1.32 offline help).
 
 import { knownCommandTable } from '../commands/table.js';
+import { KUBECTL_FLAGS } from '../kubectl/flags.js';
 import { kubectlNamespaceConfinement } from '../kubectl/namespace-confinement.js';
-import { flagTable } from '../flags/table.js';
 import type { CliProfile } from './types.js';
-
-// Only flags whose arity is the same in every subcommand (kubectl `-p` is not).
-const FLAGS = flagTable({
-  longValue: [
-    'namespace', 'context', 'cluster', 'user', 'kubeconfig', 'server', 'token', 'as',
-    'as-group', 'as-uid', 'certificate-authority', 'client-certificate', 'client-key',
-    'request-timeout', 'tls-server-name', 'cache-dir', 'v', 'vmodule', 'output',
-    'selector', 'filename', 'container', 'field-selector', 'label-columns', 'sort-by',
-    'kustomize', 'grace-period', 'timeout', 'replicas', 'image', 'to-revision', 'since',
-    'tail', 'revision', 'subresource', 'chunk-size', 'field-manager', 'raw',
-  ],
-  longBool: [
-    'help', 'all-namespaces', 'watch', 'watch-only', 'all', 'force', 'stdin', 'tty',
-    'insecure-skip-tls-verify', 'recursive', 'overwrite', 'show-labels', 'no-headers',
-    'ignore-not-found', 'follow', 'previous', 'timestamps', 'local', 'save-config',
-  ],
-  shortValue: ['n', 's', 'o', 'l', 'c', 'L', 'k', 'v'],
-  shortBool: ['h', 'A', 'w', 'R', 'i', 't'],
-});
 
 // kubectl runs `kubectl-<name>` plugins from PATH for unknown first tokens;
 // the known-command table makes the policy layer refuse them.
@@ -55,7 +36,7 @@ const KNOWN_COMMANDS = knownCommandTable(
 
 export const kubectlProfile: CliProfile = {
   name: 'kubectl',
-  flags: FLAGS,
+  flags: KUBECTL_FLAGS,
   knownCommands: KNOWN_COMMANDS,
   optionAliases: {
     '-n': '--namespace', '-s': '--server', '-o': '--output', '-l': '--selector', '-c': '--container',

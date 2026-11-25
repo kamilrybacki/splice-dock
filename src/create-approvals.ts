@@ -2,7 +2,7 @@ import type { SplicedockConfig } from './config/types.js';
 import { approvalTtlMsFromEnv, grantsEnabledFromEnv, type Env } from './env-config.js';
 import { logger } from './common/logger.js';
 import { readGrantConfig } from './services/policy/grants/config.js';
-import { builtinShapes } from './services/policy/builtin.js';
+import { builtinShapes } from './builtin-backends.js';
 import { ApprovalService } from './services/approvals/base.js';
 import { createPushNotifier, vapidFromEnv } from './services/approvals/adapters/push/web/notifier.js';
 import { PushSubscriptionStore } from './services/database/adapters/push/store.js';

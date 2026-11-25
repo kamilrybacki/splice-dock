@@ -1,5 +1,6 @@
 import { splicedockConfigSchema, type SplicedockConfig } from './schema.js';
 import { compilePolicy, PolicyCompileError } from '../services/policy/cli/rules.js';
+import type { CliProfileRegistry } from '../services/policy/cli/profiles/index.js';
 import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../services/policy/cli/kubeconfig/path.js';
 
 /** Environment lookup the config rules consult (process.env is passed in by the caller). */
@@ -22,7 +23,11 @@ function declaredKubeconfigs(
 /** Fold the legacy top-level `deny_subcommands` on cli_passthrough tools into
  *  `policy.deny_subcommands` and pre-compile policies so bad regex / mutually-
  *  exclusive rules fail at config-load time rather than on first __run. */
-function normalizeCliPassthroughPolicy(config: SplicedockConfig, env: ConfigEnv): SplicedockConfig {
+function normalizeCliPassthroughPolicy(
+  config: SplicedockConfig,
+  env: ConfigEnv,
+  cliProfiles: CliProfileRegistry,
+): SplicedockConfig {
   for (const tool of config.tools) {
     if (tool.type !== 'cli_passthrough') continue;
     if (declaredKubeconfigs(tool, env).some(kubeconfigIsRelative)) {
@@ -50,7 +55,7 @@ function normalizeCliPassthroughPolicy(config: SplicedockConfig, env: ConfigEnv)
     // through to a first-use 500. Schema comment promises this; we honor it.
     if (tool.policy) {
       try {
-        compilePolicy(tool.policy, { command: tool.command, knownSubcommands: tool.known_subcommands });
+        compilePolicy(tool.policy, { profile: cliProfiles.profileFor(tool.command), knownSubcommands: tool.known_subcommands });
       } catch (err) {
         if (err instanceof PolicyCompileError) {
           throw new Error(`cli_passthrough '${tool.name}': ${err.message}`, { cause: err });
@@ -142,10 +147,12 @@ function validateCredentialBindings(config: SplicedockConfig): SplicedockConfig 
 
 /** Validate an already-parsed config document. Parsing (YAML) and reading the
  *  file live in the composition root; `env` is the process environment. */
-export function validateConfig(parsed: unknown, env: ConfigEnv): SplicedockConfig {
+/** Validate a parsed config. `cliProfiles` must be the registry the runtime
+ *  uses, so load-time compilation matches what calls are checked against. */
+export function validateConfig(parsed: unknown, env: ConfigEnv, cliProfiles: CliProfileRegistry): SplicedockConfig {
   if (parsed === null || parsed === undefined) {
     throw new Error('Config is empty or contains only comments');
   }
   const config = splicedockConfigSchema.parse(parsed);
-  return validateCredentialBindings(normalizeCliPassthroughPolicy(config, env));
+  return validateCredentialBindings(normalizeCliPassthroughPolicy(config, env, cliProfiles));
 }

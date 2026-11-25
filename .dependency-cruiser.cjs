@@ -40,6 +40,11 @@ const config = '^src/config/';
 const contracts = '^src/contracts/(internal|outbound|inbound)/';
 const services = '^src/services/[^/]+/(?!adapters/)';
 
+// Backend-specific modules (gh, kubectl). Only the composition root
+// (src/builtin-backends.ts and other root files) wires them in; everything
+// else gets them through the registries it is handed.
+const BACKENDS = '^src/services/policy/(cli/profiles/(gh|kubectl)|shape/kubectl|cli/kubectl/)';
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
@@ -48,6 +53,13 @@ module.exports = {
     ...layer('config', '^src/config/', [common, config, contracts, services], ['zod']),
     ...layer('core', CORE, [common, config, contracts, services],
       ['node:crypto', 'node:path', 'node:timers/promises', 'zod', 'minimatch']),
+    {
+      name: 'backends-only-from-root',
+      comment: 'gh/kubectl modules are imported only by root files (src/builtin-backends.ts) or by each other.',
+      severity: 'error',
+      from: { path: '^src/', pathNot: ['^src/[^/]+$', BACKENDS] },
+      to: { path: BACKENDS },
+    },
     {
       name: 'unknown-layer',
       comment: 'Every file under src/ is a root file or belongs to a known layer (docs/architecture.md).',
