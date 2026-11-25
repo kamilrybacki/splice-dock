@@ -93,9 +93,14 @@ All notable changes to this project are recorded here. The format follows
   revoked rather than cached or stored, and its caller gets `credential_unavailable`.
 - Closed the remaining gaps in profile credential revocation:
   - The replica serving a profile delete now lists the shared credential store
-    before purging it and revokes at the provider every entry it finds, including
-    credentials minted by a replica that has since restarted. Each credential is
-    revoked once. A store that is not shared (the memory store) is not listed.
+    and revokes at the provider every entry it finds, including credentials
+    minted by a replica that has since restarted. It deletes exactly the entries
+    it listed, so a credential written after the listing stays and is revoked
+    by the replica that minted it. If the listing fails, nothing is deleted:
+    the serving replica revokes its own credentials and retries the listing in
+    the background with backoff. A Vault entry that cannot be read is skipped
+    instead of failing the whole listing. Provider and store failures are logged
+    by error class, without the error message.
   - A profile deleted and recreated under the same name is now recognised by a
     persisted `created_at` on `runtime_profiles` (set on insert, kept on update,
     folded into the runtime fingerprint), because revisions restart at 1. A

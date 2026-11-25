@@ -30,7 +30,12 @@ export interface MintedCredential {
 /** A way to obtain a credential for a service. One adapter per minting surface. */
 export interface CredentialProvider {
   mint(ctx: MintContext): Promise<MintedCredential>;
-  /** Best-effort revocation when the profile disappears. Must not throw. */
+  /**
+   * Best-effort revocation when the profile disappears. Must not throw. For a
+   * credential found in the store rather than minted by this instance, `ctx` is
+   * rebuilt from the stored path (`authenticated: false`, `tokenId: null`), so a
+   * provider must identify the credential from `minted`, not from the caller.
+   */
   revoke?(ctx: MintContext, minted: StoredCredential): Promise<void>;
 }
 
@@ -91,18 +96,22 @@ export interface CredentialBroker {
   /**
    * Best-effort cleanup when a profile is deleted, run once on the replica that served
    * the delete. Drops this instance's in-process state, then lists the shared storage
-   * for the profile and purges it, then revokes at the provider every credential it
-   * held or found there (one revoke per credential), so credentials minted by a replica
-   * that has since restarted are revoked too. A failed listing falls back to the
-   * credentials this instance minted itself. Never rejects because of a provider failure.
+   * for the profile and deletes each listed entry while it still holds the listed
+   * value, then revokes at the provider every credential it held or found there, so
+   * credentials minted by a replica that has since restarted are revoked too. An entry
+   * written after the listing is left for the replica that wrote it. A failed listing
+   * deletes nothing: this instance revokes its own credentials and retries the listing
+   * in the background with backoff. Never rejects because of a provider failure.
    */
   revokeProfile(profile: string): Promise<void>;
   /**
    * This instance's share of a profile's cleanup, safe for every replica to run when
    * it learns the profile is gone: drop its in-process state (cache, mint records,
-   * mint backoff) and best-effort revoke at the provider the credentials only it holds
-   * (written nowhere the serving replica can list). Credentials in a shared store are
-   * left to the replica serving the delete. Never touches shared storage. A mint or
+   * mint backoff) and best-effort revoke at the provider every credential of its own
+   * the serving replica did not list: one never stored, or one whose store entry is
+   * still present (written after that listing), which it then deletes. An entry that
+   * is gone or holds another value was revoked by the serving replica. Never lists
+   * the store. A mint or
    * store read still in flight for the profile is discarded (its caller gets
    * `credential_unavailable`) and, if it produced a credential, that credential is
    * revoked and its store entry deleted. Never rejects because of a provider failure.

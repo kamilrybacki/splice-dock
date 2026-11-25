@@ -54,6 +54,11 @@ export interface CacheSyncDeps {
 
 type Kind = keyof RuntimeFingerprint;
 
+/** A zero or empty stamp is a legacy default, not a real creation time: treat it as unknown. */
+function knownIdentity(identity: string | number | undefined): string | number | undefined {
+  return identity === 0 || identity === '' ? undefined : identity;
+}
+
 /** A known identity that differs from the new one. An unknown side (legacy row) never counts as a change. */
 function identityChanged(before: string | number | undefined, after: string | number | undefined): boolean {
   return before !== undefined && after !== undefined && before !== after;
@@ -198,7 +203,7 @@ export class CacheSync {
     const { listProfiles, forgetProfile, profileIdentity } = this.deps;
     if (!listProfiles || !forgetProfile) return null;
     try {
-      return new Map(listProfiles().map(name => [name, profileIdentity?.(name)] as const));
+      return new Map(listProfiles().map(name => [name, knownIdentity(profileIdentity?.(name))] as const));
     } catch (err) {
       this.deps.log.warn('cache sync: listing profiles failed, skipping local credential purge', { error: errMsg(err) });
       return null;
