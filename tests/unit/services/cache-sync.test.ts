@@ -213,3 +213,94 @@ describe('CacheSync timer', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+/** A message as another replica would publish it. */
+const fromSibling = (kind: InvalidationMessage['kind'], key?: string): InvalidationMessage => ({ kind, key, origin: 'sibling' });
+
+describe('CacheSync local purge for a deleted profile', () => {
+  /** Registry stand-in: `reloadProfiles` applies the sibling's change to this set. */
+  function withRegistry(initial: string[]) {
+    const registry = new Set(initial);
+    const forgetProfile = vi.fn<(name: string) => void>();
+    const warn = vi.fn();
+    const { sync, deps } = makeSync({
+      hasProfile: (name: string) => registry.has(name),
+      forgetProfile,
+      log: { info: () => {}, warn },
+    });
+    return { registry, forgetProfile, warn, sync, deps };
+  }
+
+  it('forgets the profile once the reload shows it is gone', async () => {
+    const { registry, forgetProfile, sync, deps } = withRegistry(['worker']);
+    deps.reloadProfiles.mockImplementation(async () => { registry.delete('worker'); });
+
+    await sync.applyMessage(fromSibling('profiles', 'worker'));
+
+    expect(deps.reloadProfiles).toHaveBeenCalledTimes(1);
+    expect(forgetProfile).toHaveBeenCalledExactlyOnceWith('worker');
+  });
+
+  it('keeps credentials when the profile was updated and still exists', async () => {
+    const { forgetProfile, sync, deps } = withRegistry(['worker']);
+
+    await sync.applyMessage(fromSibling('profiles', 'worker'));
+
+    expect(deps.reloadProfiles).toHaveBeenCalledTimes(1);
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for an unkeyed profiles message', async () => {
+    const { forgetProfile, sync } = withRegistry([]);
+    await sync.applyMessage(fromSibling('profiles'));
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
+  it('does not purge for tools or policy messages', async () => {
+    const { forgetProfile, sync } = withRegistry([]);
+    await sync.applyMessage(fromSibling('tools', 'worker'));
+    await sync.applyMessage(fromSibling('policy', 'worker'));
+    expect(forgetProfile).not.toHaveBeenCalled();
+  });
+
+  it('skips the purge and warns when the profiles reload failed', async () => {
+    const { forgetProfile, warn, sync, deps } = withRegistry([]);
+    deps.reloadProfiles.mockRejectedValue(new Error('db down'));
+
+    await expect(sync.applyMessage(fromSibling('profiles', 'worker'))).resolves.toBeUndefined();
+
+    expect(forgetProfile).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      'cache sync: profile reload failed, skipping local credential purge',
+      { profile: 'worker' },
+    );
+  });
+
+  it('logs a warning and does not reject when the purge throws', async () => {
+    const { forgetProfile, warn, sync } = withRegistry([]);
+    forgetProfile.mockImplementation(() => { throw new Error('boom'); });
+
+    await expect(sync.applyMessage(fromSibling('profiles', 'worker'))).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      'cache sync: local credential purge failed',
+      { profile: 'worker', error: 'boom' },
+    );
+  });
+
+  it('works end to end through the bus', async () => {
+    const { registry, forgetProfile, sync, deps } = withRegistry(['worker']);
+    deps.reloadProfiles.mockImplementation(async () => { registry.delete('worker'); });
+    const bus = new FakeBus();
+    sync.attach(bus);
+
+    bus.emit(fromSibling('profiles', 'worker'));
+    await vi.waitFor(() => expect(forgetProfile).toHaveBeenCalledExactlyOnceWith('worker'));
+  });
+
+  it('is inert when the purge callbacks are not wired', async () => {
+    const { sync, deps } = makeSync();
+    await expect(sync.applyMessage(fromSibling('profiles', 'worker'))).resolves.toBeUndefined();
+    expect(deps.reloadProfiles).toHaveBeenCalledTimes(1);
+  });
+});

@@ -4,6 +4,7 @@ import { createInvalidationBus } from './services/database/adapters/invalidation
 import type { SplicedockStore } from './services/database/adapters/store.js';
 import { yamlManifestCodec } from './services/profiles/adapters/yaml.js';
 import type { ProfileRegistry } from './services/profiles/registry.js';
+import type { CredentialBroker } from './services/secrets/base.js';
 import { resyncRuntimeProfiles } from './services/profiles/runtime/loader.js';
 import { CacheSync } from './services/runtime/base.js';
 import type { ToolService } from './services/tools/base.js';
@@ -22,6 +23,8 @@ export interface CacheSyncDeps {
   readonly toolService: ToolService;
   readonly profileRegistry: ProfileRegistry;
   readonly upstreams: McpUpstreamManager;
+  /** Broker whose local per-profile state is dropped when a sibling deletes a profile. */
+  readonly credentials: CredentialBroker;
 }
 
 /** Cross-replica cache invalidation (a no-op on SQLite). Order matters: record
@@ -43,6 +46,10 @@ export async function createCacheSync(deps: CacheSyncDeps): Promise<{ invalidati
     reloadProfiles: () => resyncRuntimeProfiles(store, deps.profileRegistry, logger, yamlManifestCodec),
     invalidatePolicy: tool => invalidatePolicyForTool(tool ?? '*'),
     fingerprint: () => store.runtimeFingerprint(),
+    hasProfile: name => deps.profileRegistry.getProfile(name) !== undefined,
+    // Local only: the replica that served the delete already revoked at the provider
+    // and purged the shared store.
+    forgetProfile: name => deps.credentials.forgetProfile(name),
     log: logger,
   });
   if (store.isPostgres) {

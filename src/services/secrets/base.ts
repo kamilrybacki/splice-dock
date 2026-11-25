@@ -75,8 +75,17 @@ export interface MintTarget {
 export interface CredentialBroker {
   /** Current value for (provider, profile, agent, backend), minting only when needed. */
   resolve(providerName: string, target: MintTarget): Promise<string>;
-  /** Best-effort revocation when a profile is deleted: provider revoke, then purge storage. */
+  /**
+   * Best-effort revocation when a profile is deleted: provider revoke, then purge
+   * shared storage, then drop local state. Run once, on the replica that served the delete.
+   */
   revokeProfile(profile: string): Promise<void>;
+  /**
+   * Drop only this instance's in-process state for a profile (cache, mint records,
+   * mint backoff). Never calls a provider or touches shared storage, so every other
+   * replica can run it when it learns the profile is gone.
+   */
+  forgetProfile(profile: string): void;
 }
 
 /**

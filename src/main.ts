@@ -120,7 +120,7 @@ async function openPersistence(config: Config, env: NodeJS.ProcessEnv, reg: Regi
     authFor: (profileName, backend) => credentialFor(profileName, backend)?.auth,
   });
 
-  const { invalidationBus, cacheSync } = await createCacheSync({ store, dbTarget, config, toolRegistry, toolService, profileRegistry, upstreams });
+  const { invalidationBus, cacheSync } = await createCacheSync({ store, dbTarget, config, toolRegistry, toolService, profileRegistry, upstreams, credentials: reg.credentials });
   // Re-register UI/API-added tools and profiles persisted from previous runs.
   await loadRuntimeTools(store, toolRegistry, toolService, logger, config.server.cli_whitelist);
   await upstreams.syncFromStore();
