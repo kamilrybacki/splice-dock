@@ -152,9 +152,18 @@ profiles:
   else was not written under the cap, so the broker logs
   `credential store entry exceeds max_ttl; reminting` and mints again, which
   overwrites the entry.
+- A failed mint is **not retried immediately**. The key (same as the L1 key)
+  backs off for 1s, doubling on each consecutive failure up to 60s, with up to
+  25% jitter taken off each window. Calls inside the window fail at once with
+  `credential_mint_backoff` and do not run the provider; the first call after it
+  tries again. A successful mint resets the backoff, and so does deleting the
+  profile; so does a quiet period, because a key that has gone more than 60s
+  past its window without a new failure starts again from 1s. The window is not configurable. Identity refusals are never part of
+  it.
 - Every failure is **fail-closed**: `unknown_credential_provider`,
-  `credential_unavailable` or `credential_identity_missing` — never a fallback
-  to the shared tool-level credential.
+  `credential_unavailable`, `credential_mint_backoff`,
+  `credential_identity_missing` or `credential_identity_unauthenticated` —
+  never a fallback to the shared tool-level credential.
 - If the store is unreachable the credential still works from L1; the write and
   read failures are logged and the value is simply not reused across restarts.
 - Deleting a profile revokes at the provider (when it implements `revoke`) and

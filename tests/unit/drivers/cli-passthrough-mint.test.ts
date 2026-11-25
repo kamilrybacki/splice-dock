@@ -103,6 +103,25 @@ describe('cli_passthrough minted env', () => {
     expect(result.content[0]!.text).toBe('credential_unavailable');
   });
 
+  it('reports credential_mint_backoff on a repeat call while the provider is backing off', async () => {
+    configure({
+      gh: {
+        type: 'command',
+        command: 'sh',
+        args: ['-c', 'exit 4'],
+        timeout_ms: 5000,
+        ttl_seconds: 3600,
+        output: { format: 'text', secret_field: 'token' },
+      },
+    });
+    configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', mint: 'gh' }]});
+
+    expect((await printToken()).content[0]!.text).toBe('credential_unavailable');
+    const second = await printToken();
+    expect(second.isError).toBe(true);
+    expect(second.content[0]!.text).toBe('credential_mint_backoff');
+  });
+
   it('still resolves a static reference unchanged', async () => {
     process.env['CLI_TEST_TOKEN'] = 'static-value';
     try {

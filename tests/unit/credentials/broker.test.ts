@@ -101,10 +101,10 @@ describe('credential broker', () => {
     expect(await resolveMintedCredential('test', target)).toBe('tok-2');
   });
 
-  it('fails closed on a provider error and retries on the next call', async () => {
+  it('fails closed on a provider error and backs off instead of retrying at once', async () => {
     configure({ test: commandProvider({ command: 'sh', args: ['-c', 'exit 3'] }) });
     await expect(resolveMintedCredential('test', target)).rejects.toThrow('credential_unavailable');
-    await expect(resolveMintedCredential('test', target)).rejects.toThrow('credential_unavailable');
+    await expect(resolveMintedCredential('test', target)).rejects.toThrow('credential_mint_backoff');
   });
 
   it('refuses an undeclared provider', async () => {
