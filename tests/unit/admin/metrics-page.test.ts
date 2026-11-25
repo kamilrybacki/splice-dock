@@ -18,10 +18,10 @@ describe('renderMetricsPage', () => {
       metrics: [entry('kubectl', { total: 1200, allow: 1197, deny: 3, rule_denies: { r1: 3 }, last_ts: NOW - 120_000 })],
       now: NOW,
     });
-    expect(html).toContain('CLI calls · cumulative counters since process start');
-    expect(html).toContain('generated');
+    expect(html).toContain('CLI calls · cumulative counters · snapshot');
+    expect(html).not.toContain('since process start');
     expect(html).toContain('Allowed by policy');
-    expect(html).toContain('Blocked by policy');
+    expect(html).toContain('Denied by policy');
     expect(html).toContain('1,200');
     expect(html).toContain('3 of 1,200 calls');
     expect(html).toContain('2 min ago');
@@ -53,10 +53,10 @@ describe('renderMetricsPage', () => {
       metrics: [entry('gh', { total: 1000, allow: 300, deny: 700, rule_denies: rules })],
       now: NOW,
     });
-    expect(html).toContain('Other (2)');
-    expect(html).toContain('Bar width is relative to the most frequent rule.');
+    expect(html).toContain('Other rules (2)');
+    expect(html).toContain('share of all 700 denials');
     expect(html).not.toContain('█');
-    const top = html.split('<details class="metrics-details"><summary>Other')[0] ?? '';
+    const top = html.split('<details class="md-rest"><summary>Other')[0] ?? '';
     expect(top).toContain('rule-5');
     expect(top).not.toContain('rule-6');
   });
@@ -79,8 +79,8 @@ describe('renderMetricsPage', () => {
     expect(none).toContain('No calls yet');
 
     const noDenies = renderMetricsPage({ metrics: [entry('gh', { total: 1500, allow: 1500 })], now: NOW });
-    expect(noDenies).toContain('No denies in 1,500 calls');
-    expect(noDenies).not.toContain('Show denies');
+    expect(noDenies).toContain('No policy denials');
+    expect(noDenies).toContain('among 1,500 recorded calls');
   });
 });
 
