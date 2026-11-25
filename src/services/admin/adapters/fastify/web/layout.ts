@@ -2,6 +2,7 @@
 
 import { escapeHtml } from './components.js';
 import { SHARED_SCRIPTS } from './scripts.js';
+import { DIALOG_SCRIPT, DIALOG_STYLES } from './dialog-assets.js';
 import { THEME_COLOR } from './pwa.js';
 
 const MARK = '<img src="/admin/brand/splicedock-mark.svg" width="36" height="36" alt="">';
@@ -392,8 +393,9 @@ export function HEAD(title: string): string {
 <link rel="apple-touch-icon" href="/admin/icon-180.png" />
 <title>${escapeHtml(title)} · Splicedock</title>
 <script src="https://unpkg.com/alpinejs@3.14.9/dist/cdn.min.js" integrity="sha384-9Ax3MmS9AClxJyd5/zafcXXjxmwFhZCdsT6HJoJjarvCaAkJlk5QDzjLJm+Wdx5F" crossorigin="anonymous" defer></script>
-<style>${STYLES}</style>
+<style>${STYLES}${DIALOG_STYLES}</style>
 <script>${SHARED_SCRIPTS}</script>
+<script>${DIALOG_SCRIPT}</script>
 </head><body>`;
 }
 

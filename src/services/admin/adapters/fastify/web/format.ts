@@ -26,6 +26,29 @@ export function formatDenyRate(deny: number, total: number): string {
   return `${pct.toFixed(1)}%`;
 }
 
+/**
+ * Exact percentage with adaptive precision, for detail views. A real positive
+ * share never renders as zero and a non-total never renders as 100%.
+ *   whole <= 0        -> "—"
+ *   part <= 0         -> "0%"
+ *   part >= whole     -> "100%"
+ *   >= 1%             -> one decimal ("12.5%")
+ *   0.1% .. 1%        -> two decimals ("0.25%")
+ *   below 0.1%        -> two significant digits ("0.0042%"), floor "<0.0001%"
+ *   rounds up to 100  -> ">99.9%"
+ */
+export function formatPercentAdaptive(part: number, whole: number): string {
+  if (!(whole > 0)) return '—';
+  if (!(part > 0)) return '0%';
+  if (part >= whole) return '100%';
+  const pct = (part / whole) * 100;
+  if (pct >= 99.95) return '>99.9%';
+  if (pct >= 1) return `${pct.toFixed(1)}%`;
+  if (pct >= 0.1) return `${pct.toFixed(2)}%`;
+  if (pct < 0.0001) return '<0.0001%';
+  return `${pct.toPrecision(2)}%`;
+}
+
 function callsWord(n: number): string {
   return n === 1 ? 'call' : 'calls';
 }
@@ -50,7 +73,7 @@ export function formatRelativeTime(ts: number, now: number): string {
   return `${Math.floor(diff / DAY)} d ago`;
 }
 
-function utcStamp(ts: number): string {
+export function utcStamp(ts: number): string {
   const iso = new Date(ts).toISOString();
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
