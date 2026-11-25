@@ -18,9 +18,25 @@ All notable changes to this project are recorded here. The format follows
   at every mint). See the breaking change below.
 - A startup warning is logged when `server.require_profile_token` is explicitly
   `false`.
+- `createCredentialBroker(config, adapters)` returns a broker that owns its
+  cache, single-flight, backoff and storage state, so two brokers share nothing.
 
 ### Changed
 
+- **BREAKING (internal API):** the credential broker is an injected instance
+  instead of module-level state. `configureCredentialBroker`,
+  `resolveMintedCredential`, `revokeProfileCredentials`, `resetCredentialCache`
+  and `resetCredentialBroker` are removed. `resolveCredentialSource`, `buildAuthHeaders`, `callHttpTool`, the CLI
+  passthrough call functions, `McpProxyDriver` and `createMcpExpressApp`
+  (`options.credentials`) now take the broker, which `main.ts` creates once.
+  Configuration files are unaffected.
+- An `mcp_proxy` connection that uses a per-profile credential is now keyed by
+  the calling agent as well as the profile, so callers of one profile with
+  different agents no longer share a connection. "No agent" is encoded so that
+  it cannot equal an agent named `_`. For the same reason the stored credential
+  path for a caller without an agent is now `profile/backend/~/provider` instead
+  of `.../_/...`; entries stored under the old segment are not reused and expire
+  on their own, and deleting the profile still purges them.
 - **BREAKING:** a `credential_providers` entry of `type: command` no longer
   runs with splicedock's whole environment. The command now starts with `PATH`,
   `HOME`, `LANG`, `LANGUAGE`, `LC_*`, `TZ` and `TMPDIR` only, so variables such

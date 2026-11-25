@@ -5,7 +5,8 @@ import { resolveDbTarget } from './services/database/adapters/target.js';
 import { SplicedockStore } from './services/database/adapters/store.js';
 import { credentialAdapters } from './services/secrets/adapters/index.js';
 import { configureSecretGuard } from './services/secrets/adapters/vault/guard.js';
-import { configureCredentialBroker } from './services/secrets/broker.js';
+import { createCredentialBroker } from './services/secrets/broker.js';
+import type { CredentialBroker } from './services/secrets/base.js';
 import { setLifecycleMetrics } from './services/authentication/lifecycle/events.js';
 import { startTokenSweep } from './services/authentication/lifecycle/tokens.js';
 import { createPrometheusMetrics } from './services/metrics/adapters/prometheus/index.js';
@@ -52,6 +53,7 @@ interface Registries {
   readonly toolService: ToolService;
   readonly profileService: ProfileService;
   readonly credentialFor: CredentialFor;
+  readonly credentials: CredentialBroker;
 }
 
 function loadRuntimeConfig(): Config {
@@ -65,7 +67,7 @@ function loadRuntimeConfig(): Config {
 /** Secrets, metrics, tool/profile registries and per-profile credential lookup. */
 async function buildRegistries(config: Config): Promise<Registries> {
   configureSecretGuard(config.server.vault);
-  configureCredentialBroker({ providers: config.credential_providers, storage: config.credential_storage }, credentialAdapters);
+  const credentials = createCredentialBroker({ providers: config.credential_providers, storage: config.credential_storage }, credentialAdapters);
   const metrics = createPrometheusMetrics();
   setLifecycleMetrics(metrics);
 
@@ -80,7 +82,7 @@ async function buildRegistries(config: Config): Promise<Registries> {
   // then the tool-level credential. Unknown profiles resolve to undefined.
   const credentialFor: CredentialFor = (profileName, tool) =>
     profileRegistry.getProfile(profileName)?.credentials?.[tool] ?? config.credential_defaults[tool];
-  return { metrics, availablePassthroughs, toolRegistry, profileRegistry, toolService, profileService, credentialFor };
+  return { metrics, availablePassthroughs, toolRegistry, profileRegistry, toolService, profileService, credentialFor, credentials };
 }
 
 /** Upstream discovery: probe once, start the refresh loop, register file tools. */
@@ -94,7 +96,7 @@ async function discoverUpstreams(config: Config, reg: Registries) {
   const refreshService = new ToolRefreshService(
     proxyConfigs, toolRegistry, podResolver, metrics, logger,
     proxyConfigs.length > 0 ? Math.min(...proxyConfigs.map(c => c.refresh_interval_ms)) : 600_000,
-    cfg => new McpProxyDriver(cfg),
+    cfg => new McpProxyDriver(cfg, reg.credentials),
   );
   await refreshService.probeOnce();
   refreshService.start();
@@ -114,7 +116,7 @@ async function openPersistence(config: Config, env: NodeJS.ProcessEnv, reg: Regi
   await seedProfilesFromConfig(store, config.profiles, logger, yamlManifestCodec);
   const stopTokenSweep = startTokenSweep(store, config.server.token_policy, metrics);
   const mcpServer = createMcpServer({
-    config, profileService, toolRegistry, proxyConfigs, podResolver, metrics, store,
+    config, profileService, toolRegistry, proxyConfigs, podResolver, metrics, store, credentials: reg.credentials,
     authFor: (profileName, backend) => credentialFor(profileName, backend)?.auth,
   });
 
@@ -167,6 +169,7 @@ async function startAdminServer(config: Config, reg: Registries, db: Persistence
       auditBuffer: svc.auditBuffer, toolMetrics: svc.toolMetrics, policyStore: svc.policyStore, cliProfiles: builtinCliProfiles, approvalService: svc.approvalService,
       store: db.store, mcpUpstreams: db.upstreams, breaker: svc.breaker, shadow: svc.shadow,
       pushStore: svc.pushStore, pushNotifier: svc.pushNotifier, invalidation: db.invalidationBus,
+      credentials: reg.credentials,
     },
   );
   const listen = adminListenOptions(config.server);

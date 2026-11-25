@@ -1,4 +1,5 @@
 import { resolveAuthValue } from '../../../secrets/adapters/vault/resolver.js';
+import type { CredentialBroker } from '../../../secrets/base.js';
 import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js';
 import { currentCaller } from '../../../../common/request/context.js';
 import type { HttpToolConfig } from '../../../../config/types.js';
@@ -12,6 +13,7 @@ export type { HttpExchange, HttpRequest } from '../../../../contracts/outbound/h
 export async function callHttpTool(
   config: HttpToolConfig,
   args: Record<string, string>,
+  broker: CredentialBroker,
   exchange?: HttpExchange,
 ): Promise<McpCallResult> {
   const body = buildBody(config.params ?? [], args);
@@ -25,7 +27,7 @@ export async function callHttpTool(
     ...(hasBody ? { body: JSON.stringify(body.params) } : {}),
   };
   const send = async (signal: AbortSignal) => {
-    const headers = await buildHeaders(config);
+    const headers = await buildHeaders(config, broker);
     signal.throwIfAborted();
     return fetch(request.url, {
       method: request.method, headers, body: request.body, signal,
@@ -85,20 +87,20 @@ function buildUrl(template: string, args: Record<string, string>, params: HttpTo
   return queryParams.length ? `${url}?${queryParams.join('&')}` : url;
 }
 
-async function buildHeaders(config: HttpToolConfig): Promise<Record<string, string>> {
+async function buildHeaders(config: HttpToolConfig, broker: CredentialBroker): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (config.auth.type === 'none') return headers;
   const caller = currentCaller();
   const target = { profile: caller?.profile ?? '', agent: caller?.agent ?? null, backend: config.name,
     authenticated: caller?.authenticated === true, tokenId: caller?.tokenId ?? null };
   if (config.auth.type === 'bearer') {
-    headers['Authorization'] = `Bearer ${await resolveCredentialSource(config.auth.token, target)}`;
+    headers['Authorization'] = `Bearer ${await resolveCredentialSource(config.auth.token, target, broker)}`;
   } else if (config.auth.type === 'basic') {
     const username = await resolveAuthValue(config.auth.username.from);
     const password = await resolveAuthValue(config.auth.password.from);
     headers['Authorization'] = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
   } else if (config.auth.type === 'header') {
-    headers[config.auth.name] = await resolveCredentialSource(config.auth.value, target);
+    headers[config.auth.name] = await resolveCredentialSource(config.auth.value, target, broker);
   }
   return headers;
 }

@@ -5,6 +5,7 @@ import { McpProxyDriver } from '../../src/services/upstreams/adapters/mcp/driver
 import { createHarness, type Harness } from './harness.js';
 import { createStubUpstream, type StubUpstream } from './stub-upstream.js';
 import type { McpProxyToolConfig } from '../../src/config/types.js';
+import { unusedBroker } from '../helpers/broker.js';
 
 function makeProxyConfig(name: string, stub: StubUpstream): McpProxyToolConfig {
   return {
@@ -26,7 +27,7 @@ describe('Proxy flow — tool listing', () => {
       { name: 'list_secrets', description: 'List Vault secrets', response: '[]' },
     ]);
     const config = makeProxyConfig('vault', stub);
-    const driver = new McpProxyDriver(config, stub.host);
+    const driver = new McpProxyDriver(config, unusedBroker(), stub.host);
     await driver.connect();
 
     h = await createHarness({
@@ -84,14 +85,14 @@ describe('Proxy flow — tool listing', () => {
       { name: 'query_prometheus', description: 'Query Prometheus', response: '{}' },
     ]);
     const grafanaConfig = makeProxyConfig('grafana', grafanaStub);
-    const grafanaDriver = new McpProxyDriver(grafanaConfig, grafanaStub.host);
+    const grafanaDriver = new McpProxyDriver(grafanaConfig, unusedBroker(), grafanaStub.host);
     await grafanaDriver.connect();
 
     const vaultStub2 = await createStubUpstream([
       { name: 'read_secret', description: 'Read a Vault secret', response: 'value' },
     ]);
     const vaultConfig2 = makeProxyConfig('vault', vaultStub2);
-    const vaultDriver2 = new McpProxyDriver(vaultConfig2, vaultStub2.host);
+    const vaultDriver2 = new McpProxyDriver(vaultConfig2, unusedBroker(), vaultStub2.host);
     await vaultDriver2.connect();
 
     const localH = await createHarness({
@@ -147,7 +148,7 @@ describe('Proxy flow — tool calling', () => {
       { name: 'read_secret', description: 'Read a Vault secret', response: 'super-secret' },
     ]);
     const config = makeProxyConfig('vault', stub);
-    driver = new McpProxyDriver(config, stub.host);
+    driver = new McpProxyDriver(config, unusedBroker(), stub.host);
     await driver.connect();
 
     h = await createHarness({
@@ -221,7 +222,7 @@ describe('Proxy flow — response handling', () => {
       { name: 'get_data', description: 'Get data', response: '{"key":"value"}' },
     ]);
     const config = makeProxyConfig('myapi', stub);
-    const driver = new McpProxyDriver(config, stub.host);
+    const driver = new McpProxyDriver(config, unusedBroker(), stub.host);
     await driver.connect();
 
     h = await createHarness({

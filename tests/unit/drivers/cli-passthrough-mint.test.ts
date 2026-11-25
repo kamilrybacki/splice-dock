@@ -1,15 +1,16 @@
-import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
-import { configureCredentialBroker, resetCredentialBroker } from '../../../src/services/secrets/broker.js';
+import type { CredentialBroker } from '../../../src/services/secrets/base.js';
+import { memoryBroker } from '../../helpers/broker.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
 import type { CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 let dir: string;
 let counter: string;
+let broker: CredentialBroker;
 
 function makeConfig(): CliPassthroughToolConfig {
   return {
@@ -37,12 +38,12 @@ function configure(providers = {
     output: { format: 'text' as const, secret_field: 'token' },
   },
 }): void {
-  configureCredentialBroker({ providers, storage: { type: 'memory', prefix: '' } }, credentialAdapters);
+  broker = memoryBroker(providers);
 }
 
 function printToken(): Promise<{ content: Array<{ text: string }>; isError?: boolean }> {
   return runWithCaller({ profile: 'worker', tokenId: 'tok-worker', authenticated: true, agent: 'bot' }, () =>
-    callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh']),
+    callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh'], broker),
   );
 }
 
@@ -50,11 +51,11 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'splicedock-mint-cli-'));
   counter = join(dir, 'counter');
   writeFileSync(counter, '0');
+  broker = memoryBroker();
 });
 
 afterEach(() => {
   configurePassthrough({});
-  resetCredentialBroker();
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -72,7 +73,7 @@ describe('cli_passthrough minted env', () => {
     configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', mint: 'gh' }]});
 
     const result = await runWithCaller({ profile: 'worker', tokenId: 'legacy-query', authenticated: false, agent: null }, () =>
-      callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh']),
+      callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh'], broker),
     );
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toBe('credential_identity_unauthenticated');

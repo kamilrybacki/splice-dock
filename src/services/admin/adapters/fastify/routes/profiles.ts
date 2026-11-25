@@ -8,7 +8,7 @@ import { profileSchema } from '../../../../../config/schema.js';
 import type { ProfileConfig } from '../../../../../config/types.js';
 import { exportProfilesYaml } from '../export/yaml.js';
 import type { InvalidationPublisher } from '../../../../../contracts/outbound/invalidation/bus.js';
-import { revokeProfileCredentials } from '../../../../secrets/broker.js';
+import type { CredentialBroker } from '../../../../secrets/base.js';
 import { dumpProfileManifest, parseProfileManifest } from '../../../../profiles/adapters/yaml.js';
 import { ProfileManifestError } from '../../../../profiles/manifest.js';
 
@@ -29,6 +29,7 @@ export function registerProfileRoutes(
   store?: SplicedockStore,
   invalidation?: InvalidationPublisher,
   onProfilesChanged?: ProfilesChanged,
+  credentials?: CredentialBroker,
 ): void {
   const completeProfile = (entry: ProfileEntry): ProfileConfig => ({
     tools: entry.tools,
@@ -244,7 +245,7 @@ export function registerProfileRoutes(
       return;
     }
     profileRegistry.removeProfile(name);
-    await revokeProfileCredentials(name).catch(() => {});
+    await credentials?.revokeProfile(name).catch(() => {});
     await onProfilesChanged?.(name);
     await invalidation?.publish('profiles', name);
     reply.code(204).send();

@@ -7,6 +7,7 @@ import { createMcpExpressApp } from '../../src/services/mcp/adapters/express/ser
 import { createAdminServer } from '../../src/services/admin/adapters/fastify/server.js';
 import type { McpProxyDriver } from '../../src/services/upstreams/adapters/mcp/driver.js';
 import type { SplicedockConfig } from '../../src/config/schema.js';
+import { unusedBroker } from '../helpers/broker.js';
 
 export interface Harness {
   toolRegistry: ToolRegistry;
@@ -41,6 +42,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   const profileService = new ProfileService(profileRegistry, toolRegistry);
 
   const mcpApp = createMcpExpressApp(profileService, toolRegistry, proxyDrivers, config.server.cli_whitelist, {
+    credentials: unusedBroker(),
     // These flows select a profile with ?profile= and carry no bearer, so they opt out explicitly.
     requireProfileToken: false,
   });

@@ -1,3 +1,4 @@
+import { unusedBroker } from '../../helpers/broker.js';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { createMcpExpressApp } from '../../../src/services/mcp/adapters/express/server.js';
@@ -19,6 +20,7 @@ async function start(opts: { requireProfileToken?: boolean; metrics?: boolean })
   const svc = new ProfileService(profileReg, toolReg);
   const metrics = opts.metrics ? createPrometheusMetrics() : undefined;
   const app = createMcpExpressApp(svc, toolReg, new Map(), [], {
+    credentials: unusedBroker(),
     lookupProfileByToken: t => (t === 'good' ? 'ops' : null),
     requireProfileToken: opts.requireProfileToken,
     metrics,

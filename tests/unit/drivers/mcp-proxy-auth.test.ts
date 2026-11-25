@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { unusedBroker } from '../../helpers/broker.js';
 
 const mocks = vi.hoisted(() => ({
   staticResolve: vi.fn(async (ref: string) => `static(${ref})`),
@@ -22,8 +23,8 @@ describe('buildAuthHeaders', () => {
   });
 
   it('sends no headers for auth: none', async () => {
-    expect(await buildAuthHeaders({ type: 'none' }, identity, 'vault')).toEqual({});
-    expect(await buildAuthHeaders(undefined, identity, 'vault')).toEqual({});
+    expect(await buildAuthHeaders({ type: 'none' }, identity, 'vault', unusedBroker())).toEqual({});
+    expect(await buildAuthHeaders(undefined, identity, 'vault', unusedBroker())).toEqual({});
   });
 
   it('resolves a static bearer reference', async () => {
@@ -31,13 +32,14 @@ describe('buildAuthHeaders', () => {
       { type: 'bearer', token: { from: 'env:VAULT_TOKEN' } },
       identity,
       'vault',
+      unusedBroker(),
     );
     expect(headers).toEqual({ Authorization: 'Bearer static(env:VAULT_TOKEN)' });
     expect(mocks.mintResolve).not.toHaveBeenCalled();
   });
 
   it('resolves a minted bearer per profile, never statically', async () => {
-    const headers = await buildAuthHeaders({ type: 'bearer', token: { mint: 'vault_ro' } }, identity, 'vault');
+    const headers = await buildAuthHeaders({ type: 'bearer', token: { mint: 'vault_ro' } }, identity, 'vault', unusedBroker());
     expect(headers).toEqual({ Authorization: 'Bearer minted(vault_ro)' });
     expect(mocks.staticResolve).not.toHaveBeenCalled();
   });
@@ -47,6 +49,7 @@ describe('buildAuthHeaders', () => {
       { type: 'header', name: 'X-Api-Key', value: { mint: 'grafana' } },
       identity,
       'grafana',
+      unusedBroker(),
     );
     expect(headers).toEqual({ 'X-Api-Key': 'minted(grafana)' });
   });
@@ -56,6 +59,7 @@ describe('buildAuthHeaders', () => {
       { type: 'basic', username: { from: 'env:U' }, password: { from: 'env:P' } },
       identity,
       'netbox',
+      unusedBroker(),
     );
     expect(headers).toEqual({
       Authorization: `Basic ${Buffer.from('static(env:U):static(env:P)').toString('base64')}`,

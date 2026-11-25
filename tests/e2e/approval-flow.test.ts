@@ -12,6 +12,7 @@
 //
 // Uses the system `echo` binary so the test has no docker/bridge dependency.
 
+import { unusedBroker } from '../helpers/broker.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -100,6 +101,7 @@ describe('E2E approval flow — live MCP HTTP path', () => {
     configurePassthrough({approvalHookFactory: (tool, { cwd }) => approvalService.makeHook(tool, cwd), approvalSettler: approvalService});
 
     const app = createMcpExpressApp(profileService, toolRegistry, new Map(), ['echo'], {
+      credentials: unusedBroker(),
       lookupProfileByToken: t => (t === E2E_TOKEN ? 'default' : null),
     });
     mcpServer = createServer(app);

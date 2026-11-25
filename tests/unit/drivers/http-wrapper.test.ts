@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { callHttpTool } from '../../../src/services/tools/adapters/http/driver.js';
 import type { HttpToolConfig } from '../../../src/config/types.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 function makeConfig(overrides: Partial<HttpToolConfig> = {}): HttpToolConfig {
   return {
@@ -31,7 +32,7 @@ describe('callHttpTool', () => {
       ],
       auth: { type: 'bearer', token: { from: 'env:TEST_UNSET_PREFLIGHT_TOKEN' } },
     });
-    const result = await callHttpTool(config, { id: 'a/b', title: 'Demo' }, exchange);
+    const result = await callHttpTool(config, { id: 'a/b', title: 'Demo' }, unusedBroker(), exchange);
     expect(result.content[0].text).toBe('mock');
     expect(exchange).toHaveBeenCalledExactlyOnceWith({
       method: 'POST', url: 'https://api.example.com/projects/a%2Fb', body: '{"title":"Demo"}',
@@ -43,7 +44,7 @@ describe('callHttpTool', () => {
     const fetch = vi.fn(async () => { throw new Error('network failed'); });
     vi.stubGlobal('fetch', fetch);
     const config = makeConfig({ retry: { max_attempts: 3, backoff_ms: 5 } });
-    await expect(callHttpTool(config, {}, (_request, send) => send(new AbortController().signal)))
+    await expect(callHttpTool(config, {}, unusedBroker(), (_request, send) => send(new AbortController().signal)))
       .rejects.toThrow('network failed');
     expect(fetch).toHaveBeenCalledExactlyOnceWith(config.url, expect.objectContaining({ redirect: 'error' }));
   });
@@ -56,7 +57,7 @@ describe('callHttpTool', () => {
     });
     vi.stubGlobal('fetch', mockFetch);
 
-    const result = await callHttpTool(makeConfig(), {});
+    const result = await callHttpTool(makeConfig(), {}, unusedBroker());
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toBe('response body');
     expect(mockFetch).toHaveBeenCalledWith(
@@ -77,7 +78,7 @@ describe('callHttpTool', () => {
       url: 'https://api.example.com/issues/{issueKey}',
       params: [{ name: 'issueKey', in: 'path', required: true }],
     });
-    await callHttpTool(config, { issueKey: 'JIRA-123' });
+    await callHttpTool(config, { issueKey: 'JIRA-123' }, unusedBroker());
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.example.com/issues/JIRA-123',
       expect.any(Object),
@@ -95,7 +96,7 @@ describe('callHttpTool', () => {
     const config = makeConfig({
       params: [{ name: 'project', in: 'query', required: false }],
     });
-    await callHttpTool(config, { project: 'MYPROJ' });
+    await callHttpTool(config, { project: 'MYPROJ' }, unusedBroker());
     expect(mockFetch).toHaveBeenCalledWith(
       'https://api.example.com/resource?project=MYPROJ',
       expect.any(Object),
@@ -114,7 +115,7 @@ describe('callHttpTool', () => {
     const config = makeConfig({
       auth: { type: 'bearer', token: { from: 'env:API_TOKEN' } },
     });
-    await callHttpTool(config, {});
+    await callHttpTool(config, {}, unusedBroker());
     expect(mockFetch).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
@@ -132,7 +133,7 @@ describe('callHttpTool', () => {
     });
     vi.stubGlobal('fetch', mockFetch);
 
-    const result = await callHttpTool(makeConfig(), {});
+    const result = await callHttpTool(makeConfig(), {}, unusedBroker());
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('HTTP 404');
   });
@@ -145,7 +146,7 @@ describe('callHttpTool', () => {
     });
     vi.stubGlobal('fetch', mockFetch);
 
-    const result = await callHttpTool(makeConfig(), {});
+    const result = await callHttpTool(makeConfig(), {}, unusedBroker());
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('HTTP 500');
   });
@@ -159,7 +160,7 @@ describe('callHttpTool', () => {
     const config = makeConfig({
       retry: { max_attempts: 2, backoff_ms: 10 },
     });
-    const result = await callHttpTool(config, {});
+    const result = await callHttpTool(config, {}, unusedBroker());
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(result.content[0].text).toBe('success');
   });
@@ -171,7 +172,7 @@ describe('callHttpTool', () => {
     const config = makeConfig({
       retry: { max_attempts: 2, backoff_ms: 10 },
     });
-    await expect(callHttpTool(config, {})).rejects.toThrow('Network error');
+    await expect(callHttpTool(config, {}, unusedBroker())).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
@@ -187,7 +188,7 @@ describe('callHttpTool', () => {
         { name: 'questions', in: 'body', required: true, format: 'json' },
       ],
     });
-    await callHttpTool(config, { state: 'hello', questions: '{"q":{"type":"noul","instructions":"?"}}' });
+    await callHttpTool(config, { state: 'hello', questions: '{"q":{"type":"noul","instructions":"?"}}' }, unusedBroker());
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body).toEqual({ model: 'model-latest', state: 'hello', questions: { q: { type: 'noul', instructions: '?' } } });
   });
@@ -203,7 +204,7 @@ describe('callHttpTool', () => {
         { name: 'extra', in: 'body', required: false, format: 'json' },
       ],
     });
-    await callHttpTool(config, { a: 'x' });
+    await callHttpTool(config, { a: 'x' }, unusedBroker());
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ a: 'x' });
   });
 
@@ -215,7 +216,7 @@ describe('callHttpTool', () => {
       method: 'POST',
       params: [{ name: 'questions', in: 'body', required: true, format: 'json' }],
     });
-    const result = await callHttpTool(config, { questions: '{not json' });
+    const result = await callHttpTool(config, { questions: '{not json' }, unusedBroker());
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("'questions'");
     expect(mockFetch).not.toHaveBeenCalled();
@@ -226,10 +227,10 @@ describe('callHttpTool', () => {
     vi.stubGlobal('fetch', mockFetch);
     const spy = vi.spyOn(AbortSignal, 'timeout');
 
-    await callHttpTool(makeConfig({ timeout_ms: 950_000 }), {});
+    await callHttpTool(makeConfig({ timeout_ms: 950_000 }), {}, unusedBroker());
     expect(spy).toHaveBeenLastCalledWith(950_000);
 
-    await callHttpTool(makeConfig(), {}); // no timeout_ms -> 30s default
+    await callHttpTool(makeConfig(), {}, unusedBroker()); // no timeout_ms -> 30s default
     expect(spy).toHaveBeenLastCalledWith(30_000);
   });
 });

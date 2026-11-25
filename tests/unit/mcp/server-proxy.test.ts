@@ -3,6 +3,7 @@ import { ProfileService } from '../../../src/services/profiles/base.js';
 import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 // Capture setRequestHandler callbacks so we can invoke them directly
 const handlers = new Map<string, (req: unknown) => unknown>();
@@ -84,7 +85,7 @@ describe('buildMcpServer — multi-proxy tool listing', () => {
       ['beta', driverBeta],
     ]);
 
-    buildMcpServer('multi', profileService, proxyDrivers as never, toolReg);
+    buildMcpServer('multi', profileService, proxyDrivers as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
 
     const listHandler = handlers.get('ListToolsRequestSchema') as () => Promise<{ tools: unknown[] }>;
     expect(listHandler).toBeDefined();
@@ -104,7 +105,7 @@ describe('buildMcpServer — multi-proxy tool listing', () => {
       ['beta', { callTool: vi.fn() }],
     ]);
 
-    buildMcpServer('multi', profileService, proxyDrivers as never, toolReg);
+    buildMcpServer('multi', profileService, proxyDrivers as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
 
     const listHandler = handlers.get('ListToolsRequestSchema') as () => Promise<{ tools: unknown[] }>;
 
@@ -128,7 +129,7 @@ describe('buildMcpServer — multi-proxy tool listing', () => {
       ['gamma', { callTool: vi.fn() }],
     ]);
 
-    buildMcpServer('alpha-only', alphaOnlyService, proxyDrivers as never, toolReg);
+    buildMcpServer('alpha-only', alphaOnlyService, proxyDrivers as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
 
     const listHandler = handlers.get('ListToolsRequestSchema') as () => Promise<{ tools: unknown[] }>;
 
@@ -172,7 +173,7 @@ describe('buildMcpServer — call routing', () => {
       ['beta', driverBeta],
     ]);
 
-    buildMcpServer('routing', profileService, proxyDrivers as never, toolReg);
+    buildMcpServer('routing', profileService, proxyDrivers as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
 
     const callHandler = handlers.get('CallToolRequestSchema') as (req: unknown) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
@@ -198,7 +199,7 @@ describe('buildMcpServer — call routing', () => {
       ['beta', { callTool: vi.fn() }],
     ]);
 
-    buildMcpServer('routing', profileService, proxyDrivers as never, toolReg);
+    buildMcpServer('routing', profileService, proxyDrivers as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
 
     const callHandler = handlers.get('CallToolRequestSchema') as (req: unknown) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
 
@@ -211,7 +212,7 @@ describe('buildMcpServer — call routing', () => {
   it('returns isError when tool is allowed but driver is missing from proxyDrivers map', async () => {
     // proxyDrivers map is empty — alpha__search is in registry and profile allows it,
     // but there is no driver for the 'alpha' namespace
-    buildMcpServer('routing', profileService, new Map(), toolReg);
+    buildMcpServer('routing', profileService, new Map(), toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
     const callHandler = handlers.get('CallToolRequestSchema') as (req: unknown) => Promise<{ isError?: boolean; content: { text: string }[] }>;
     await expect(callHandler({ params: { name: 'alpha__search', arguments: {} } })).rejects.toThrow(/alpha/i);
   });
@@ -219,7 +220,7 @@ describe('buildMcpServer — call routing', () => {
   it('returns isError when tool passes profile check but is not in registry', async () => {
     // alpha__purge matches the profile glob alpha__* but was never registered in toolReg
     const driverAlpha = { callTool: vi.fn() };
-    buildMcpServer('routing', profileService, new Map([['alpha', driverAlpha]]) as never, toolReg);
+    buildMcpServer('routing', profileService, new Map([['alpha', driverAlpha]]) as never, toolReg, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
     const callHandler = handlers.get('CallToolRequestSchema') as (req: unknown) => Promise<{ isError?: boolean; content: { text: string }[] }>;
     const result = await callHandler({ params: { name: 'alpha__purge', arguments: {} } });
     expect(result.isError).toBe(true);

@@ -4,6 +4,7 @@ import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import type { McpProxyDriver } from '../../../src/services/upstreams/adapters/mcp/driver.js';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 const handlers = new Map<string, (req: unknown) => unknown>();
 const built = vi.hoisted(() => ({ configs: [] as Array<{ name: string; auth?: unknown }>, connectError: null as Error | null }));
@@ -30,8 +31,10 @@ vi.mock('@modelcontextprotocol/sdk/server/sse.js', () => ({
 }));
 
 vi.mock('../../../src/services/upstreams/adapters/mcp/driver.js', () => ({
-  proxyDriverKey: (namespace: string, profile?: string) =>
-    profile === undefined ? namespace : `${namespace}\u0000${profile}`,
+  proxyDriverKey: (namespace: string, identity?: { profile: string; agent: string | null }) =>
+    identity === undefined
+      ? namespace
+      : `${namespace}\u0000${identity.profile}\u0000${identity.agent === null ? '0' : `1${identity.agent}`}`,
   proxyDriverNamespace: (key: string) => key.split('\u0000')[0],
   McpProxyDriver: class {
     constructor(public readonly config: { name: string; auth?: unknown }) {
@@ -90,7 +93,7 @@ function callHandler(): Promise<{ content: Array<{ text: string }>; isError?: bo
 const resolver = { resolve: async () => ['10.0.0.1'] } as never;
 
 function build(profile: string, drivers: Map<string, McpProxyDriver>, profileAuth = (p: string, backend: string) =>
-  p === 'worker' && backend === 'vault' ? WORKER_AUTH : undefined) {
+  p === 'worker' && backend === 'vault' ? WORKER_AUTH : undefined, agent: string | null = null) {
   const { profileService, toolRegistry } = makeRegistry();
   buildMcpServer(
     profile,
@@ -100,10 +103,9 @@ function build(profile: string, drivers: Map<string, McpProxyDriver>, profileAut
     [],
     [makeProxyConfig()],
     resolver,
-    null,
+    agent,
     undefined,
-    profileAuth,
-  );
+    profileAuth, unusedBroker());
 }
 
 describe('per-profile mcp_proxy credentials', () => {
@@ -119,7 +121,7 @@ describe('per-profile mcp_proxy credentials', () => {
 
     await callHandler();
 
-    expect(drivers.has('vault\u0000worker')).toBe(true);
+    expect(drivers.has('vault\u0000worker\u00000')).toBe(true);
     expect(drivers.has('vault')).toBe(false);
     expect(built.configs).toHaveLength(1);
     expect(built.configs[0]!.auth).toEqual(WORKER_AUTH);
@@ -143,8 +145,32 @@ describe('per-profile mcp_proxy credentials', () => {
     await callHandler();
 
     expect(built.configs.map(c => c.auth)).toEqual([WORKER_AUTH, BASE_AUTH]);
-    expect(drivers.has('vault\u0000worker')).toBe(true);
+    expect(drivers.has('vault\u0000worker\u00000')).toBe(true);
     expect(drivers.has('vault')).toBe(true);
+  });
+
+  it('gives each agent of one profile its own driver', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers, undefined, 'builder');
+    await callHandler();
+    build('worker', drivers, undefined, 'reviewer');
+    await callHandler();
+
+    expect(built.configs).toHaveLength(2);
+    expect(drivers.has('vault\u0000worker\u00001builder')).toBe(true);
+    expect(drivers.has('vault\u0000worker\u00001reviewer')).toBe(true);
+    expect(drivers.size).toBe(2);
+  });
+
+  it('does not reuse the driver of an agent named "_" for a caller without an agent', async () => {
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers, undefined, '_');
+    await callHandler();
+    build('worker', drivers, undefined, null);
+    await callHandler();
+
+    expect(built.configs).toHaveLength(2);
+    expect(drivers.size).toBe(2);
   });
 
   it('reuses an already-open profile-scoped connection', async () => {
@@ -172,8 +198,7 @@ describe('per-profile mcp_proxy credentials', () => {
       undefined,
       null,
       undefined,
-      () => WORKER_AUTH,
-    );
+      () => WORKER_AUTH, unusedBroker());
 
     await expect(callHandler()).rejects.toThrow(/No proxy driver/);
     expect(shared.callTool).not.toHaveBeenCalled();

@@ -7,12 +7,13 @@ import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { createServer } from 'node:http';
 import { runWithCaller } from '../../../src/common/request/context.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 it('gates the builtin independently of tool patterns and checks each nested call', async () => {
   const profiles = new ProfileRegistry();
   profiles.addRuntimeProfile('ops', { tools: ['*'], enable_code_mode: false });
   const tools = new ToolRegistry();
-  const server = buildMcpServer('ops', new ProfileService(profiles, tools), new Map(), tools);
+  const server = buildMcpServer('ops', new ProfileService(profiles, tools), new Map(), tools, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
   const client = new Client({ name: 'test', version: '1' });
   const [a,b] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(a), client.connect(b)]);
@@ -52,7 +53,7 @@ it('uses the materialized HTTP request at the real MCP entry point and refuses u
       auth: { type: 'none' } },
     mcpDef: { name: 'demo__write', inputSchema: { type: 'object' } },
   });
-  const server = buildMcpServer('ops', new ProfileService(profiles, tools), new Map(), tools);
+  const server = buildMcpServer('ops', new ProfileService(profiles, tools), new Map(), tools, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
   const client = new Client({ name: 'test', version: '1' });
   const [a, b] = InMemoryTransport.createLinkedPair();
   try {

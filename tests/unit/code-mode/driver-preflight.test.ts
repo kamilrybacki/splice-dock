@@ -5,6 +5,7 @@ import { executeWithPreflight } from '../../../src/services/code-mode/preflight.
 import { callCliTool } from '../../../src/services/tools/adapters/cli/static.js';
 import { callReviewedCliPassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
 import { McpProxyDriver } from '../../../src/services/upstreams/adapters/mcp/driver.js';
+import { unusedBroker } from '../../helpers/broker.js';
 import type { CliToolConfig, CliPassthroughToolConfig } from '../../../src/config/types.js';
 
 describe('Code Mode driver preflight', () => {
@@ -47,7 +48,7 @@ describe('Code Mode driver preflight', () => {
       code: 'return await tools.call("demo__run",{args:["fixture"]});', profile: 'test', catalog: () => [],
       allowLive: true,
       dispatch: (_tool, args, _phase, _http, signal, exchange) =>
-        callReviewedCliPassthrough(config, 'run', args, ['node'], exchange, signal),
+        callReviewedCliPassthrough(config, 'run', args, ['node'], unusedBroker(), exchange, signal),
       services: {
         mock: async () => { throw Error('Unexpected HTTP operation'); },
         mockOperation: async request => { captured = request; return { content: [] }; },
@@ -79,7 +80,7 @@ describe('Code Mode driver preflight', () => {
     const address = upstream.address();
     if (!address || typeof address === 'string') throw Error('Missing fixture address');
     const driver = new McpProxyDriver({ type: 'mcp_proxy', name: 'demo', service_dns: '127.0.0.1',
-      port: address.port, refresh_interval_ms: 60_000 });
+      port: address.port, refresh_interval_ms: 60_000 }, unusedBroker());
     try {
       await driver.connect();
       const result = await executeWithPreflight({

@@ -1,3 +1,4 @@
+import { unusedBroker } from '../../helpers/broker.js';
 import { resolveBoundProfile } from '../../../src/services/mcp/base.js';
 import { createServer } from 'node:http';
 import { describe, it, expect, afterEach } from 'vitest';
@@ -37,6 +38,7 @@ describe('POST /mcp — bearer profile binding', () => {
     profileReg.addFileProfile('default', { tools: ['*'] });
     const svc = new ProfileService(profileReg, toolReg);
     const app = createMcpExpressApp(svc, toolReg, new Map(), [], {
+      credentials: unusedBroker(),
       lookupProfileByToken: lookup,
       ...(requireProfileToken === undefined ? {} : { requireProfileToken }),
     });
