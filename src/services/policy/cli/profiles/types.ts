@@ -10,6 +10,7 @@
 // approval shapes that key on tool names stay where they are.
 
 import type { KnownCommandTable } from '../commands/table.js';
+import type { CredentialPrintDeny } from '../credential-deny.js';
 import type { FlagTable } from '../flags/table.js';
 
 export interface InvocationContext {
@@ -52,6 +53,9 @@ export interface CliProfile {
   invocationFlagTable?(argv: readonly string[], base: FlagTable): FlagTable;
   /** Subcommand-specific option aliases, merged over `optionAliases`. */
   invocationOptionAliases?(ctx: InvocationContext): Readonly<Record<string, string>>;
+  /** Invocations that exist to print a credential (`auth token`, `--jq env.X`).
+   *  Refused before spawn, whatever the policy; see `credential-deny.ts`. */
+  readonly credentialDenies?: readonly CredentialPrintDeny[];
   /** Paths the wrapper always refuses with `broker_required`, whatever the policy. */
   requiresBroker?(path: readonly string[]): boolean;
   /** Destructive paths that run only when the tool's policy routes them to

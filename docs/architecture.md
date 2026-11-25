@@ -164,6 +164,24 @@ tools:
       approval_subcommand_paths: [["repo", "delete"]]
 ```
 
+### Credentials in CLI output
+
+Two guards keep a `cli_passthrough` child from handing back the credential it
+was given:
+
+- **Credential-print denies.** A CLI profile lists invocations that exist to
+  print a credential in `credentialDenies` (for `gh`: `auth token`,
+  `auth status --show-token`/`-t`, and `--jq`/`-q`/`--template` expressions that
+  read `env`). The generic matcher is `src/services/policy/cli/credential-deny.ts`.
+  A match is refused before spawn and before approval, counts toward the circuit
+  breaker, and returns `credential_print_denied:<rule id>`. Another CLI adds its
+  own rules to its profile; the matcher does not change.
+- **Output redaction.** The wrapper (`src/services/tools/adapters/cli/redact.ts`)
+  replaces every literal occurrence of an injected env value in stdout, stderr
+  and error text with `[REDACTED]`, on the assembled output so chunk-split values
+  are caught. Values under 8 characters are skipped. It is a backstop, not a
+  guarantee: a value the CLI re-encodes is not detected.
+
 ### Built-in grant exceptions (`src/services/policy/grants/config.ts`)
 
 Operations that must never be covered by a standing grant are declared once in

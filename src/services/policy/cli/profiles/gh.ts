@@ -2,6 +2,7 @@
 
 import { join } from 'node:path';
 import { canonicalizeCommandPath, knownCommandTable } from '../commands/table.js';
+import type { CredentialPrintDeny } from '../credential-deny.js';
 import { flagTable, type FlagArity, type FlagTable } from '../flags/table.js';
 import type { CliProfile, InvocationContext } from './types.js';
 
@@ -144,6 +145,46 @@ function invocationOptionAliases(ctx: InvocationContext): Readonly<Record<string
   };
 }
 
+/** A jq or Go-template expression that reads the process environment: the
+ *  `env` builtin / function or `$ENV`. A leading `.`, `$` or word character
+ *  means a field or variable that merely contains the letters, which is allowed.
+ *  Deliberately broad (an object key `{env: 1}` also matches): over-denying a
+ *  rare expression is cheaper than letting one print GH_TOKEN. */
+const ENV_REFERENCE = /(?<![.\w$])env\b|\$ENV\b/;
+
+/**
+ * gh invocations that exist to print a credential. Refused before spawn,
+ * independent of tool policy. Rule order is irrelevant; the first match wins.
+ *
+ * - `auth token` prints the stored or env token.
+ * - `auth status --show-token` / `-t` prints it inside the status report.
+ * - `--jq` / `-q` expressions run on any command (`gh pr list --json x -q ...`),
+ *   so a reference to `env` is denied on every path.
+ * - `--template` / `-t` is an output template only on `gh api` (elsewhere `-t`
+ *   is `--title`), so that rule is scoped to `api`.
+ */
+export const GH_CREDENTIAL_DENIES: readonly CredentialPrintDeny[] = [
+  { id: 'gh_auth_token', reason: '`gh auth token` prints a credential', path: ['auth', 'token'] },
+  {
+    id: 'gh_auth_status_show_token',
+    reason: '`gh auth status --show-token` prints a credential',
+    path: ['auth', 'status'],
+    when: { kind: 'flag_present', flags: ['--show-token', '-t'] },
+  },
+  {
+    id: 'gh_jq_env',
+    reason: 'a --jq/-q expression that reads the environment can print a credential',
+    path: [],
+    when: { kind: 'expression_matches', flags: ['--jq', '-q'], pattern: ENV_REFERENCE },
+  },
+  {
+    id: 'gh_api_template_env',
+    reason: 'a gh api --template/-t expression that reads the environment can print a credential',
+    path: ['api'],
+    when: { kind: 'expression_matches', flags: ['--template', '-t'], pattern: ENV_REFERENCE },
+  },
+];
+
 export const ghProfile: CliProfile = {
   name: 'gh',
   flags: FLAGS,
@@ -151,6 +192,7 @@ export const ghProfile: CliProfile = {
   optionAliases: { '-R': '--repo', '-L': '--limit', '-X': '--method', '-H': '--header', '-B': '--base', '-A': '--author', '-S': '--search', '-y': '--yes' },
   // `gh api` sends raw HTTP requests and bypasses subcommand classification entirely (D14a).
   hardDenyPaths: [['api']],
+  credentialDenies: GH_CREDENTIAL_DENIES,
   isolatedConfigEnv: configHome => ({ GH_CONFIG_DIR: join(configHome, 'gh') }),
   invocationFlagTable,
   invocationOptionAliases,

@@ -85,6 +85,21 @@ All notable changes to this project are recorded here. The format follows
 ### Fixed
 
 - Tool and upstream definitions added through the admin API, and stored runtime rows reloaded at startup, now reject a tool-level `mint:` exactly as the config loader does.
+- A `cli_passthrough` tool no longer returns the credentials it injected.
+  Before stdout, stderr or an error message is returned, every literal
+  occurrence of a value placed in the child's environment (minted or static
+  `env:` / `vault:` references, plus any variable whose name contains `TOKEN`,
+  `SECRET`, `PASSWORD`, `CREDENTIAL`, `API_KEY` and similar) is replaced with
+  `[REDACTED]`. The scrub runs on the assembled output, so a value split across
+  stream chunks is covered. Values shorter than 8 characters are left alone.
+  Only literal occurrences are detected: a credential the CLI re-encodes
+  (base64, hashing) is not. **Migration:** a script that read a credential back
+  out of a tool result now gets `[REDACTED]`.
+- gh invocations that exist to print a credential are refused before the CLI
+  spawns, with the error `credential_print_denied:<rule id>`: `gh auth token`,
+  `gh auth status --show-token` / `-t`, and any `--jq` / `-q` expression that
+  reads the environment (`env`, `$ENV`). The rules are data on the CLI profile
+  (`credentialDenies`), so other CLIs can add their own.
 
 ## [1.1.1] - 2026-11-24
 

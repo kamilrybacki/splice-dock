@@ -6,6 +6,9 @@ import { NO_CLI_PROFILES, type CliProfile } from '../../../policy/cli/profiles/i
 import { requireSecret } from '../../../secrets/adapters/vault/guard.js';
 import type { CredentialBroker } from '../../../secrets/base.js';
 import { createIsolatedHome, toolEnvPins, type IsolatedHome } from './isolation.js';
+import { collectSecretValues, redactSecrets } from './redact.js';
+import { credentialDenyMessage, findCredentialDeny } from '../../../policy/cli/credential-deny.js';
+import { StringDecoder } from 'node:string_decoder';
 import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../../../policy/cli/kubeconfig/path.js';
 import { spawn } from 'node:child_process';
 import { accessSync, constants as fsConstants, realpathSync, statSync } from 'node:fs';
@@ -221,6 +224,21 @@ export async function callCliPassthrough(
     // Paths the CLI's profile refuses outright (gh: api) or admits only through
     // a strong approval (gh: repo delete). Ambiguous argv is refused.
     const cliProfile = cliProfileOf(config.command);
+    // Invocations that exist to print a credential (gh auth token, --jq env.X)
+    // are refused before anything is spawned, whatever the policy says.
+    const credentialDeny = findCredentialDeny(cmdArgs, cliProfile?.credentialDenies, {
+      table: flagTableFor(cliProfile),
+      knownCommands: cliProfile?.knownCommands,
+    });
+    if (credentialDeny) {
+      try {
+        await injected.circuitBreaker?.securityDenial(currentCaller());
+      } catch {
+        if (injected.circuitBreaker?.config.mode !== 'observe') return errorResult('breaker_unavailable');
+      }
+      logger.warn('cli_passthrough credential print denied', { tool: config.name, rule: credentialDeny.id });
+      return errorResult(credentialDenyMessage(credentialDeny));
+    }
     const { requiresBroker, strongApprovalPaths } = cliProfile ?? {};
     let needsStrong = false;
     if (kind === 'run' && (requiresBroker || strongApprovalPaths)) {
@@ -363,6 +381,8 @@ export async function callCliPassthrough(
   }
   const hooks = reservedId ? settleHooks(reservedId, currentCaller()) : {};
   let spawned = false, resultSettled = false;
+  // Credentials the child will hold, fixed once the env is final (below).
+  let secrets: string[] | undefined;
   const onSpawn = hooks.onSpawn;
   // The spawn listener cannot await, so keep the finalize promise: the
   // execution result is recorded only once the approval is consumed.
@@ -384,6 +404,10 @@ export async function callCliPassthrough(
     }
     // Forced last, with or without isolation, over any declared value.
     Object.assign(env, toolEnvPins(cliProfileOf(config.command)));
+    secrets = collectSecretValues(
+      env,
+      envRefs.flatMap(ref => (typeof ref === 'string' ? [] : [ref.name])),
+    );
   } catch {
     await safeHook(hooks.onPreSpawnError, 'release');
     return errorResult('could not create an isolated config dir for this call');
@@ -393,7 +417,11 @@ export async function callCliPassthrough(
       await safeHook(hooks.onPreSpawnError, 'release');
       return errorResult('Code Mode replay cancelled before spawn');
     }
-    const { stdout, stderr, exitCode } = await runProcess(config.command, cmdArgs, env, config.timeout_ms, cwd, hooks);
+    const result = await runProcess(config.command, cmdArgs, env, config.timeout_ms, cwd, hooks);
+    const { exitCode } = result;
+    // Scrub the credentials this child was given from everything it printed.
+    const stdout = redactSecrets(result.stdout, secrets ?? [], { truncated: result.stdoutTruncated });
+    const stderr = redactSecrets(result.stderr, secrets ?? [], { truncated: result.stderrTruncated });
     if (kind === 'run') {
       injected.metricsSink?.({
         tool: config.name,
@@ -413,7 +441,7 @@ export async function callCliPassthrough(
         duration_ms: Date.now() - t0,
       });
     }
-    return errorResult(err instanceof Error ? err.message : String(err));
+    return errorResult(redactSecrets(err instanceof Error ? err.message : String(err), secrets ?? []));
   } finally {
     isolatedHome?.cleanup();
   }
@@ -545,7 +573,14 @@ function runProcess(
   timeoutMs: number,
   cwd?: string,
   hooks: SpawnHooks = {},
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  /** Output beyond MAX_OUTPUT_BYTES was dropped, so it may end inside a secret. */
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+}> {
   return new Promise((resolve, reject) => {
     let child: ReturnType<typeof spawn>;
     try {
@@ -571,13 +606,17 @@ function runProcess(
     let stderr = '';
     let stdoutBytes = 0;
     let stderrBytes = 0;
+    // One decoder per stream so a multibyte character split across chunks
+    // decodes intact; redaction runs on the assembled text after close.
+    const stdoutDecoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
     child.stdout?.on('data', (chunk: Buffer) => {
       stdoutBytes += chunk.byteLength;
-      if (stdoutBytes <= MAX_OUTPUT_BYTES) stdout += chunk.toString();
+      if (stdoutBytes <= MAX_OUTPUT_BYTES) stdout += stdoutDecoder.write(chunk);
     });
     child.stderr?.on('data', (chunk: Buffer) => {
       stderrBytes += chunk.byteLength;
-      if (stderrBytes <= MAX_OUTPUT_BYTES) stderr += chunk.toString();
+      if (stderrBytes <= MAX_OUTPUT_BYTES) stderr += stderrDecoder.write(chunk);
     });
     // A timeout before 'spawn' neither finalizes nor releases: the
     // reservation expires and is not refunded.
@@ -586,7 +625,13 @@ function runProcess(
       finish(() => reject(new Error(`CLI command '${command}' timed out after ${timeoutMs}ms`)));
     }, timeoutMs);
     child.on('close', (code) => {
-      finish(() => resolve({ stdout, stderr, exitCode: code ?? 1 }));
+      finish(() => resolve({
+        stdout: stdout + (stdoutBytes <= MAX_OUTPUT_BYTES ? stdoutDecoder.end() : ''),
+        stderr: stderr + (stderrBytes <= MAX_OUTPUT_BYTES ? stderrDecoder.end() : ''),
+        exitCode: code ?? 1,
+        stdoutTruncated: stdoutBytes > MAX_OUTPUT_BYTES,
+        stderrTruncated: stderrBytes > MAX_OUTPUT_BYTES,
+      }));
     });
     child.on('error', (err) => {
       if (!spawned) void safeHook(hooks.onPreSpawnError, 'release');

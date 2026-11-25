@@ -22,7 +22,8 @@ function readToken(profile: string): Promise<{ content: Array<{ text: string }>;
     callCliPassthrough(
       makeConfig(),
       'run',
-      { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] },
+      // The child prints an uppercased copy: the literal credential is redacted from output.
+      { args: ['-c', 'printf %s "${GH_TOKEN:-}" | tr a-z A-Z'] },
       ['sh'],
     ),
   );
@@ -38,7 +39,7 @@ describe('per-profile cli_passthrough env', () => {
   it('falls back to the tool-level env when the profile has no override', async () => {
     process.env['BASE_TOKEN'] = 'base-token';
     const result = await readToken('plain');
-    expect(result.content[0]!.text).toBe('base-token');
+    expect(result.content[0]!.text).toBe('BASE-TOKEN');
   });
 
   it('replaces the credential for a profile with an override', async () => {
@@ -49,8 +50,8 @@ describe('per-profile cli_passthrough env', () => {
         ? [{ name: 'GH_TOKEN', from: 'env:WORKER_TOKEN' }]
         : undefined,});
 
-    expect((await readToken('worker')).content[0]!.text).toBe('worker-token');
-    expect((await readToken('plain')).content[0]!.text).toBe('base-token');
+    expect((await readToken('worker')).content[0]!.text).toBe('WORKER-TOKEN');
+    expect((await readToken('plain')).content[0]!.text).toBe('BASE-TOKEN');
   });
 
   it('can add an env var the tool-level list does not declare', async () => {
@@ -67,10 +68,10 @@ describe('per-profile cli_passthrough env', () => {
       callCliPassthrough(
         { ...makeConfig(), env: [] },
         'run',
-        { args: ['-c', 'printf "%s/%s" "${GH_TOKEN:-}" "${GH_HOST:-}"'] },
+        { args: ['-c', 'printf "%s/%s" "${GH_TOKEN:-}" "${GH_HOST:-}" | tr a-z A-Z'] },
         ['sh'],
       ),
     );
-    expect(result.content[0]!.text).toBe('worker-token/worker-token');
+    expect(result.content[0]!.text).toBe('WORKER-TOKEN/WORKER-TOKEN');
   });
 });
