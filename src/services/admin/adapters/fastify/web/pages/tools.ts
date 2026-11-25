@@ -9,6 +9,7 @@
 // attribute, avoiding any embedding of tool names into JS string literals.
 
 import { escapeHtml, pill, kpi, card, spark } from '../components.js';
+import { formatDenyBasis, formatDenyRate, formatNumber, renderGeneratedAt, renderTime } from '../format.js';
 import { ADD_TOOL_STYLES, ADD_TOOL_ALPINE } from './tools/add/assets.js';
 
 interface ToolRow {
@@ -39,7 +40,11 @@ export interface ToolsViewInput {
   metrics: Metric[];
   /** Caller passes the pending approvals count; 0 if approvals are not wired. */
   pending_approvals_count?: number;
+  /** Current time in ms; injected so output is deterministic in tests. */
+  now?: number;
 }
+
+const SHOW_DENIES_HREF = '/admin/audit?decision=deny';
 
 function sum(values: number[]): number {
   let total = 0;
@@ -67,7 +72,7 @@ function topDenyRuleLabel(denies: DenyEntry[]): string {
   return `${bestRule} (${bestCount})`;
 }
 
-function renderKpiStrip(view: ToolsViewInput): string {
+function renderKpiStrip(view: ToolsViewInput, now: number): string {
   const totalCalls24h = sum(view.metrics.flatMap((m) => m.buckets_24h ?? []));
   const hasBuckets = view.metrics.some((m) => (m.buckets_24h?.length ?? 0) > 0);
 
@@ -80,21 +85,28 @@ function renderKpiStrip(view: ToolsViewInput): string {
   // Denies: only all-time `deny` counters are available per-tool, so this
   // is intentionally labelled "total denies" to stay honest.
   const totalDenies = sum(view.metrics.map((m) => m.deny));
+  const totalCalls = sum(view.metrics.map((m) => m.total));
+
+  const callsHint = hasBuckets ? 'last 24 hours' : 'cumulative since process start';
+  const blockedHint =
+    totalCalls > 0 ? `${formatDenyRate(totalDenies, totalCalls)} · ${formatDenyBasis(totalDenies, totalCalls)}` : 'No calls yet';
 
   const cells = [
-    kpi('tools', view.policies.length),
-    kpi(callsLabel, callsValue),
-    kpi('total denies', totalDenies),
-    kpi('pending approvals', view.pending_approvals_count ?? 0),
-    kpi('top deny rule', topDenyRuleLabel(view.recent_denies)),
+    kpi(callsLabel, formatNumber(callsValue), callsHint, 'kpi-primary'),
+    kpi('Blocked by policy', formatNumber(totalDenies), blockedHint, 'kpi-primary'),
+    kpi('tools', formatNumber(view.policies.length)),
+    kpi('pending approvals', formatNumber(view.pending_approvals_count ?? 0)),
+    kpi('top deny rule', topDenyRuleLabel(view.recent_denies), 'Most frequent rule in the last 50 denies'),
   ].join('\n');
-  return `<div class="kpi-strip">${cells}</div>`;
+  return `<p class="metrics-scope">CLI calls · cumulative counters since process start · generated ${renderGeneratedAt(now)}.</p>
+<div class="kpi-strip">${cells}</div>
+<p class="metrics-actions"><a href="${SHOW_DENIES_HREF}">Show denies</a> in the audit log</p>`;
 }
 
 function renderToolRow(p: ToolRow, m: Metric | undefined): string {
   const policyPill = p.override ? pill('override', 'override') : pill('file', 'file');
-  const buckets = m?.buckets_24h ?? [];
-  const sparkHtml = spark(buckets, { width: 24 });
+  // Missing bucket data draws no sparkline (not a line of zeros).
+  const sparkHtml = spark(m?.buckets_24h, { width: 24 });
   const total = m?.total ?? 0;
   const allow = m?.allow ?? 0;
   const deny = m?.deny ?? 0;
@@ -105,10 +117,10 @@ function renderToolRow(p: ToolRow, m: Metric | undefined): string {
   return `<tr data-tool="${toolEsc}" x-show="!q || $el.dataset.tool.toLowerCase().includes(q.toLowerCase())">
         <td><a href="/admin/tools/${toolEsc}">${toolEsc}</a></td>
         <td>${policyPill}</td>
-        <td>${sparkHtml}</td>
-        <td>${total}</td>
-        <td style="color:var(--success)">${allow}</td>
-        <td style="color:var(--danger)">${deny}</td>
+        <td class="spark-cell">${sparkHtml}</td>
+        <td class="num">${escapeHtml(formatNumber(total))}</td>
+        <td class="num">${escapeHtml(formatNumber(allow))}</td>
+        <td class="num">${escapeHtml(formatNumber(deny))}</td>
       </tr>`;
 }
 
@@ -126,37 +138,39 @@ function renderToolsCard(view: ToolsViewInput): string {
   <div class="row" style="margin-bottom:var(--gap-sm)">
     <input type="search" placeholder="filter tools..." x-model="q" style="min-width:14rem" />
   </div>
+  <div class="table-scroll">
   <table>
     <thead><tr>
       <th>name</th>
       <th>policy</th>
       <th>24h</th>
-      <th>total</th>
-      <th>allow</th>
-      <th>deny</th>
+      <th class="num">total</th>
+      <th class="num">allow</th>
+      <th class="num">deny</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
+  </div>
 </div>`;
 
   return card({ title: 'tools', body });
 }
 
-function renderDeniesCard(view: ToolsViewInput): string {
+function renderDeniesCard(view: ToolsViewInput, now: number): string {
   const denyRows = view.recent_denies.slice(0, 10).map((d) =>
     `<tr>
-      <td class="muted">${escapeHtml(new Date(d.ts).toISOString())}</td>
+      <td class="nowrap">${renderTime(d.ts, now)}</td>
       <td>${escapeHtml(d.tool)}</td>
-      <td>${pill(d.rule ?? '', 'deny')}</td>
+      <td>${pill(d.rule ?? '')}</td>
     </tr>`,
   ).join('');
 
   const body = view.recent_denies.length === 0
     ? `<p class="muted">no denies yet</p>`
-    : `<table>
-  <thead><tr><th>ts</th><th>tool</th><th>rule</th></tr></thead>
+    : `<div class="table-scroll"><table>
+  <thead><tr><th>when</th><th>tool</th><th>rule</th></tr></thead>
   <tbody>${denyRows}</tbody>
-</table>`;
+</table></div>`;
 
   return card({ title: 'recent denies', body });
 }
@@ -319,11 +333,12 @@ function renderAddToolCard(): string {
 }
 
 export function renderToolsPage(view: ToolsViewInput): string {
+  const now = view.now ?? Date.now();
   return `<style>${ADD_TOOL_STYLES}</style>
 <h1>Tools</h1>
-${renderKpiStrip(view)}
+${renderKpiStrip(view, now)}
 ${renderToolsCard(view)}
 ${renderAddToolCard()}
-${renderDeniesCard(view)}
+${renderDeniesCard(view, now)}
 <script>${ADD_TOOL_ALPINE}</script>`;
 }
