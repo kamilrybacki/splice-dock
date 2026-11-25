@@ -1,5 +1,5 @@
-// Metrics dashboard page — scoped KPI strip, per-tool table, and an HTML bar
-// list of the top deny rules across all tools.
+// Metrics dashboard page — Calls and Denied-by-policy cards with detail dialogs,
+// per-tool table.
 //
 // Returns the inner body for /admin/metrics (between <main>...</main>); the
 // caller is responsible for HEAD, NAV, and FOOT.
@@ -9,11 +9,12 @@
 // HTML-escaped before interpolation. Formatting (numbers, deny rate, relative
 // time) lives in ../format.ts and is deterministic: `now` is injectable.
 
-import { escapeHtml, pill, kpi } from '../components.js';
+import { escapeHtml, pill } from '../components.js';
+import { renderCallsCard, renderCallsDialog, type HourlyHistory } from './metric-dialogs/calls.js';
+import { buildDeniedModel, renderDeniedCard, renderDeniedDialog } from './metric-dialogs/denied.js';
 import {
   classifyMetrics,
   emptyStateText,
-  formatDenyBasis,
   formatDenyRate,
   formatNumber,
   renderGeneratedAt,
@@ -36,10 +37,11 @@ export interface MetricsPageInput {
   metrics: MetricsEntry[] | null | undefined;
   /** Current time in ms; injected so output is deterministic in tests. */
   now?: number;
+  /** Hourly call history with real bounds; omit when unreliable. */
+  hourly?: HourlyHistory | null;
+  /** Unix ms when counters began, only if reliably known. */
+  recordingStartTs?: number;
 }
-
-const TOP_DENY_RULES = 5;
-const SHOW_DENIES_HREF = '/admin/audit?decision=deny';
 
 interface RuleCount {
   name: string;
@@ -61,42 +63,42 @@ function topRuleFor(rule_denies: Record<string, number>): RuleCount | null {
   return best;
 }
 
-function aggregateRuleDenies(metrics: MetricsEntry[]): RuleCount[] {
-  const agg = new Map<string, number>();
+function aggregateRuleDenies(metrics: MetricsEntry[]): Record<string, number> {
+  const agg: Record<string, number> = {};
   for (const m of metrics) {
     for (const [rule, count] of Object.entries(m.rule_denies)) {
-      if (count <= 0) continue;
-      agg.set(rule, (agg.get(rule) ?? 0) + count);
+      if (count > 0) agg[rule] = (agg[rule] ?? 0) + count;
     }
   }
-  return [...agg.entries()]
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count);
+  return agg;
 }
 
 function renderScope(now: number, allow: number, available: boolean): string {
   const allowed = available
     ? ` Allowed by policy: <strong class="nowrap">${escapeHtml(formatNumber(allow))}</strong>.`
     : '';
-  return `<p class="metrics-scope">CLI calls · cumulative counters since process start · generated ${renderGeneratedAt(now)}.${allowed}</p>`;
+  return `<p class="metrics-scope">CLI calls · cumulative counters · snapshot ${renderGeneratedAt(now)}.${allowed}</p>`;
 }
 
-function renderKpis(metrics: MetricsEntry[] | null | undefined): string {
-  const state = classifyMetrics(metrics);
-  const list = metrics ?? [];
+function renderCards(view: MetricsPageInput, now: number): string {
+  const list = view.metrics ?? [];
+  const available = classifyMetrics(view.metrics) !== 'unavailable';
   const totalCalls = sum(list.map((m) => m.total));
-  const totalDeny = sum(list.map((m) => m.deny));
-  const callsValue = state === 'unavailable' ? '—' : formatNumber(totalCalls);
-  const blockedValue = state === 'unavailable' ? '—' : formatNumber(totalDeny);
-  const blockedHint =
-    state === 'ok'
-      ? `${formatDenyRate(totalDeny, totalCalls)} · ${formatDenyBasis(totalDeny, totalCalls)}`
-      : emptyStateText(state, totalCalls);
-  const callsHint = state === 'unavailable' ? emptyStateText(state, totalCalls) : '';
-  return `<div class="kpi-strip">
-${kpi('Total calls', callsValue, callsHint, 'kpi-primary')}
-${kpi('Blocked by policy', blockedValue, blockedHint, 'kpi-primary')}
-</div>`;
+  const denied = {
+    totalCalls,
+    deny: sum(list.map((m) => m.deny)),
+    ruleDenies: aggregateRuleDenies(list),
+    recordingStartTs: view.recordingStartTs,
+    now,
+  };
+  const model = buildDeniedModel(denied);
+  const calls = { totalCalls, hourly: view.hourly, now };
+  const dialogs = available ? `${renderCallsDialog(calls)}\n${renderDeniedDialog(model, denied)}` : '';
+  return `<div class="metric-cards">
+${renderCallsCard(totalCalls, available)}
+${renderDeniedCard(model, available)}
+</div>
+${dialogs}`;
 }
 
 function renderRow(m: MetricsEntry, now: number): string {
@@ -144,43 +146,6 @@ function renderTable(metrics: MetricsEntry[] | null | undefined, now: number): s
 </div>`;
 }
 
-function renderRuleItem(rule: RuleCount, max: number): string {
-  const pct = max > 0 ? Math.max(2, Math.round((rule.count / max) * 100)) : 0;
-  return `<li>
-<div class="rule-head"><span class="rule-name">${escapeHtml(rule.name)}</span><span class="rule-count">${escapeHtml(formatNumber(rule.count))}</span></div>
-<span class="rule-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>
-</li>`;
-}
-
-function renderTopDenyRules(metrics: MetricsEntry[] | null | undefined): string {
-  const state = classifyMetrics(metrics);
-  const list = metrics ?? [];
-  if (state !== 'ok') {
-    return `<p class="empty-state">${escapeHtml(emptyStateText(state, sum(list.map((m) => m.total))))}</p>`;
-  }
-  const aggregated = aggregateRuleDenies(list);
-  if (aggregated.length === 0) {
-    return `<p class="empty-state">No deny rules recorded</p>`;
-  }
-  const max = aggregated[0]?.count ?? 0;
-  const top = aggregated.slice(0, TOP_DENY_RULES);
-  const rest = aggregated.slice(TOP_DENY_RULES);
-  const topList = `<ul class="rule-bars">${top.map((r) => renderRuleItem(r, max)).join('\n')}</ul>`;
-  const other =
-    rest.length > 0
-      ? `\n<details class="metrics-details"><summary>Other (${escapeHtml(formatNumber(rest.length))})</summary>
-<ul class="rule-bars">${rest.map((r) => renderRuleItem(r, max)).join('\n')}</ul>
-</details>`
-      : '';
-  return `${topList}${other}
-<p class="rule-bars-note">Bar width is relative to the most frequent rule.</p>`;
-}
-
-function renderActions(metrics: MetricsEntry[] | null | undefined): string {
-  if (classifyMetrics(metrics) !== 'ok') return '';
-  return `<p class="metrics-actions"><a href="${SHOW_DENIES_HREF}">Show denies</a> in the audit log</p>`;
-}
-
 function renderExportDetails(): string {
   return `<details class="metrics-details">
 <summary>Export &amp; scraping</summary>
@@ -196,15 +161,10 @@ export function renderMetricsPage(view: MetricsPageInput): string {
   return `<h2>usage metrics</h2>
 ${renderScope(now, allow, available)}
 
-${renderKpis(metrics)}
-
-${renderActions(metrics)}
+${renderCards(view, now)}
 
 <h3>per tool</h3>
 ${renderTable(metrics, now)}
-
-<h3>top deny rules</h3>
-${renderTopDenyRules(metrics)}
 
 ${renderExportDetails()}`;
 }
