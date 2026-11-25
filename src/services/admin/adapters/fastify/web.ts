@@ -17,7 +17,7 @@ import { renderPage } from './web/layout.js';
 import { renderLoginPage } from './web/pages/login.js';
 import { renderToolsPage } from './web/pages/tools.js';
 import { renderToolDetail } from './web/pages/tools/detail/index.js';
-import { renderAuditPage } from './web/pages/audit.js';
+import { renderAuditPage, parseDecisionFilter } from './web/pages/audit.js';
 import { renderApprovalsPage, renderApprovalDetail } from './web/pages/approvals.js';
 import { renderMetricsPage } from './web/pages/metrics.js';
 import { renderSwipePage } from './web/pages/swipe.js';
@@ -92,11 +92,11 @@ export function registerWebUiRoutes(app: FastifyInstance, opts: WebUiOptions): v
     reply.type('text/html').send(renderPage({ title: d.view.tool as string, navKey: 'tools', body: renderToolDetail({ tool: req.params.name, view: d.view, profiles: d.profiles, profile: d.profile, profile_override: d.profile_override, metric: d.metric, recent: d.recent }) }));
   });
 
-  app.get('/admin/audit', async (req, reply) => {
+  app.get<{ Querystring: { decision?: string } }>('/admin/audit', async (req, reply) => {
     if (!requireSession(req, reply, authCtx)) return;
     const entries = await opts.auditList(200);
     const tools = Array.from(new Set(entries.map((e) => e.tool)));
-    reply.type('text/html').send(renderPage({ title: 'Audit', navKey: 'audit', body: renderAuditPage({ entries, tools }) }));
+    reply.type('text/html').send(renderPage({ title: 'Audit', navKey: 'audit', body: renderAuditPage({ entries, tools, initialDecision: parseDecisionFilter(req.query.decision) }) }));
   });
 
   app.get<{ Querystring: { status?: string } }>('/admin/approvals', async (req, reply) => {

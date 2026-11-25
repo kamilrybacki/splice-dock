@@ -20,6 +20,14 @@ import type { AuditEntry } from '../../../../../audit/base.js';
 export interface AuditPageInput {
   entries: AuditEntry[];
   tools: string[];
+  /** Pre-selected decision filter (from ?decision=); validated by the caller. */
+  initialDecision?: AuditDecisionFilter;
+}
+
+export type AuditDecisionFilter = 'allow' | 'deny' | 'approval';
+
+export function parseDecisionFilter(raw: unknown): AuditDecisionFilter | undefined {
+  return raw === 'allow' || raw === 'deny' || raw === 'approval' ? raw : undefined;
 }
 
 const STYLES = `
@@ -39,7 +47,12 @@ const STYLES = `
   border-radius: var(--radius);
   font: inherit;
 }
+.audit-filter-bar > * { min-width: 0; max-width: 100%; }
 .audit-filter-bar input { min-width: 14rem; }
+@media (max-width: 600px) {
+  .audit-filter-bar select:first-child { flex: 1 1 100%; }
+  .audit-filter-bar input { min-width: 0; flex: 1 1 100%; }
+}
 .audit-live-badge {
   margin-left: auto;
   color: var(--success);
@@ -206,10 +219,10 @@ const LIVE_SCRIPT = `
     }
   }
 
-  window.auditPage = function auditPage(initialOldestTs) {
+  window.auditPage = function auditPage(initialOldestTs, initialDecision) {
     return {
       expanded: null,
-      filterTool: '', filterDecision: '', filterRule: '',
+      filterTool: '', filterDecision: initialDecision || '', filterRule: '',
       liveCount: 0, liveOn: false,
       oldestTs: initialOldestTs,
       nextIdx: 0,
@@ -298,7 +311,7 @@ export function renderAuditPage(view: AuditPageInput): string {
 <h2>audit feed</h2>
 <p class="muted">last ${view.entries.length} entries · live updates via SSE · raw: <code>/api/v1/audit/stream</code></p>
 
-<div x-data="auditPage(${oldestTs})" x-init="init()">
+<div x-data="auditPage(${oldestTs}, '${view.initialDecision ?? ''}')" x-init="init()">
   <div class="audit-filter-bar">
     <select x-model="filterTool" aria-label="filter by tool">
       <option value="">all tools</option>
