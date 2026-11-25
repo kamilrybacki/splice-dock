@@ -84,7 +84,13 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
-- Deleting a profile now clears its in-process credential cache, mint records and mint backoff on every replica, not only the one that served the delete. Provider revocation and the shared-store purge still run once, on the serving replica.
+- Deleting a profile now clears its in-process credential cache, mint records and
+  mint backoff on every replica, not only the one that served the delete. A
+  replica that missed the notification catches up on the periodic reconcile or
+  resync. Each replica also revokes at the provider the credentials it minted
+  itself, while the shared-store purge still runs once, on the serving replica.
+  A credential minted while its profile is being deleted is discarded and
+  revoked rather than cached or stored, and its caller gets `credential_unavailable`.
 - Tool and upstream definitions added through the admin API, and stored runtime rows reloaded at startup, now reject a tool-level `mint:` exactly as the config loader does.
 - A `cli_passthrough` tool no longer returns the credentials it injected.
   Before stdout, stderr or an error message is returned, every literal

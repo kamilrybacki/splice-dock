@@ -10,7 +10,7 @@ export function unusedBroker(): CredentialBroker {
       throw new Error(`unexpected credential resolve for "${providerName}"`);
     },
     async revokeProfile(): Promise<void> {},
-    forgetProfile(): void {},
+    async forgetProfile(): Promise<void> {},
   };
 }
 

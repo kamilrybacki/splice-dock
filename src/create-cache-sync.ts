@@ -47,8 +47,10 @@ export async function createCacheSync(deps: CacheSyncDeps): Promise<{ invalidati
     invalidatePolicy: tool => invalidatePolicyForTool(tool ?? '*'),
     fingerprint: () => store.runtimeFingerprint(),
     hasProfile: name => deps.profileRegistry.getProfile(name) !== undefined,
-    // Local only: the replica that served the delete already revoked at the provider
-    // and purged the shared store.
+    listProfiles: () => deps.profileRegistry.getAllProfiles().map(p => p.name),
+    // This replica's own state only (cache, mint records, and a provider revoke of
+    // what it minted itself): the replica that served the delete purged the shared
+    // store, so this never calls deletePrefix.
     forgetProfile: name => deps.credentials.forgetProfile(name),
     log: logger,
   });
