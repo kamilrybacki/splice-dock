@@ -10,6 +10,7 @@ import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js
 import type { McpProxyToolConfig } from '../../../../config/types.js';
 import type { McpToolDef } from '../../../tools/registry.js';
 import { retry } from '../../../../common/retry.js';
+import { currentCaller } from '../../../../common/request/context.js';
 import { PACKAGE_VERSION } from '../../../../version.js';
 import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
@@ -18,6 +19,10 @@ export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js
 export interface DriverIdentity {
   profile: string;
   agent: string | null;
+  /** Caller presented a valid profile-token bearer; minting requires it. */
+  authenticated: boolean;
+  /** Non-secret token id, audit only. */
+  tokenId: string | null;
 }
 
 /**
@@ -38,7 +43,7 @@ export async function buildAuthHeaders(
   // `auth` is undefined only for configs built outside zod (defaults apply the
   // literal { type: 'none' } in production); treat both as "no auth".
   if (!auth || auth.type === 'none') return {};
-  const target = { profile: identity.profile, agent: identity.agent, backend };
+  const target = { profile: identity.profile, agent: identity.agent, backend, authenticated: identity.authenticated, tokenId: identity.tokenId };
   if (auth.type === 'bearer') {
     return { Authorization: `Bearer ${await resolveCredentialSource(auth.token, target)}` };
   }
@@ -102,8 +107,20 @@ export class McpProxyDriver {
   constructor(
     private readonly config: McpProxyToolConfig,
     private readonly pinnedPodIp?: string,
-    private readonly identity: DriverIdentity = { profile: '', agent: null },
+    private readonly identity: DriverIdentity = { profile: '', agent: null, authenticated: false, tokenId: null },
   ) {}
+
+  /**
+   * Identity for credential minting. A driver is shared across sessions, so the
+   * token it was built with may not be the current caller's: when a request
+   * context exists its token is used, otherwise (background reconnect) the
+   * identity captured at construction. Profile and agent stay as constructed.
+   */
+  private mintIdentity(): DriverIdentity {
+    const caller = currentCaller();
+    if (!caller) return this.identity;
+    return { ...this.identity, authenticated: caller.authenticated === true, tokenId: caller.tokenId };
+  }
 
   async connect(): Promise<void> {
     const host = this.pinnedPodIp ?? this.config.service_dns;
@@ -113,7 +130,7 @@ export class McpProxyDriver {
     // from the initialize request, so the session is bound to one credential
     // value. Remember which one, to notice a rotation (see callTool).
     if (usesMintedCredential(this.config.auth)) {
-      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.identity, this.config.name));
+      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
     } else {
       this.authFingerprint = null;
     }
@@ -130,7 +147,7 @@ export class McpProxyDriver {
         reviewed.sent = true;
       }
       const headers = new Headers(init?.headers);
-      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.identity, this.config.name))) headers.set(name, value);
+      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name))) headers.set(name, value);
       return fetch(input, { ...init, headers, ...(reviewed ? { redirect: 'error' as const } : {}) });
     };
 
@@ -188,7 +205,19 @@ export class McpProxyDriver {
   /** Returns the cached tool definitions. Useful for refresh-service callers that connect, list, then disconnect. */
   async listTools(): Promise<McpToolDef[]> { return this.toolDefs; }
 
+  /**
+   * A driver is shared across sessions, so the identity it was built with does
+   * not describe the caller of this request. Minted upstream auth is only used
+   * on behalf of a caller authenticated by a profile-token bearer.
+   */
+  private assertCallerMayUseMintedAuth(): void {
+    if (usesMintedCredential(this.config.auth) && currentCaller()?.authenticated !== true) {
+      throw new Error('credential_identity_unauthenticated');
+    }
+  }
+
   async callReviewedTool(namespacedName: string, args: Record<string, unknown>, exchange: OperationExchange, signal: AbortSignal): Promise<ToolResult> {
+    this.assertCallerMayUseMintedAuth();
     const name = namespacedName.replace(`${this.config.name}__`, '');
     const client = this.client;
     if (this.config.transport === 'sse' || !client || !this.knownTools.has(name)) {
@@ -210,6 +239,7 @@ export class McpProxyDriver {
   }
 
   async callTool(namespacedName: string, args: Record<string, unknown>): Promise<McpCallResult> {
+    this.assertCallerMayUseMintedAuth();
     const originalName = namespacedName.replace(`${this.config.name}__`, '');
     if (!this.knownTools.has(originalName)) {
       return { content: [{ type: 'text', text: `Tool '${originalName}' not found on upstream '${this.config.name}'` }], isError: true };
@@ -262,7 +292,7 @@ export class McpProxyDriver {
 
   private async mintedCredentialRotated(): Promise<boolean> {
     if (usesMintedCredential(this.config.auth) === false || this.authFingerprint === null) return false;
-    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.identity, this.config.name));
+    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
     return current !== this.authFingerprint;
   }
 

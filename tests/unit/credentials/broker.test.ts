@@ -1,7 +1,7 @@
 import { resolveCredentialSource } from '../../../src/services/secrets/adapters/resolution.js';
 import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -11,6 +11,7 @@ import {
   resolveMintedCredential,
   revokeProfileCredentials,
 } from '../../../src/services/secrets/broker.js';
+import { logger } from '../../../src/common/logger.js';
 import type { CredentialProviderConfig } from '../../../src/config/types.js';
 
 let dir: string;
@@ -39,7 +40,7 @@ function configure(providers: Record<string, CredentialProviderConfig> = { test:
   configureCredentialBroker({ providers, storage: { type: 'memory', prefix: '' } }, credentialAdapters);
 }
 
-const target = { profile: 'worker', agent: null, backend: 'vault' };
+const target = { profile: 'worker', agent: null, backend: 'vault', authenticated: true, tokenId: 'tid-1' };
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'splicedock-mint-'));
@@ -111,6 +112,39 @@ describe('credential broker', () => {
   it('refuses to mint without a profile identity', async () => {
     configure();
     await expect(resolveMintedCredential('test', { ...target, profile: '' })).rejects.toThrow('credential_identity_missing');
+  });
+
+  it('rejects an unauthenticated target without calling the provider on a cold cache', async () => {
+    configure();
+    await expect(resolveMintedCredential('test', { ...target, authenticated: false, tokenId: 'legacy-query' }))
+      .rejects.toThrow('credential_identity_unauthenticated');
+    expect(readFileSync(counter, 'utf8').trim()).toBe('0');
+  });
+
+  it('rejects an unauthenticated target even when the cache is warm', async () => {
+    configure();
+    expect(await resolveMintedCredential('test', target)).toBe('tok-1');
+    await expect(resolveMintedCredential('test', { ...target, authenticated: false }))
+      .rejects.toThrow('credential_identity_unauthenticated');
+    expect(readFileSync(counter, 'utf8').trim()).toBe('1');
+  });
+
+  it('refuses an unauthenticated request that arrives while an authenticated mint is in flight', async () => {
+    configure();
+    const authenticated = resolveMintedCredential('test', target);
+    const anonymous = resolveMintedCredential('test', { ...target, authenticated: false, tokenId: 'legacy-query' });
+    await expect(anonymous).rejects.toThrow('credential_identity_unauthenticated');
+    expect(await authenticated).toBe('tok-1');
+    expect(readFileSync(counter, 'utf8').trim()).toBe('1');
+  });
+
+  it('includes the token id in the credential minted log, never the value', async () => {
+    configure();
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined);
+    await resolveMintedCredential('test', target);
+    const call = info.mock.calls.find(c => c[0] === 'credential minted');
+    expect(call?.[1]).toMatchObject({ token_id: 'tid-1' });
+    expect(JSON.stringify(call)).not.toContain('tok-1');
   });
 
   it('resolves static and minted sources through one entry point', async () => {

@@ -13,7 +13,7 @@ vi.mock('../../../src/services/secrets/adapters/resolution.js', () => ({
 
 const { buildAuthHeaders } = await import('../../../src/services/upstreams/adapters/mcp/driver.js');
 
-const identity = { profile: 'worker', agent: 'bot' };
+const identity = { profile: 'worker', agent: 'bot', authenticated: true, tokenId: 'tid-1' };
 
 describe('buildAuthHeaders', () => {
   beforeEach(() => {
