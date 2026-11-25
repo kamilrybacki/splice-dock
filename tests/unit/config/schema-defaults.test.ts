@@ -8,8 +8,25 @@ describe('splicedockConfigSchema nested defaults', () => {
 
   it('fills server defaults from an empty config', () => {
     expect(cfg.server.port).toBe(8788);
-    expect(cfg.server.require_profile_token).toBe(false);
+    expect(cfg.server.require_profile_token).toBe(true);
     expect(cfg.server.admin_tokens).toEqual([]);
+  });
+
+  it('keeps binding to all interfaces unless a host is configured', () => {
+    expect(cfg.server.host).toBeUndefined();
+    expect(cfg.server.admin_host).toBe('0.0.0.0');
+  });
+
+  it('accepts explicit bind hosts and rejects empty ones', () => {
+    const c = splicedockConfigSchema.parse({ server: { host: '127.0.0.1', admin_host: '127.0.0.1' } });
+    expect(c.server.host).toBe('127.0.0.1');
+    expect(c.server.admin_host).toBe('127.0.0.1');
+    expect(() => splicedockConfigSchema.parse({ server: { admin_host: '' } })).toThrow();
+    expect(() => splicedockConfigSchema.parse({ server: { host: '' } })).toThrow();
+  });
+
+  it('lets a config opt out of profile tokens explicitly', () => {
+    expect(splicedockConfigSchema.parse({ server: { require_profile_token: false } }).server.require_profile_token).toBe(false);
   });
 
   it('fills deeply nested object defaults', () => {

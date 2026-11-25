@@ -255,7 +255,8 @@ export interface McpExpressAppOptions {
   lookupProfileByToken?: ProfileTokenLookup;
   /**
    * When true, a valid profile-token bearer is mandatory: no/invalid bearer → 401
-   * and ?profile= is ignored entirely. Default false (legacy ?profile= allowed).
+   * and ?profile= is ignored entirely. Default true; false is the explicit
+   * opt-out that allows the legacy ?profile= path.
    */
   requireProfileToken?: boolean;
   /**
@@ -266,6 +267,15 @@ export interface McpExpressAppOptions {
   profileAuth?: (profile: string, backend: string) => McpProxyToolConfig['auth'] | undefined;
 }
 
+/**
+ * `Deprecation` header value (RFC 9745) for the ?profile= path: the date from
+ * which the unauthenticated query selection counts as deprecated. It is a past
+ * date on purpose. The path is off by default (`require_profile_token: true`)
+ * and only reachable through the explicit `require_profile_token: false`
+ * opt-out; there is no `Sunset` date because the opt-out stays.
+ */
+const QUERY_SELECTION_DEPRECATED_AT = '@' + Date.UTC(2026, 10, 18) / 1000;
+
 export function createMcpExpressApp(
   profileService: ProfileAccess,
   toolRegistry: ToolRegistry,
@@ -273,9 +283,9 @@ export function createMcpExpressApp(
   cliWhitelist: string[],
   options: McpExpressAppOptions = {},
 ): express.Application {
-  const { proxyConfigs, resolver, lookupProfileByToken, requireProfileToken = false, profileAuth } = options;
+  const { proxyConfigs, resolver, lookupProfileByToken, requireProfileToken = true, profileAuth } = options;
   const warnQueryFallback = createQueryFallbackWarner(profile =>
-    logger.warn('profile selected via ?profile= query; use a profile token', { profile }),
+    logger.warn('profile selected via ?profile= query (server.require_profile_token is false); use a profile token', { profile }),
   );
   const app = express();
   app.disable('x-powered-by');
@@ -317,7 +327,7 @@ export function createMcpExpressApp(
     const profile = /^[a-zA-Z0-9_-]{1,64}$/.test(rawProfile) ? rawProfile : 'default';
     if (source === 'query') {
       warnQueryFallback(profile);
-      res.setHeader('Deprecation', '@' + Date.UTC(2026, 10, 18) / 1000);
+      res.setHeader('Deprecation', QUERY_SELECTION_DEPRECATED_AT);
       res.append('Link', '<https://kamilrybacki.github.io/splice-dock/connect.html#selection>; rel="deprecation"');
     }
 

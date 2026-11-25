@@ -28,6 +28,7 @@ import { createAdminServer } from './services/admin/adapters/fastify/server.js';
 import { createConfigReloader } from './services/admin/config-reload.js';
 import { setApprovalWaitHandler } from './services/mcp/adapters/express/server.js';
 import { createApprovals } from './create-approvals.js';
+import { adminListenOptions, mcpListenOptions, warnIfProfileTokenOptional } from './bind-config.js';
 import { createCacheSync } from './create-cache-sync.js';
 import { createToolHooks } from './create-hooks.js';
 import { createMcpServer } from './create-mcp.js';
@@ -168,8 +169,9 @@ async function startAdminServer(config: Config, reg: Registries, db: Persistence
       pushStore: svc.pushStore, pushNotifier: svc.pushNotifier, invalidation: db.invalidationBus,
     },
   );
-  await adminServer.listen({ port: config.server.admin_port, host: '0.0.0.0' });
-  logger.info('Admin API listening', { port: config.server.admin_port });
+  const listen = adminListenOptions(config.server);
+  await adminServer.listen(listen);
+  logger.info('Admin API listening', { host: listen.host, port: listen.port });
   return adminServer;
 }
 
@@ -186,6 +188,7 @@ function installShutdown(env: NodeJS.ProcessEnv, db: Persistence, svc: PolicySer
 async function main(): Promise<void> {
   const env = process.env;
   const config = loadRuntimeConfig();
+  warnIfProfileTokenOptional(config.server);
   const reg = await buildRegistries(config);
   const up = await discoverUpstreams(config, reg);
   const db = await openPersistence(config, env, reg, up);
@@ -193,8 +196,9 @@ async function main(): Promise<void> {
   const adminServer = await startAdminServer(config, reg, db, svc);
   installShutdown(env, db, svc, adminServer);
   // Accept MCP calls only after the catalog and the policy and approval hooks are ready.
-  db.mcpServer.listen(config.server.port, () => {
-    logger.info('MCP server listening', { port: config.server.port });
+  const listen = mcpListenOptions(config.server);
+  db.mcpServer.listen(listen, () => {
+    logger.info('MCP server listening', { host: listen.host, port: listen.port });
   });
 }
 

@@ -1,11 +1,18 @@
 server:
   port: 8788
+  # Interface the MCP endpoint binds to. Unset listens on every interface.
+  # host: 0.0.0.0
   admin_port: 8789
+  # Interface the admin API and /metrics bind to. Defaults to 0.0.0.0 (all
+  # interfaces), which a container needs. Outside a container set 127.0.0.1
+  # unless a reverse proxy on another host must reach it.
+  # admin_host: 127.0.0.1
   admin_token_env: SPLICEDOCK_ADMIN_TOKEN
   # Env var holding a bearer token that Prometheus must send to scrape /metrics.
   # If the env var is unset or empty, /metrics stays unauthenticated.
   metrics_token_env: SPLICEDOCK_METRICS_TOKEN
-  # Require a profile bearer token for MCP connections.
+  # Require a profile bearer token for MCP connections (default true). Set false
+  # only to allow the unauthenticated ?profile= selection on a trusted network.
   require_profile_token: true
   # Optional named admin tokens. The matched name is recorded as the approver
   # identity on approvals. Each entry sets exactly one of token_env/token_file.

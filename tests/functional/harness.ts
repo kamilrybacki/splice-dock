@@ -40,7 +40,10 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   const toolService = new ToolService(toolRegistry);
   const profileService = new ProfileService(profileRegistry, toolRegistry);
 
-  const mcpApp = createMcpExpressApp(profileService, toolRegistry, proxyDrivers, config.server.cli_whitelist);
+  const mcpApp = createMcpExpressApp(profileService, toolRegistry, proxyDrivers, config.server.cli_whitelist, {
+    // These flows select a profile with ?profile= and carry no bearer, so they opt out explicitly.
+    requireProfileToken: false,
+  });
   const mcpServer = createServer(mcpApp);
   await new Promise<void>(resolve => mcpServer.listen(0, '127.0.0.1', resolve));
   const mcpPort = (mcpServer.address() as { port: number }).port;

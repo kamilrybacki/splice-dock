@@ -144,7 +144,7 @@ export function makePages(config, quickstart) {
         '  -d \'{"profile":"demo","agent":"my-agent","expires_in_seconds":3600}\'',
       ].join('\n')) + paragraph('HTTP 201 returns <code>data.token</code> and <code>data.id</code>. Save the raw token in your client’s secret store when it is issued.')],
       ['client', 'Configure the client', terminal('Connection settings', 'transport: Streamable HTTP\nurl: http://127.0.0.1:8788/mcp\nheader: Authorization: Bearer <PROFILE_TOKEN>') + paragraph('The exact configuration field names depend on your client. Reconnect after changing them.')],
-      ['selection', 'How the profile is selected', paragraph('The bearer token selects its bound profile. Connect to <code>/mcp</code> with <code>Authorization: Bearer &lt;PROFILE_TOKEN&gt;</code>. With <code>server.require_profile_token: true</code>, a missing, unknown, expired, or revoked token returns HTTP 401.')],
+      ['selection', 'How the profile is selected', paragraph('The bearer token selects its bound profile. Connect to <code>/mcp</code> with <code>Authorization: Bearer &lt;PROFILE_TOKEN&gt;</code>. <code>server.require_profile_token</code> defaults to <code>true</code>, so a missing, unknown, expired, or revoked token returns HTTP 401 and the <code>?profile=</code> query is ignored. Set it to <code>false</code> only to opt back in to unauthenticated <code>?profile=</code> selection on a trusted network.')],
       ['rotate', 'Rotate or revoke a token', table(['Action', 'Endpoint'], [
         ['List tokens', '<code>GET /api/v1/profile-tokens</code>'],
         ['Rotate', '<code>POST /api/v1/profile-tokens/:id/rotate</code>'],
