@@ -4,7 +4,7 @@ import type { PolicyDecisionEvent, ToolHooks } from '../../hooks.js';
 import { extractSubcommandPaths, flagTableFor } from '../../../policy/cli/flags/arity.js';
 import { NO_CLI_PROFILES, type CliProfile } from '../../../policy/cli/profiles/index.js';
 import { requireSecret } from '../../../secrets/adapters/vault/guard.js';
-import { resolveMintedCredential } from '../../../secrets/broker.js';
+import type { CredentialBroker } from '../../../secrets/base.js';
 import { createIsolatedHome, toolEnvPins, type IsolatedHome } from './isolation.js';
 import { KUBECONFIG_RELATIVE_MESSAGE, KUBECONFIG_VAR, kubeconfigIsRelative } from '../../../policy/cli/kubeconfig/path.js';
 import { spawn } from 'node:child_process';
@@ -151,6 +151,7 @@ export async function callReviewedCliPassthrough(
   kind: CliPassthroughKind,
   args: Record<string, unknown>,
   whitelist: string[],
+  broker: CredentialBroker,
   exchange: OperationExchange,
   signal: AbortSignal,
 ): Promise<ToolResult> {
@@ -174,7 +175,7 @@ export async function callReviewedCliPassthrough(
   }
   const cwd = kind === 'run' ? resolveRunCwd(args.cwd) : process.cwd();
   return exchange({ driver: 'cli_passthrough', command: config.command, argv, cwd, approvalContext }, async () =>
-    await callCliPassthrough(config, kind, args, whitelist, { argv, cwd, signal }) as ToolResult);
+    await callCliPassthrough(config, kind, args, whitelist, broker, { argv, cwd, signal }) as ToolResult);
 }
 
 export async function callCliPassthrough(
@@ -182,6 +183,7 @@ export async function callCliPassthrough(
   kind: CliPassthroughKind,
   args: Record<string, unknown>,
   whitelist: string[],
+  broker: CredentialBroker,
   reviewed?: { argv: readonly string[]; cwd: string; signal: AbortSignal },
 ): Promise<McpCallResult> {
   reviewed?.signal.throwIfAborted();
@@ -333,7 +335,7 @@ export async function callCliPassthrough(
       delete env[ref.name];
       env[ref.name] = 'from' in ref
         ? await requireSecret(ref.from)
-        : await resolveMintedCredential(ref.mint, {
+        : await broker.resolve(ref.mint, {
             profile: caller?.profile ?? '',
             agent: caller?.agent ?? null,
             backend: config.name,

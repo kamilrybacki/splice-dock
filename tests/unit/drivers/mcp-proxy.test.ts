@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 // Mock the MCP SDK before importing the driver
 const mockConnect = vi.fn().mockResolvedValue(undefined);
@@ -57,7 +58,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('connects and discovers tools with namespace prefix', async () => {
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
 
     expect(mockConnect).toHaveBeenCalledTimes(1);
@@ -71,7 +72,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('connects via Streamable HTTP to pinned pod IP', async () => {
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
     expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
       new URL('http://10.0.0.5:8000/mcp'), expect.objectContaining({ fetch: expect.any(Function) })
@@ -80,7 +81,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('uses correct port from config', async () => {
-    const driver = new McpProxyDriver(makeConfig({ port: 9090 }), '10.0.0.7');
+    const driver = new McpProxyDriver(makeConfig({ port: 9090 }), unusedBroker(), '10.0.0.7');
     await driver.connect();
     expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
       new URL('http://10.0.0.7:9090/mcp'), expect.objectContaining({ fetch: expect.any(Function) })
@@ -91,7 +92,7 @@ describe('McpProxyDriver', () => {
     mockCallTool.mockResolvedValue({
       content: [{ type: 'text', text: 'item-data' }],
     });
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
 
     const result = await driver.callTool('upstream-server__get_item', { id: '42' });
@@ -104,7 +105,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('returns isError for unknown tool', async () => {
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
 
     const result = await driver.callTool('upstream-server__nonexistent_tool', {});
@@ -113,7 +114,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('disconnect calls close on the client and clears state', async () => {
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
     await driver.disconnect();
 
@@ -122,7 +123,7 @@ describe('McpProxyDriver', () => {
   });
 
   it('returns isError when not connected (after disconnect)', async () => {
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
     await driver.disconnect();
 
@@ -137,7 +138,7 @@ describe('McpProxyDriver', () => {
 
     const driver = new McpProxyDriver(makeConfig({
       retry: { max_attempts: 2, backoff_ms: 10 },
-    }), '10.0.0.5');
+    }), unusedBroker(), '10.0.0.5');
     await driver.connect();
 
     const result = await driver.callTool('upstream-server__get_item', { id: '1' });
@@ -154,7 +155,7 @@ describe('McpProxyDriver', () => {
       .mockRejectedValueOnce(new Error('Streamable HTTP error: Error POSTing to endpoint: {"error":{"code":"session_not_found"}}'))
       .mockResolvedValue({ content: [{ type: 'text', text: 'recovered' }] });
 
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.5');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.5');
     await driver.connect();
     expect(mockConnect).toHaveBeenCalledTimes(1);
 
@@ -168,14 +169,14 @@ describe('McpProxyDriver', () => {
 
   it('closes transport on connect failure', async () => {
     mockConnect.mockRejectedValueOnce(new Error('connection refused'));
-    const driver = new McpProxyDriver(makeConfig(), '10.0.0.1');
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker(), '10.0.0.1');
     await expect(driver.connect()).rejects.toThrow('connection refused');
     expect(mockTransportClose).toHaveBeenCalledTimes(1);
   });
 
   it('works with optional pinnedPodIp using service_dns fallback', async () => {
     // When no pinnedPodIp is provided, driver uses service_dns directly
-    const driver = new McpProxyDriver(makeConfig());
+    const driver = new McpProxyDriver(makeConfig(), unusedBroker());
     await driver.connect();
     expect(MockStreamableHTTPClientTransport).toHaveBeenCalledWith(
       new URL('http://upstream-server-headless.default.svc.cluster.local:8000/mcp'), expect.objectContaining({ fetch: expect.any(Function) })
@@ -184,7 +185,7 @@ describe('McpProxyDriver', () => {
 
   it('adds namespace description hint when description is set', async () => {
     const driver = new McpProxyDriver(
-      makeConfig({ description: 'My upstream' }),
+      makeConfig({ description: 'My upstream' }), unusedBroker(),
       '10.0.0.5'
     );
     await driver.connect();

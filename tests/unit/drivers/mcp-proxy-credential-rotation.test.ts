@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 import { runWithCaller } from '../../../src/common/request/context.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 const state = vi.hoisted(() => ({ token: 'tok-1', connects: 0, calls: 0 }));
 
@@ -55,7 +56,7 @@ describe('McpProxyDriver — minted credential rotation', () => {
   });
 
   it('re-opens the session when the minted credential changes', async () => {
-    const driver = new McpProxyDriver(makeConfig({ type: 'bearer', token: { mint: 'vault_token' } }), undefined, identity);
+    const driver = new McpProxyDriver(makeConfig({ type: 'bearer', token: { mint: 'vault_token' } }), unusedBroker(), undefined, identity);
     await driver.connect();
     expect(state.connects).toBe(1);
 
@@ -69,7 +70,7 @@ describe('McpProxyDriver — minted credential rotation', () => {
   });
 
   it('never re-opens the session for a static credential', async () => {
-    const driver = new McpProxyDriver(makeConfig({ type: 'bearer', token: { from: 'env:VAULT_TOKEN' } }), undefined, identity);
+    const driver = new McpProxyDriver(makeConfig({ type: 'bearer', token: { from: 'env:VAULT_TOKEN' } }), unusedBroker(), undefined, identity);
     await driver.connect();
     state.token = 'tok-2';
     await runWithCaller(caller, () => driver.callTool('vault__read_secret', {}));

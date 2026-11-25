@@ -7,6 +7,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { createHash } from 'node:crypto';
 import { resolveAuthValue } from '../../../secrets/adapters/vault/resolver.js';
 import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js';
+import type { CredentialBroker } from '../../../secrets/base.js';
+import { agentKeyTag } from '../../../secrets/keys.js';
 import type { McpProxyToolConfig } from '../../../../config/types.js';
 import type { McpToolDef } from '../../../tools/registry.js';
 import { retry } from '../../../../common/retry.js';
@@ -39,13 +41,14 @@ export async function buildAuthHeaders(
   auth: McpProxyToolConfig['auth'] | undefined,
   identity: DriverIdentity,
   backend: string,
+  broker: CredentialBroker,
 ): Promise<Record<string, string>> {
   // `auth` is undefined only for configs built outside zod (defaults apply the
   // literal { type: 'none' } in production); treat both as "no auth".
   if (!auth || auth.type === 'none') return {};
   const target = { profile: identity.profile, agent: identity.agent, backend, authenticated: identity.authenticated, tokenId: identity.tokenId };
   if (auth.type === 'bearer') {
-    return { Authorization: `Bearer ${await resolveCredentialSource(auth.token, target)}` };
+    return { Authorization: `Bearer ${await resolveCredentialSource(auth.token, target, broker)}` };
   }
   if (auth.type === 'basic') {
     const username = await resolveAuthValue(auth.username.from);
@@ -53,7 +56,7 @@ export async function buildAuthHeaders(
     return { Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` };
   }
   if (auth.type === 'header') {
-    return { [auth.name]: await resolveCredentialSource(auth.value, target) };
+    return { [auth.name]: await resolveCredentialSource(auth.value, target, broker) };
   }
   return {};
 }
@@ -80,14 +83,22 @@ export function authFingerprint(headers: Record<string, string>): string {
 /**
  * Cache key for a shared driver map. A profile with its own credential needs a
  * separate upstream connection — a driver carries exactly one credential set,
- * so sharing it across profiles would send the wrong identity. Profiles without
- * an override keep the bare backend name and share the tool-level connection.
- * The NUL separator cannot appear in a tool or profile name.
+ * so sharing it across profiles or agents would send the wrong identity.
+ * Callers without an override keep the bare backend name and share the
+ * tool-level connection. The NUL separator cannot appear in a tool or profile
+ * name, and the agent is last and tagged, so "no agent" never equals a label.
  */
 export const DRIVER_KEY_SEPARATOR = '\u0000';
 
-export function proxyDriverKey(namespace: string, profile?: string): string {
-  return profile === undefined ? namespace : `${namespace}${DRIVER_KEY_SEPARATOR}${profile}`;
+/** Who a per-identity driver is built for. */
+export interface DriverKeyIdentity {
+  profile: string;
+  agent: string | null;
+}
+
+export function proxyDriverKey(namespace: string, identity?: DriverKeyIdentity): string {
+  if (identity === undefined) return namespace;
+  return [namespace, identity.profile, agentKeyTag(identity.agent)].join(DRIVER_KEY_SEPARATOR);
 }
 
 /** Backend name from a driver cache key, for status/listing callers. */
@@ -106,6 +117,7 @@ export class McpProxyDriver {
 
   constructor(
     private readonly config: McpProxyToolConfig,
+    private readonly broker: CredentialBroker,
     private readonly pinnedPodIp?: string,
     private readonly identity: DriverIdentity = { profile: '', agent: null, authenticated: false, tokenId: null },
   ) {}
@@ -130,7 +142,7 @@ export class McpProxyDriver {
     // from the initialize request, so the session is bound to one credential
     // value. Remember which one, to notice a rotation (see callTool).
     if (usesMintedCredential(this.config.auth)) {
-      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
+      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name, this.broker));
     } else {
       this.authFingerprint = null;
     }
@@ -147,7 +159,7 @@ export class McpProxyDriver {
         reviewed.sent = true;
       }
       const headers = new Headers(init?.headers);
-      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name))) headers.set(name, value);
+      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name, this.broker))) headers.set(name, value);
       return fetch(input, { ...init, headers, ...(reviewed ? { redirect: 'error' as const } : {}) });
     };
 
@@ -292,7 +304,7 @@ export class McpProxyDriver {
 
   private async mintedCredentialRotated(): Promise<boolean> {
     if (usesMintedCredential(this.config.auth) === false || this.authFingerprint === null) return false;
-    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
+    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name, this.broker));
     return current !== this.authFingerprint;
   }
 

@@ -14,6 +14,7 @@
 //
 // Uses the system `echo` binary so the test has no docker/bridge dependency.
 //
+import { unusedBroker } from '../helpers/broker.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -110,7 +111,7 @@ describe('E2E cli-policy — live MCP HTTP path', () => {
       // cli_whitelist must contain the executable name, otherwise the wrapper
       // short-circuits before policy evaluation.
       ['echo'],
-      { lookupProfileByToken: t => (t === E2E_TOKEN ? 'default' : null) },
+      { credentials: unusedBroker(), lookupProfileByToken: t => (t === E2E_TOKEN ? 'default' : null) },
     );
 
     mcpServer = createServer(app);

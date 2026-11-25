@@ -1,3 +1,4 @@
+import { unusedBroker } from '../../helpers/broker.js';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -17,7 +18,7 @@ async function start() {
   const profileReg = new ProfileRegistry();
   profileReg.addFileProfile('default', { tools: ['*'] });
   const svc = new ProfileService(profileReg, toolReg);
-  const app = createMcpExpressApp(svc, toolReg, new Map(), [], { requireProfileToken: false });
+  const app = createMcpExpressApp(svc, toolReg, new Map(), [], { credentials: unusedBroker(), requireProfileToken: false });
   server = createServer(app);
   await new Promise<void>(r => server!.listen(0, '127.0.0.1', r));
   port = (server.address() as { port: number }).port;

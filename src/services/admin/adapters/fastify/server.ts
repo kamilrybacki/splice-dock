@@ -39,6 +39,7 @@ import type { ApprovalService } from '../../../approvals/base.js';
 import type { SplicedockStore } from '../../../database/adapters/store.js';
 import type { PushSubscriptionStore } from '../../../database/adapters/push/store.js';
 import type { PushNotifier } from '../../../approvals/adapters/push/web/notifier.js';
+import type { CredentialBroker } from '../../../secrets/base.js';
 import type { InvalidationPublisher } from '../../../../contracts/outbound/invalidation/bus.js';
 
 export interface AdminExtras {
@@ -58,6 +59,8 @@ export interface AdminExtras {
   invalidation?: InvalidationPublisher;
   // Runtime mcp_proxy upstream management (admin API + Add-tool wizard).
   mcpUpstreams?: McpUpstreamManager;
+  // Revokes a deleted profile's minted credentials.
+  credentials?: CredentialBroker;
 }
 
 /** Constant-time bearer check (length guard first: timingSafeEqual throws on unequal lengths). */
@@ -149,7 +152,7 @@ export async function createAdminServer(
     registerStatusRoutes(authed, toolRegistry, proxyDrivers);
     registerToolRoutes(authed, toolRegistry, toolService, extras?.store, config.server.cli_whitelist, extras?.invalidation);
     if (extras?.mcpUpstreams) registerMcpUpstreamRoutes(authed, extras.mcpUpstreams, config.server.mcp_upstream_allowlist, extras.invalidation);
-    registerProfileRoutes(authed, profileRegistry, profileService, extras?.store, extras?.invalidation);
+    registerProfileRoutes(authed, profileRegistry, profileService, extras?.store, extras?.invalidation, undefined, extras?.credentials);
     registerManifestRoutes(authed, toolRegistry, profileRegistry, config.server);
     if (extras?.store) registerProfileTokenRoutes(authed, extras.store, config.server.token_policy);
 

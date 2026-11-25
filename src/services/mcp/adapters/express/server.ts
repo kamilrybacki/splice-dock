@@ -11,6 +11,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { ToolResult } from '../../../../contracts/outbound/tool-result.js';
 import type { ProfileAccess } from '../../../profiles/base.js';
+import type { CredentialBroker } from '../../../secrets/base.js';
 import type { ToolRegistry } from '../../../tools/registry.js';
 import { McpProxyDriver, proxyDriverKey } from '../../../upstreams/adapters/mcp/driver.js';
 import { executeWithPreflight } from '../../../code-mode/preflight.js';
@@ -59,7 +60,11 @@ export function buildMcpServer(
   /** Per-profile credential override for an mcp_proxy backend. undefined → use
    *  the tool-level credential every profile shares. */
   profileAuth?: (profile: string, backend: string) => McpProxyToolConfig['auth'] | undefined,
+  /** Hands out minted credentials. Required: every driver resolves credentials through it. */
+  credentials?: CredentialBroker,
 ): Server {
+  if (!credentials) throw new Error('buildMcpServer requires a credential broker');
+  const broker: CredentialBroker = credentials;
   const server = new Server(
     { name: 'splicedock', version: PACKAGE_VERSION },
     { capabilities: { tools: {} } },
@@ -124,7 +129,10 @@ export function buildMcpServer(
         // this profile's calls under another identity. Key the cache by profile
         // for overrides; everyone else keeps the bare backend name.
         const overrideAuth = profileAuth?.(profile, namespace);
-        const driverKey = proxyDriverKey(namespace, overrideAuth === undefined ? undefined : profile);
+        const driverKey = proxyDriverKey(
+          namespace,
+          overrideAuth === undefined ? undefined : { profile, agent: agent ?? null },
+        );
         let driver = proxyDrivers.get(driverKey);
         if (operation) {
           if (!driver || !signal) throw Error('No connected MCP upstream for guarded Code Mode');
@@ -143,6 +151,7 @@ export function buildMcpServer(
                 // reconnect kept dialing the dead IP → "Proxy not connected".
                 const newDriver = new McpProxyDriver(
                   overrideAuth === undefined ? cfg : { ...cfg, auth: overrideAuth },
+                  broker,
                   undefined,
                   // Minted credentials are per profile/agent: the driver re-resolves
                   // auth on every request and needs to know whose credential to ask for.
@@ -175,7 +184,7 @@ export function buildMcpServer(
         const override = profileAuth?.(profile, httpConfig.name);
         return await callHttpTool(
           override === undefined ? httpConfig : { ...httpConfig, auth: override },
-          stringArgs, exchange,
+          stringArgs, broker, exchange,
         ) as ToolResult;
       }
 
@@ -189,8 +198,8 @@ export function buildMcpServer(
         if (!kind) {
           return { content: [{ type: 'text', text: `Unknown passthrough variant for '${safeName}'` }], isError: true } as ToolResult;
         }
-        if (operation && signal) return callReviewedCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist, operation, signal);
-        return await callCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist) as ToolResult;
+        if (operation && signal) return callReviewedCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist, broker, operation, signal);
+        return await callCliPassthrough(entry.config as CliPassthroughToolConfig, kind, rawArgs, cliWhitelist, broker) as ToolResult;
       }
 
       return { content: [{ type: 'text', text: 'Unknown driver type' }], isError: true } as ToolResult;
@@ -265,6 +274,8 @@ export interface McpExpressAppOptions {
    * credential, shared by every profile.
    */
   profileAuth?: (profile: string, backend: string) => McpProxyToolConfig['auth'] | undefined;
+  /** The credential broker shared by every connection this app serves. */
+  credentials: CredentialBroker;
 }
 
 /**
@@ -281,9 +292,9 @@ export function createMcpExpressApp(
   toolRegistry: ToolRegistry,
   proxyDrivers: DriverMap,
   cliWhitelist: string[],
-  options: McpExpressAppOptions = {},
+  options: McpExpressAppOptions,
 ): express.Application {
-  const { proxyConfigs, resolver, lookupProfileByToken, requireProfileToken = true, profileAuth } = options;
+  const { proxyConfigs, resolver, lookupProfileByToken, requireProfileToken = true, profileAuth, credentials } = options;
   const warnQueryFallback = createQueryFallbackWarner(profile =>
     logger.warn('profile selected via ?profile= query (server.require_profile_token is false); use a profile token', { profile }),
   );
@@ -348,6 +359,7 @@ export function createMcpExpressApp(
       agent,
       req.headers['user-agent'],
       profileAuth,
+      credentials,
     );
     // Closing the HTTP response must abort SDK request handlers, including waits.
     const onDisconnect = () => { void server.close().catch(logCloseFailure); };

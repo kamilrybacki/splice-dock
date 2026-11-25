@@ -7,6 +7,7 @@ import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
 import { ProfileService } from '../../../src/services/profiles/base.js';
 import { logger } from '../../../src/common/logger.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -19,7 +20,7 @@ async function callEcho(agent: string | undefined, clientName = 'test-client', v
   });
   const profiles = new ProfileRegistry();
   profiles.addFileProfile('ops', { tools: ['*'] });
-  const server = buildMcpServer('ops', new ProfileService(profiles, toolReg), new Map(), toolReg, [], undefined, undefined, agent);
+  const server = buildMcpServer('ops', new ProfileService(profiles, toolReg), new Map(), toolReg, [], undefined, undefined, agent, undefined, undefined, unusedBroker());
   const client = new Client({ name: clientName, version });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(a), client.connect(b)]);

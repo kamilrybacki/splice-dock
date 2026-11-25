@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProfileService } from '../../../src/services/profiles/base.js';
 import { ToolRegistry } from '../../../src/services/tools/registry.js';
 import { ProfileRegistry } from '../../../src/services/profiles/registry.js';
+import { unusedBroker } from '../../helpers/broker.js';
 
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
   Server: vi.fn().mockImplementation(function () {
@@ -47,14 +48,14 @@ describe('buildMcpServer', () => {
   afterEach(() => vi.clearAllMocks());
 
   it('creates a Server and registers ListTools and CallTool handlers', () => {
-    buildMcpServer('coding', profileService, new Map());
+    buildMcpServer('coding', profileService, new Map(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
     const MockedServer = vi.mocked(Server);
     const instance = MockedServer.mock.results[0].value;
     expect(instance.setRequestHandler).toHaveBeenCalledTimes(2);
   });
 
   it('returns a Server instance', () => {
-    const server = buildMcpServer('coding', profileService, new Map());
+    const server = buildMcpServer('coding', profileService, new Map(), undefined, undefined, undefined, undefined, undefined, undefined, undefined, unusedBroker());
     expect(server).toBeDefined();
   });
 });

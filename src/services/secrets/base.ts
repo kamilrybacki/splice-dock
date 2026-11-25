@@ -57,6 +57,28 @@ export interface CredentialStore {
   deletePrefix(prefix: string): Promise<number>;
 }
 
+/** Who a credential is minted for. Part of every cache and storage key. */
+export interface MintTarget {
+  profile: string;
+  agent: string | null;
+  backend: string;
+  /** Caller presented a valid profile-token bearer. Not part of any key. */
+  authenticated: boolean;
+  /** Non-secret token id, audit only. Not part of any key. */
+  tokenId: string | null;
+}
+
+/**
+ * Hands out minted credentials. Each instance owns its caches, single-flight
+ * and backoff state, so two brokers never share anything.
+ */
+export interface CredentialBroker {
+  /** Current value for (provider, profile, agent, backend), minting only when needed. */
+  resolve(providerName: string, target: MintTarget): Promise<string>;
+  /** Best-effort revocation when a profile is deleted: provider revoke, then purge storage. */
+  revokeProfile(profile: string): Promise<void>;
+}
+
 /**
  * Infrastructure the credential broker needs, injected at startup so the
  * broker never imports a concrete provider or store.

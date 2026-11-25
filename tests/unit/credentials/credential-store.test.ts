@@ -2,12 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { VaultCredentialStore } from '../../../src/services/secrets/adapters/vault/store.js';
 import { MemoryCredentialStore } from '../../../src/services/secrets/memory/store.js';
-import {
-  configureCredentialBroker,
-  resetCredentialBroker,
-  resolveMintedCredential,
-  revokeProfileCredentials,
-} from '../../../src/services/secrets/broker.js';
+import { createCredentialBroker } from '../../../src/services/secrets/broker.js';
 import type { CredentialAdapters, CredentialStore, StoredCredential } from '../../../src/services/secrets/base.js';
 
 const PREFIX = 'secret/data/splicedock/minted';
@@ -129,8 +124,6 @@ describe('credential adapters', () => {
 });
 
 describe('broker with an injected store', () => {
-  afterEach(() => resetCredentialBroker());
-
   it('persists under relative keys and purges by profile without knowing the backend', async () => {
     const store = new MemoryCredentialStore();
     const put = vi.spyOn(store, 'put');
@@ -140,16 +133,16 @@ describe('broker with an injected store', () => {
       provider: () => ({ mint: async () => ({ secret: `tok-${++mints}` }) }),
       store: () => store,
     };
-    configureCredentialBroker({
+    const broker = createCredentialBroker({
       providers: { test: { type: 'command', command: 'true', args: [], timeout_ms: 1000, ttl_seconds: 60, output: { format: 'text', secret_field: 'token' } } },
       storage: { type: 'vault', prefix: PREFIX },
     }, adapters);
 
-    expect(await resolveMintedCredential('test', { profile: 'worker', agent: null, backend: 'gh', authenticated: true, tokenId: 'tid' })).toBe('tok-1');
-    expect(put).toHaveBeenCalledWith('worker/gh/_/test', expect.objectContaining({ value: 'tok-1' }));
+    expect(await broker.resolve('test', { profile: 'worker', agent: null, backend: 'gh', authenticated: true, tokenId: 'tid' })).toBe('tok-1');
+    expect(put).toHaveBeenCalledWith('worker/gh/~/test', expect.objectContaining({ value: 'tok-1' }));
 
-    await revokeProfileCredentials('worker');
+    await broker.revokeProfile('worker');
     expect(purge).toHaveBeenCalledWith('worker');
-    expect(await store.get('worker/gh/_/test')).toBeUndefined();
+    expect(await store.get('worker/gh/~/test')).toBeUndefined();
   });
 });

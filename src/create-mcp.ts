@@ -5,6 +5,7 @@ import type { SplicedockStore } from './services/database/adapters/store.js';
 import { hashProfileToken } from './services/authentication/base.js';
 import type { PrometheusMetrics } from './services/metrics/adapters/prometheus/index.js';
 import type { ProfileService } from './services/profiles/base.js';
+import type { CredentialBroker } from './services/secrets/base.js';
 import type { ToolRegistry } from './services/tools/registry.js';
 import type { PodResolver } from './services/upstreams/adapters/dns/pods.js';
 
@@ -16,6 +17,7 @@ export interface McpDeps {
   readonly podResolver: PodResolver;
   readonly metrics: PrometheusMetrics;
   readonly store: SplicedockStore;
+  readonly credentials: CredentialBroker;
   readonly authFor: (profile: string, backend: string) => McpProxyToolConfig['auth'] | undefined;
 }
 
@@ -37,6 +39,7 @@ export function createMcpServer(deps: McpDeps): Server {
       // token's profile; `?profile=` is then ignored. Unknown bearer -> 401.
       lookupProfileByToken: rawToken => store.findProfileByToken(hashProfileToken(rawToken), Date.now()),
       profileAuth: deps.authFor,
+      credentials: deps.credentials,
     },
   );
   return createServer(app);

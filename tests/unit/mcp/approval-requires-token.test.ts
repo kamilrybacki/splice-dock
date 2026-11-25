@@ -5,6 +5,7 @@
 // consumed by any other. Requesting or consuming an approval now requires a
 // bearer profile token, whatever require_profile_token says. The legacy path is
 // refused with rule `approval_requires_profile_token` and counted in metrics.
+import { unusedBroker } from '../../helpers/broker.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { realpathSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -69,6 +70,7 @@ beforeEach(async () => {
   configurePassthrough({approvalHookFactory: (tool, { cwd }) => approvals.makeHook(tool, cwd), approvalSettler: approvals, policyDecisionSink: e => metrics.policyDecisions.inc(e as unknown as Record<string, string>)});
 
   const app = createMcpExpressApp(profiles, toolReg, new Map(), ['echo'], {
+    credentials: unusedBroker(),
     lookupProfileByToken: t => (t === OPS_TOKEN || t === OPS_TOKEN_2 ? 'ops' : null),
     // Tokenless ?profile= callers are part of what these tests cover (the legacy path).
     requireProfileToken: false,
