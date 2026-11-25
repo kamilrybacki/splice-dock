@@ -34,3 +34,19 @@ export function credentialEntryPath(providerName: string, target: MintTarget): s
   const agent = target.agent === null ? NO_AGENT_SEGMENT : sanitizePathSegment(target.agent);
   return [sanitizePathSegment(target.profile), sanitizePathSegment(target.backend), agent, sanitizePathSegment(providerName)].join('/');
 }
+
+/** What a storage path says about the credential behind it. Backend and agent are as sanitized as they were stored. */
+export interface ParsedEntryPath {
+  readonly profile: string;
+  readonly backend: string;
+  readonly agent: string | null;
+  readonly provider: string;
+}
+
+/** Inverse of `credentialEntryPath`; undefined for a path that is not `profile/backend/agent/provider`. */
+export function parseCredentialEntryPath(path: string): ParsedEntryPath | undefined {
+  const parts = path.split('/');
+  if (parts.length !== 4 || parts.some(part => part === '')) return undefined;
+  const [profile, backend, agent, provider] = parts as [string, string, string, string];
+  return { profile, backend, agent: agent === NO_AGENT_SEGMENT ? null : agent, provider };
+}

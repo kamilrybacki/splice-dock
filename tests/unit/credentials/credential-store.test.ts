@@ -84,6 +84,35 @@ describe.each(stores)('CredentialStore contract: %s', (_name, make) => {
     expect(await store.get('worker/gh/_/p')).toBeUndefined();
     expect((await store.get('worker2/gh/_/p'))?.value).toBe('c');
   });
+
+  it('lists every entry under a prefix with its full path, excluding siblings that share the prefix', async () => {
+    const store = make();
+    await store.put('worker/gh/_/p', entry('a'));
+    await store.put('worker/codex/agent/p', entry('b'));
+    await store.put('worker2/gh/_/p', entry('c'));
+    const listed = await store.listPrefix('worker');
+    expect(listed.map(e => [e.path, e.credential.value]).sort()).toEqual([
+      ['worker/codex/agent/p', 'b'],
+      ['worker/gh/_/p', 'a'],
+    ]);
+  });
+
+  it('lists nothing for an unknown prefix', async () => {
+    expect(await make().listPrefix('ghost')).toEqual([]);
+  });
+
+  it('lists without removing anything', async () => {
+    const store = make();
+    await store.put('worker/gh/_/p', entry('a'));
+    await store.listPrefix('worker');
+    expect((await store.get('worker/gh/_/p'))?.value).toBe('a');
+  });
+});
+
+describe('MemoryCredentialStore sharing', () => {
+  it('declares itself process-local, so a sibling replica cannot see its entries', () => {
+    expect(new MemoryCredentialStore().shared).toBe(false);
+  });
 });
 
 describe('VaultCredentialStore paths', () => {

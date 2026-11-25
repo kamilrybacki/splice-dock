@@ -66,6 +66,23 @@ describe('resync loaders (cross-replica reload)', () => {
     expect(registry.getProfile('dev')).toBeUndefined();
     expect(registry.getProfile('workspace')).toBeUndefined();
   });
+
+  it('resyncRuntimeProfiles exposes a new created_at when a profile was deleted and recreated elsewhere', async () => {
+    const registry = new ProfileRegistry();
+    await store.upsertRuntimeProfile('ops', ['grafana__*']);
+    await loadRuntimeProfiles(store, registry, log, yamlManifestCodec);
+    const before = registry.getProfile('ops');
+    expect(before?.created_at).toBeGreaterThan(0);
+
+    await store.deleteRuntimeProfile('ops');
+    await new Promise(resolve => setTimeout(resolve, 5));
+    await store.upsertRuntimeProfile('ops', ['grafana__*']);
+    await resyncRuntimeProfiles(store, registry, log, yamlManifestCodec);
+
+    const after = registry.getProfile('ops');
+    expect(after?.revision).toBe(before?.revision);
+    expect(after?.created_at).toBeGreaterThan(before?.created_at ?? Infinity);
+  });
 });
 
 describe('SplicedockStore invalidation support (SQLite)', () => {

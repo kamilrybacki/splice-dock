@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS runtime_profiles (
   manifest_yaml TEXT,
   revision      INTEGER NOT NULL DEFAULT 1,
   origin        TEXT NOT NULL DEFAULT 'runtime',
+  -- Set once when the row is first inserted and never rewritten: a profile deleted and
+  -- recreated under the same name restarts at revision 1, so this is its identity.
+  created_at    INTEGER NOT NULL DEFAULT 0,
   updated_at    INTEGER NOT NULL,
   updated_by    TEXT
 );

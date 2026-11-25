@@ -91,6 +91,24 @@ All notable changes to this project are recorded here. The format follows
   itself, while the shared-store purge still runs once, on the serving replica.
   A credential minted while its profile is being deleted is discarded and
   revoked rather than cached or stored, and its caller gets `credential_unavailable`.
+- Closed the remaining gaps in profile credential revocation:
+  - The replica serving a profile delete now lists the shared credential store
+    before purging it and revokes at the provider every entry it finds, including
+    credentials minted by a replica that has since restarted. Each credential is
+    revoked once. A store that is not shared (the memory store) is not listed.
+  - A profile deleted and recreated under the same name is now recognised by a
+    persisted `created_at` on `runtime_profiles` (set on insert, kept on update,
+    folded into the runtime fingerprint), because revisions restart at 1. A
+    replica that missed the delete notification forgets the old credentials when
+    its next reload sees a changed identity instead of keeping them until the TTL
+    expires. **Migration:** the column is added automatically on startup
+    (SQLite and Postgres) and backfilled from `updated_at`; a pre-existing row is
+    only detected as recreated once it has been rewritten.
+  - Provider revocation that fails is retried in the background with bounded
+    exponential backoff (5 attempts, 2 s base, 60 s cap). Retries never delay the
+    delete response or cache sync, use unref'd timers, are cancelled on shutdown,
+    and log a warning when they give up. They are in-process only and do not
+    survive a restart.
 - Tool and upstream definitions added through the admin API, and stored runtime rows reloaded at startup, now reject a tool-level `mint:` exactly as the config loader does.
 - A `cli_passthrough` tool no longer returns the credentials it injected.
   Before stdout, stderr or an error message is returned, every literal

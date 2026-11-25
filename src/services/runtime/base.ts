@@ -34,9 +34,17 @@ export interface CacheSyncDeps {
   /** Names of the profiles currently in this replica's registry. */
   readonly listProfiles?: () => string[];
   /**
+   * Stable identity of a profile's current incarnation (its creation stamp), or
+   * undefined when unknown. A delete followed by a recreate under the same name keeps
+   * the name but changes this, which is how a replica that missed both messages still
+   * notices that the profile it knew is gone. Revisions cannot tell: they restart.
+   */
+  readonly profileIdentity?: (name: string) => string | number | undefined;
+  /**
    * Drop this replica's own per-profile state (e.g. credentials) for a profile that
    * no longer exists: called after any `profiles` reload (bus message, resync or
-   * reconcile) that made a name disappear, and after a keyed message for a missing
+   * reconcile) that made a name disappear or changed its identity (deleted and
+   * recreated under the same name), and after a keyed message for a missing
    * profile. May be async; it is not awaited, so a slow provider cannot stall a
    * reload, and a rejection is logged. Must not do the shared cleanup: the replica
    * that served the delete already did it.
@@ -45,6 +53,11 @@ export interface CacheSyncDeps {
 }
 
 type Kind = keyof RuntimeFingerprint;
+
+/** A known identity that differs from the new one. An unknown side (legacy row) never counts as a change. */
+function identityChanged(before: string | number | undefined, after: string | number | undefined): boolean {
+  return before !== undefined && after !== undefined && before !== after;
+}
 
 const EMPTY_FINGERPRINT: RuntimeFingerprint = { tools: '', profiles: '', policy: '' };
 /** Never equals a real digest: forces the next reconcile to reload that kind. */
@@ -175,16 +188,17 @@ export class CacheSync {
     if (before === null) return;
     const after = this.snapshotProfiles();
     if (after === null) return;
-    for (const name of before) {
-      if (!after.has(name)) this.forget(name);
+    for (const [name, identity] of before) {
+      if (!after.has(name) || identityChanged(identity, after.get(name))) this.forget(name);
     }
   }
 
-  private snapshotProfiles(): Set<string> | null {
-    const { listProfiles, forgetProfile } = this.deps;
+  /** Name -> identity (undefined when not wired or unknown) of every profile in the registry. */
+  private snapshotProfiles(): ReadonlyMap<string, string | number | undefined> | null {
+    const { listProfiles, forgetProfile, profileIdentity } = this.deps;
     if (!listProfiles || !forgetProfile) return null;
     try {
-      return new Set(listProfiles());
+      return new Map(listProfiles().map(name => [name, profileIdentity?.(name)] as const));
     } catch (err) {
       this.deps.log.warn('cache sync: listing profiles failed, skipping local credential purge', { error: errMsg(err) });
       return null;

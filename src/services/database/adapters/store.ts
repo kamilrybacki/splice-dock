@@ -45,6 +45,7 @@ interface RuntimeProfileDbRow {
   manifest_yaml: string | null;
   revision: number | bigint;
   origin: string;
+  created_at: number | bigint;
   updated_at: number | bigint;
   updated_by: string | null;
 }
@@ -60,6 +61,7 @@ function runtimeProfileRow(row: RuntimeProfileDbRow): RuntimeProfileRow {
     manifest_yaml: row.manifest_yaml,
     revision: Number(row.revision),
     origin: row.origin === 'file' ? 'file' : 'runtime',
+    created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
     updated_by: row.updated_by,
   };
@@ -251,7 +253,7 @@ export class SplicedockStore
   async runtimeFingerprint(): Promise<RuntimeFingerprint> {
     const [tools, profiles, policy] = await Promise.all([
       this.digest('SELECT id, config_json FROM runtime_tools ORDER BY id'),
-      this.digest('SELECT name, manifest_yaml, revision, origin, updated_at FROM runtime_profiles ORDER BY name'),
+      this.digest('SELECT name, manifest_yaml, revision, origin, created_at, updated_at FROM runtime_profiles ORDER BY name'),
       Promise.all([
         this.digest('SELECT tool_name, policy_json, updated_at FROM policy_overrides ORDER BY tool_name'),
         this.digest('SELECT tool_name, profile, policy_json, updated_at FROM profile_policy_overrides ORDER BY tool_name, profile'),
@@ -319,7 +321,7 @@ export class SplicedockStore
   /** All catalog profiles, name order. Malformed legacy JSON is skipped (logged). */
   async listRuntimeProfiles(): Promise<RuntimeProfileRow[]> {
     const rows = await this.db
-      .prepare('SELECT name, tools_json, manifest_yaml, revision, origin, updated_at, updated_by FROM runtime_profiles ORDER BY name')
+      .prepare('SELECT name, tools_json, manifest_yaml, revision, origin, created_at, updated_at, updated_by FROM runtime_profiles ORDER BY name')
       .all() as RuntimeProfileDbRow[];
     const out: RuntimeProfileRow[] = [];
     for (const row of rows) {
@@ -336,7 +338,7 @@ export class SplicedockStore
 
   async getRuntimeProfile(name: string): Promise<RuntimeProfileRow | null> {
     const row = await this.db
-      .prepare('SELECT name, tools_json, manifest_yaml, revision, origin, updated_at, updated_by FROM runtime_profiles WHERE name = ?')
+      .prepare('SELECT name, tools_json, manifest_yaml, revision, origin, created_at, updated_at, updated_by FROM runtime_profiles WHERE name = ?')
       .get(name) as RuntimeProfileDbRow | undefined;
     return row ? runtimeProfileRow(row) : null;
   }
@@ -358,8 +360,8 @@ export class SplicedockStore
       const updatedAt = Date.now();
       const revision = baseRevision + 1;
       const saved = await this.db.prepare(
-        `INSERT INTO runtime_profiles (name, tools_json, manifest_yaml, revision, origin, updated_at, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO runtime_profiles (name, tools_json, manifest_yaml, revision, origin, created_at, updated_at, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(name) DO UPDATE SET
            tools_json = excluded.tools_json,
            manifest_yaml = excluded.manifest_yaml,
@@ -368,7 +370,7 @@ export class SplicedockStore
            updated_at = excluded.updated_at,
            updated_by = excluded.updated_by
          WHERE runtime_profiles.revision = ?`,
-      ).run(name, JSON.stringify(profile.tools), manifest, revision, origin, updatedAt, updatedBy, baseRevision);
+      ).run(name, JSON.stringify(profile.tools), manifest, revision, origin, updatedAt, updatedAt, updatedBy, baseRevision);
       if (!saved.changes) return { status: 'conflict', current: await this.getRuntimeProfile(name) };
       const row = await this.getRuntimeProfile(name);
       if (!row) throw new Error('saved profile disappeared');

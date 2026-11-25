@@ -8,4 +8,7 @@ export async function migrateProfileCatalog(db: SqlDb): Promise<void> {
   if (!columns.has('manifest_yaml')) await db.exec('ALTER TABLE runtime_profiles ADD COLUMN manifest_yaml TEXT');
   if (!columns.has('revision')) await db.exec('ALTER TABLE runtime_profiles ADD COLUMN revision INTEGER NOT NULL DEFAULT 1');
   if (!columns.has('origin')) await db.exec("ALTER TABLE runtime_profiles ADD COLUMN origin TEXT NOT NULL DEFAULT 'runtime'");
+  if (!columns.has('created_at')) await db.exec('ALTER TABLE runtime_profiles ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0');
+  // Rows from before the column existed: their last write is the best available stand-in for creation.
+  await db.exec('UPDATE runtime_profiles SET created_at = updated_at WHERE created_at = 0');
 }

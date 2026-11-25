@@ -87,6 +87,7 @@ async function collectRuntimeProfiles(
         source: row.origin,
         ...profile,
         revision: row.revision,
+        created_at: row.created_at,
         updated_at: row.updated_at,
         updated_by: row.updated_by,
       });

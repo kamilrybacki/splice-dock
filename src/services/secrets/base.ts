@@ -50,11 +50,24 @@ export interface StoredCredential {
  * root such as a KV mount path belongs to the store implementation.
  */
 export interface CredentialStore {
+  /**
+   * False when entries are visible only to this process (a memory store). Anything
+   * not explicitly `false` is treated as shared between replicas.
+   */
+  readonly shared?: boolean;
   get(path: string): Promise<StoredCredential | undefined>;
   put(path: string, value: StoredCredential): Promise<void>;
   delete(path: string): Promise<void>;
   /** Delete every entry under a path prefix. Returns how many were removed. */
   deletePrefix(prefix: string): Promise<number>;
+  /** Every entry under a path prefix (the prefix itself or `prefix/…`), with its full path. Removes nothing. */
+  listPrefix(prefix: string): Promise<StoredCredentialEntry[]>;
+}
+
+/** One stored credential together with the relative path it lives at. */
+export interface StoredCredentialEntry {
+  readonly path: string;
+  readonly credential: StoredCredential;
 }
 
 /** Who a credential is minted for. Part of every cache and storage key. */
@@ -76,20 +89,27 @@ export interface CredentialBroker {
   /** Current value for (provider, profile, agent, backend), minting only when needed. */
   resolve(providerName: string, target: MintTarget): Promise<string>;
   /**
-   * Best-effort cleanup when a profile is deleted: everything `forgetProfile` does,
-   * then purge the shared storage. Run once, on the replica that served the delete.
+   * Best-effort cleanup when a profile is deleted, run once on the replica that served
+   * the delete. Drops this instance's in-process state, then lists the shared storage
+   * for the profile and purges it, then revokes at the provider every credential it
+   * held or found there (one revoke per credential), so credentials minted by a replica
+   * that has since restarted are revoked too. A failed listing falls back to the
+   * credentials this instance minted itself. Never rejects because of a provider failure.
    */
   revokeProfile(profile: string): Promise<void>;
   /**
    * This instance's share of a profile's cleanup, safe for every replica to run when
    * it learns the profile is gone: drop its in-process state (cache, mint records,
-   * mint backoff) and best-effort revoke at the provider the credentials it minted
-   * itself. Never touches shared storage. A mint or store read still in flight for
-   * the profile is discarded (its caller gets `credential_unavailable`) and, if it
-   * produced a credential, that credential is revoked and its store entry deleted.
-   * Never rejects because of a provider failure.
+   * mint backoff) and best-effort revoke at the provider the credentials only it holds
+   * (written nowhere the serving replica can list). Credentials in a shared store are
+   * left to the replica serving the delete. Never touches shared storage. A mint or
+   * store read still in flight for the profile is discarded (its caller gets
+   * `credential_unavailable`) and, if it produced a credential, that credential is
+   * revoked and its store entry deleted. Never rejects because of a provider failure.
    */
   forgetProfile(profile: string): Promise<void>;
+  /** Cancel background work (pending revoke retries) at shutdown. Idempotent. */
+  close(): void;
 }
 
 /**

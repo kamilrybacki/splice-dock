@@ -1,6 +1,6 @@
 import { discoverVaultAddr, discoverVaultToken } from './resolver.js';
 import { logger } from '../../../../common/logger.js';
-import type { CredentialStore, StoredCredential } from '../../base.js';
+import type { CredentialStore, StoredCredential, StoredCredentialEntry } from '../../base.js';
 
 const VAULT_TIMEOUT_MS = 3_000;
 const MAX_LIST_DEPTH = 4;
@@ -48,23 +48,37 @@ export class VaultCredentialStore implements CredentialStore {
   }
 
   async deletePrefix(prefix: string): Promise<number> {
-    return this.deleteTree(this.metadataPath(this.dataPath(prefix)), 0);
+    const folder = this.metadataPath(this.dataPath(prefix));
+    const leaves = await this.collectLeaves(folder, 0);
+    for (const leaf of leaves) await this.request('DELETE', `${folder}/${leaf}`);
+    return leaves.length;
   }
 
-  private async deleteTree(folder: string, depth: number): Promise<number> {
-    if (depth > MAX_LIST_DEPTH) return 0;
-    const keys = await this.list(folder);
-    let removed = 0;
-    for (const key of keys) {
-      const child = `${folder}/${key}`;
+  async listPrefix(prefix: string): Promise<StoredCredentialEntry[]> {
+    const leaves = await this.collectLeaves(this.metadataPath(this.dataPath(prefix)), 0);
+    const entries: StoredCredentialEntry[] = [];
+    for (const leaf of leaves) {
+      const path = prefix === '' ? leaf : `${prefix}/${leaf}`;
+      const credential = await this.get(path);
+      if (credential) entries.push({ path, credential });
+    }
+    return entries;
+  }
+
+  /** Leaf keys under a metadata folder, relative to it. */
+  private async collectLeaves(folder: string, depth: number): Promise<string[]> {
+    if (depth > MAX_LIST_DEPTH) return [];
+    const leaves: string[] = [];
+    for (const key of await this.list(folder)) {
       if (key.endsWith('/')) {
-        removed += await this.deleteTree(child.slice(0, -1), depth + 1);
+        const name = key.slice(0, -1);
+        const nested = await this.collectLeaves(`${folder}/${name}`, depth + 1);
+        leaves.push(...nested.map(leaf => `${name}/${leaf}`));
       } else {
-        await this.request('DELETE', child);
-        removed += 1;
+        leaves.push(key);
       }
     }
-    return removed;
+    return leaves;
   }
 
   private async list(folder: string): Promise<string[]> {
