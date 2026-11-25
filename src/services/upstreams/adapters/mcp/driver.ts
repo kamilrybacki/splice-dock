@@ -110,6 +110,18 @@ export class McpProxyDriver {
     private readonly identity: DriverIdentity = { profile: '', agent: null, authenticated: false, tokenId: null },
   ) {}
 
+  /**
+   * Identity for credential minting. A driver is shared across sessions, so the
+   * token it was built with may not be the current caller's: when a request
+   * context exists its token is used, otherwise (background reconnect) the
+   * identity captured at construction. Profile and agent stay as constructed.
+   */
+  private mintIdentity(): DriverIdentity {
+    const caller = currentCaller();
+    if (!caller) return this.identity;
+    return { ...this.identity, authenticated: caller.authenticated === true, tokenId: caller.tokenId };
+  }
+
   async connect(): Promise<void> {
     const host = this.pinnedPodIp ?? this.config.service_dns;
     const client = new Client({ name: 'splicedock', version: PACKAGE_VERSION }, { capabilities: {} });
@@ -118,7 +130,7 @@ export class McpProxyDriver {
     // from the initialize request, so the session is bound to one credential
     // value. Remember which one, to notice a rotation (see callTool).
     if (usesMintedCredential(this.config.auth)) {
-      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.identity, this.config.name));
+      this.authFingerprint = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
     } else {
       this.authFingerprint = null;
     }
@@ -135,7 +147,7 @@ export class McpProxyDriver {
         reviewed.sent = true;
       }
       const headers = new Headers(init?.headers);
-      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.identity, this.config.name))) headers.set(name, value);
+      for (const [name, value] of Object.entries(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name))) headers.set(name, value);
       return fetch(input, { ...init, headers, ...(reviewed ? { redirect: 'error' as const } : {}) });
     };
 
@@ -280,7 +292,7 @@ export class McpProxyDriver {
 
   private async mintedCredentialRotated(): Promise<boolean> {
     if (usesMintedCredential(this.config.auth) === false || this.authFingerprint === null) return false;
-    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.identity, this.config.name));
+    const current = authFingerprint(await buildAuthHeaders(this.config.auth, this.mintIdentity(), this.config.name));
     return current !== this.authFingerprint;
   }
 

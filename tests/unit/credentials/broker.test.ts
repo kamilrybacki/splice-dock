@@ -129,6 +129,15 @@ describe('credential broker', () => {
     expect(readFileSync(counter, 'utf8').trim()).toBe('1');
   });
 
+  it('refuses an unauthenticated request that arrives while an authenticated mint is in flight', async () => {
+    configure();
+    const authenticated = resolveMintedCredential('test', target);
+    const anonymous = resolveMintedCredential('test', { ...target, authenticated: false, tokenId: 'legacy-query' });
+    await expect(anonymous).rejects.toThrow('credential_identity_unauthenticated');
+    expect(await authenticated).toBe('tok-1');
+    expect(readFileSync(counter, 'utf8').trim()).toBe('1');
+  });
+
   it('includes the token id in the credential minted log, never the value', async () => {
     configure();
     const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined);

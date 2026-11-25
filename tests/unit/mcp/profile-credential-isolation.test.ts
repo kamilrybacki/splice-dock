@@ -6,7 +6,7 @@ import type { McpProxyDriver } from '../../../src/services/upstreams/adapters/mc
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
 
 const handlers = new Map<string, (req: unknown) => unknown>();
-const built = vi.hoisted(() => ({ configs: [] as Array<{ name: string; auth?: unknown }> }));
+const built = vi.hoisted(() => ({ configs: [] as Array<{ name: string; auth?: unknown }>, connectError: null as Error | null }));
 
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
   Server: vi.fn().mockImplementation(function () {
@@ -37,7 +37,9 @@ vi.mock('../../../src/services/upstreams/adapters/mcp/driver.js', () => ({
     constructor(public readonly config: { name: string; auth?: unknown }) {
       built.configs.push(config);
     }
-    async connect(): Promise<void> {}
+    async connect(): Promise<void> {
+      if (built.connectError) throw built.connectError;
+    }
     async callTool(): Promise<unknown> {
       return { content: [{ type: 'text', text: 'ok' }] };
     }
@@ -108,6 +110,7 @@ describe('per-profile mcp_proxy credentials', () => {
   beforeEach(() => {
     handlers.clear();
     built.configs.length = 0;
+    built.connectError = null;
   });
 
   it('gives a profile with an override its own driver and credential', async () => {
@@ -174,5 +177,22 @@ describe('per-profile mcp_proxy credentials', () => {
 
     await expect(callHandler()).rejects.toThrow(/No proxy driver/);
     expect(shared.callTool).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an identity refusal from the lazy connect instead of hiding it', async () => {
+    built.connectError = new Error('credential_identity_unauthenticated');
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers);
+
+    await expect(callHandler()).rejects.toThrow('credential_identity_unauthenticated');
+    expect(drivers.size).toBe(0);
+  });
+
+  it('still reports a missing driver when the lazy connect fails for another reason', async () => {
+    built.connectError = new Error('ECONNREFUSED');
+    const drivers = new Map<string, McpProxyDriver>();
+    build('worker', drivers);
+
+    await expect(callHandler()).rejects.toThrow(/No proxy driver/);
   });
 });

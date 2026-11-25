@@ -15,7 +15,9 @@ All notable changes to this project are recorded here. The format follows
   HTTP tools and `mcp_proxy` upstreams with `mint:` auth; the `mcp_proxy` check
   runs on every call, independent of which session opened the shared upstream
   connection. Static `from:` credentials are unaffected. The "credential
-  minted" log line now includes `token_id`.
+  minted" log line now includes `token_id`, taken from the current caller.
+  When a lazy `mcp_proxy` connect is refused for this reason, the call now
+  returns `credential_identity_unauthenticated` instead of "No proxy driver".
 
 ## [1.1.1] - 2026-11-24
 

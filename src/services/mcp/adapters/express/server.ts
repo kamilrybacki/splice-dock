@@ -159,7 +159,10 @@ export function buildMcpServer(
                 logger.info('lazy upstream connect succeeded', { upstream: namespace, profile_scoped: overrideAuth !== undefined });
               }
             } catch (err) {
-              logger.warn('lazy upstream connect failed', { upstream: namespace, error: err instanceof Error ? err.message : String(err) });
+              const message = err instanceof Error ? err.message : String(err);
+              // Identity refusals are about this caller, not the upstream: surface them.
+              if (err instanceof Error && message.startsWith('credential_identity_')) throw err;
+              logger.warn('lazy upstream connect failed', { upstream: namespace, error: message });
             }
           }
         }
