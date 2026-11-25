@@ -45,6 +45,12 @@ server:
 #     type: command                    # any CLI that prints a credential
 #     command: /usr/local/bin/mint-credential
 #     args: ["--profile", "{profile}", "--agent", "{agent}"]
+#     # The command gets only PATH, HOME, LANG/LC_*, TZ and TMPDIR from
+#     # splicedock's environment; list anything else it needs.
+#     env_allowlist: [EXAMPLE_API_URL]
+#     env:                             # resolved at every mint
+#       - name: EXAMPLE_API_KEY
+#         from: vault:secret/data/example/minter#api_key
 #     timeout_ms: 10000
 #     ttl_seconds: 3600               # used when the command reports no expiry
 #     max_ttl_seconds: 86400          # never keep a credential longer than this

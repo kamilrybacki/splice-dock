@@ -46,6 +46,8 @@ describe('credential_providers and mint bindings', () => {
       type: 'command',
       command: '/usr/local/bin/mint-gh',
       args: [],
+      env_allowlist: [],
+      env: [],
       timeout_ms: 10_000,
       ttl_seconds: 3000,
       max_ttl_seconds: 86_400,

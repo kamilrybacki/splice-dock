@@ -13,11 +13,26 @@ All notable changes to this project are recorded here. The format follows
   interface), so nothing changes unless you set them. Outside a container, set
   `server.admin_host: 127.0.0.1` unless a reverse proxy on another host must
   reach the admin API.
+- `type: command` credential providers accept `env_allowlist` (names copied
+  from splicedock's environment) and `env` (`{ name, from }` references resolved
+  at every mint). See the breaking change below.
 - A startup warning is logged when `server.require_profile_token` is explicitly
   `false`.
 
 ### Changed
 
+- **BREAKING:** a `credential_providers` entry of `type: command` no longer
+  runs with splicedock's whole environment. The command now starts with `PATH`,
+  `HOME`, `LANG`, `LANGUAGE`, `LC_*`, `TZ` and `TMPDIR` only, so variables such
+  as `VAULT_TOKEN`, `VAULT_ROLE_ID` or other backends' tokens are no longer
+  visible to it. To migrate, add every variable your command reads to the new
+  `env_allowlist: [NAME, ...]` on that provider (for the shipped scripts:
+  `VAULT_ADDR`, `VAULT_TOKEN` and `SPLICEDOCK_VAULT_*` for `vault-token.mjs`;
+  `GITHUB_APP_*` and `GITHUB_API_BASE` for `github-app-token.mjs`). Proxy and CA
+  variables such as `HTTPS_PROXY` or `SSL_CERT_FILE` need listing too. A secret
+  only the minter needs can instead be declared as `env: [{ name, from }]`,
+  resolved from `env:` / `vault:` at every mint. There is no option to inherit
+  everything.
 - Minted credentials now have a hard lifetime cap. `credential_providers.<name>.max_ttl_seconds`
   (default 86400, at most 2592000) bounds how long the broker keeps a credential
   after minting, whatever expiry the provider reports; a later expiry, or none,
