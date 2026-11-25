@@ -64,13 +64,14 @@ function topRuleFor(rule_denies: Record<string, number>): RuleCount | null {
 }
 
 function aggregateRuleDenies(metrics: MetricsEntry[]): Record<string, number> {
-  const agg: Record<string, number> = {};
+  // A Map, not a plain object: a rule named "__proto__" must count like any other.
+  const agg = new Map<string, number>();
   for (const m of metrics) {
     for (const [rule, count] of Object.entries(m.rule_denies)) {
-      if (count > 0) agg[rule] = (agg[rule] ?? 0) + count;
+      if (count > 0) agg.set(rule, (agg.get(rule) ?? 0) + count);
     }
   }
-  return agg;
+  return Object.fromEntries(agg);
 }
 
 function renderScope(now: number, allow: number, available: boolean): string {
