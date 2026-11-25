@@ -243,11 +243,13 @@ listed the available tools, and then ran the three reads in parallel.
 
 ## <img src="docs/assets/section-controls.svg" width="30" height="24" alt="">Operate the gateway
 
-- **Access.** Require profile tokens with `server.require_profile_token: true`.
+- **Access.** Profile tokens are required by default (`server.require_profile_token: true`).
+  To keep the unauthenticated `?profile=` selection, set it to `false` explicitly.
   [Create, rotate, or revoke a token](https://kamilrybacki.github.io/splice-dock/connect.html).
 - **Admin UI.** Manage profile YAML, review approvals, and inspect the audit log.
   The admin listener defaults to port `8789` and exposes Prometheus metrics
-  at `/metrics`. [Admin UI and observability](https://kamilrybacki.github.io/splice-dock/webui.html).
+  at `/metrics`. Outside a container, set `server.admin_host: 127.0.0.1` unless a
+  reverse proxy on another host must reach it. [Admin UI and observability](https://kamilrybacki.github.io/splice-dock/webui.html).
 - **Storage.** Run a single replica with SQLite or use shared PostgreSQL for
   multiple replicas. [Storage configuration and migration](docs/operations.md#storage-backend).
 - **Approvals.** Review [learned grants and phone approvals](docs/operations.md)

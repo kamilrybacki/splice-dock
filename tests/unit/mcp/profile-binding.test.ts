@@ -31,13 +31,14 @@ describe('POST /mcp — bearer profile binding', () => {
   let server: ReturnType<typeof createServer>;
   let port: number;
 
-  function build(lookup: (t: string) => string | null): ReturnType<typeof createServer> {
+  function build(lookup: (t: string) => string | null, requireProfileToken?: boolean): ReturnType<typeof createServer> {
     const toolReg = new ToolRegistry();
     const profileReg = new ProfileRegistry();
     profileReg.addFileProfile('default', { tools: ['*'] });
     const svc = new ProfileService(profileReg, toolReg);
     const app = createMcpExpressApp(svc, toolReg, new Map(), [], {
       lookupProfileByToken: lookup,
+      ...(requireProfileToken === undefined ? {} : { requireProfileToken }),
     });
     return createServer(app);
   }
@@ -73,8 +74,8 @@ describe('POST /mcp — bearer profile binding', () => {
     expect(res.status).not.toBe(401);
   });
 
-  it('keeps the legacy path when no bearer is present (no 401)', async () => {
-    await listen(build(() => null));
+  it('keeps the legacy path when no bearer is present and require_profile_token is explicitly false (no 401)', async () => {
+    await listen(build(() => null, false));
     const res = await post({}, '?profile=default');
     expect(res.status).not.toBe(401);
   });

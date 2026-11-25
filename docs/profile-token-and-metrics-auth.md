@@ -2,10 +2,39 @@
 
 ## Require a profile token
 
-Set `server.require_profile_token: true`. Create a token for the intended
-profile and send it as `Authorization: Bearer <profile-token>` on requests
-to `POST /mcp`. The token selects its bound profile. The gateway returns
-HTTP 401 when the token is missing or invalid.
+`server.require_profile_token` defaults to `true`. Create a token for the
+intended profile and send it as `Authorization: Bearer <profile-token>` on
+requests to `POST /mcp`. The token selects its bound profile, and the
+`?profile=` query parameter is ignored. The gateway returns HTTP 401 when the
+token is missing or invalid.
+
+### Opting out
+
+Set `server.require_profile_token: false` to allow the unauthenticated
+`?profile=<name>` selection again. Any caller that can reach the MCP port can
+then pick any profile, so use it only on a trusted network. The gateway logs a
+warning at startup when the option is `false`, and each `?profile=` session
+carries a `Deprecation` response header and a log line.
+
+### Migrating from earlier versions
+
+Earlier versions defaulted to `false`. After upgrading, a client that connected
+with `?profile=<name>` and no bearer token receives HTTP 401
+(`profile_token_required`). Either create a profile token for each client
+(`POST /api/v1/profile-tokens`) and send it as a bearer, or add
+`require_profile_token: false` to `server:` to keep the old behaviour.
+
+## Bind addresses
+
+| Key | Default | Listens on |
+|-----|---------|------------|
+| `server.host` | unset | MCP endpoint (`server.port`); unset binds every interface, as before |
+| `server.admin_host` | `0.0.0.0` | Admin API and `/metrics` (`server.admin_port`) |
+
+The defaults keep the previous behaviour (all interfaces). Outside a container,
+set `server.admin_host: 127.0.0.1` unless a reverse proxy on another host must
+reach the admin API. Inside a container leave it as is, or the published port
+is unreachable.
 
 See [MCP clients and tokens](https://kamilrybacki.github.io/splice-dock/connect.html#create-token)
 for a token-creation example.

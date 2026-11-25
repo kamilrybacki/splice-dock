@@ -84,9 +84,26 @@ describe('require_profile_token = true', () => {
   });
 });
 
-describe('require_profile_token = false (default)', () => {
+describe('require_profile_token unset (default)', () => {
+  it('rejects a session with no bearer (401)', async () => {
+    await start({});
+    expect((await post({})).status).toBe(401);
+  });
+
+  it('ignores ?profile= when no bearer is present (401)', async () => {
+    await start({});
+    expect((await post({}, '?profile=ops')).status).toBe(401);
+  });
+
+  it('accepts a valid bearer', async () => {
+    await start({});
+    expect((await post({ Authorization: 'Bearer good' })).status).not.toBe(401);
+  });
+});
+
+describe('require_profile_token = false (explicit opt-out)', () => {
   it('keeps the legacy ?profile= path and counts selection sources', async () => {
-    const m = await start({ metrics: true });
+    const m = await start({ requireProfileToken: false, metrics: true });
     const legacy = await post({}, '?profile=ops');
     expect(legacy.status).not.toBe(401);
     expect(legacy.headers.get('Deprecation')).toMatch(/^@\d+$/);
@@ -102,7 +119,7 @@ describe('require_profile_token = false (default)', () => {
 
   it('warns once per profile on query fallback, with the profile name only', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
-    await start({});
+    await start({ requireProfileToken: false });
     await post({}, '?profile=ops');
     await post({}, '?profile=ops');
     await post({}, '?profile=default');

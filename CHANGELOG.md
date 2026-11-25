@@ -6,8 +6,25 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `server.host` and `server.admin_host` choose the interface the MCP endpoint
+  and the admin API bind to. The defaults keep the current behaviour (every
+  interface), so nothing changes unless you set them. Outside a container, set
+  `server.admin_host: 127.0.0.1` unless a reverse proxy on another host must
+  reach the admin API.
+- A startup warning is logged when `server.require_profile_token` is explicitly
+  `false`.
+
 ### Changed
 
+- **BREAKING:** `server.require_profile_token` now defaults to `true`. `POST /mcp`
+  requires a valid profile-token bearer and ignores `?profile=`; a request
+  without one gets HTTP 401 (`profile_token_required`). To migrate, create a
+  profile token for each client (`POST /api/v1/profile-tokens`) and send it as
+  `Authorization: Bearer <token>`, or keep the old behaviour with
+  `server.require_profile_token: false`. The `Deprecation` header on `?profile=`
+  sessions is now a fixed RFC 9745 date and only appears under that opt-out.
 - Credential minting now requires an authenticated caller (a valid profile
   bearer token). Sessions that select a profile without a bearer token
   (`?profile=` or the default profile) no longer receive minted credentials and

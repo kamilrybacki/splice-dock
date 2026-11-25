@@ -70,6 +70,8 @@ beforeEach(async () => {
 
   const app = createMcpExpressApp(profiles, toolReg, new Map(), ['echo'], {
     lookupProfileByToken: t => (t === OPS_TOKEN || t === OPS_TOKEN_2 ? 'ops' : null),
+    // Tokenless ?profile= callers are part of what these tests cover (the legacy path).
+    requireProfileToken: false,
     metrics,
   });
   http = createServer(app);

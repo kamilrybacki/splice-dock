@@ -338,13 +338,21 @@ export const splicedockConfigSchema = z.object({
   server: z
     .object({
       port: z.number().int().min(1).max(65535).default(8788),
+      // Interface the MCP endpoint binds to. Unset keeps Node's default (every
+      // interface), which is what container and Kubernetes deployments need.
+      host: z.string().min(1).optional(),
       admin_port: z.number().int().min(1).max(65535).default(8789),
+      // Interface the admin API binds to. The default listens on every
+      // interface; outside a container, set 127.0.0.1 unless a reverse proxy on
+      // another host must reach it.
+      admin_host: z.string().min(1).default('0.0.0.0'),
       admin_token_env: z.string().default('SPLICEDOCK_ADMIN_TOKEN'),
       // Env var holding the bearer token required to scrape /metrics. If that
       // env var is unset or empty, /metrics stays unauthenticated.
       metrics_token_env: z.string().default('SPLICEDOCK_METRICS_TOKEN'),
-      // When true, POST /mcp requires a valid profile-token bearer; ?profile= is ignored.
-      require_profile_token: z.boolean().default(false),
+      // Default true: POST /mcp requires a valid profile-token bearer and ?profile=
+      // is ignored. Set false to opt back in to the legacy, unauthenticated ?profile= path.
+      require_profile_token: z.boolean().default(true),
       // Optional named admin tokens. The legacy admin_token_env keeps working
       // and maps to the fixed identity "admin".
       admin_tokens: z

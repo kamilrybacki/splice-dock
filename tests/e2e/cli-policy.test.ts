@@ -60,9 +60,14 @@ const echoLegacyConfig: CliPassthroughToolConfig = {
 let mcpServer: Server | null = null;
 let splicedockUrl = '';
 
+const E2E_TOKEN = 'placeholder-e2e-token';
+
 async function connectClient(): Promise<Client> {
   const client = new Client({ name: 'e2e-cli-policy', version: '1.0.0' }, { capabilities: {} });
-  const transport = new StreamableHTTPClientTransport(new URL(`${splicedockUrl}/mcp?profile=default`));
+  // Profile tokens are required by default, so the live path is exercised with a bearer.
+  const transport = new StreamableHTTPClientTransport(new URL(`${splicedockUrl}/mcp`), {
+    requestInit: { headers: { Authorization: `Bearer ${E2E_TOKEN}` } },
+  });
   await client.connect(transport);
   return client;
 }
@@ -105,6 +110,7 @@ describe('E2E cli-policy — live MCP HTTP path', () => {
       // cli_whitelist must contain the executable name, otherwise the wrapper
       // short-circuits before policy evaluation.
       ['echo'],
+      { lookupProfileByToken: t => (t === E2E_TOKEN ? 'default' : null) },
     );
 
     mcpServer = createServer(app);
