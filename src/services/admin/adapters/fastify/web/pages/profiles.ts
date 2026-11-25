@@ -9,6 +9,8 @@ const STYLES = `
 .profiles-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
 .profiles-catalog, .profiles-editor-card { min-width: 0; }
 .profiles-catalog-count { margin-left: auto; }
+.profiles-catalog-summary { display: flex; align-items: center; gap: var(--gap-sm); cursor: pointer; }
+.profiles-catalog-details:not([open]) > .profiles-catalog-summary { border-bottom: 0; }
 .profiles-filter { width: 100%; min-width: 0; }
 .profiles-catalog-actions { margin-top: var(--gap-sm); }
 .profiles-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 65vh; overflow-y: auto; margin-top: var(--gap-sm); }
@@ -39,6 +41,10 @@ const STYLES = `
 .profiles-message[data-kind="warning"] { color: var(--warn); }
 .profiles-validation-details { margin: var(--gap-sm) 0 0; padding-left: 1.5rem; color: var(--danger); font-size: var(--fz-sm); overflow-wrap: anywhere; }
 .profiles-validation-details:empty { display: none; }
+@media (max-width: 899px) {
+  /* Phones: keep the catalogue short so the editor (and its profile name) stays in view. */
+  .profiles-list { max-height: 30vh; }
+}
 @media (min-width: 900px) {
   .profiles-layout { grid-template-columns: 17rem minmax(0, 1fr); }
   .profiles-catalog { position: sticky; top: 4.5rem; }
@@ -53,9 +59,10 @@ export function renderProfilesPage(): string {
 
   <div class="profiles-layout">
     <aside class="card profiles-catalog" aria-label="profile catalog">
-      <div class="card-header">
+      <details class="profiles-catalog-details" open>
+      <summary class="card-header profiles-catalog-summary">
         catalog <span id="profiles-count" class="pill pill-muted profiles-catalog-count">0</span>
-      </div>
+      </summary>
       <div class="card-body">
         <label for="profile-filter">filter profiles</label>
         <input id="profile-filter" class="profiles-filter" type="search" placeholder="name, tool, or source" autocomplete="off" spellcheck="false" />
@@ -66,6 +73,7 @@ export function renderProfilesPage(): string {
         <p id="profiles-catalog-status" class="muted" role="status">loading profiles…</p>
         <div id="profiles-list" class="profiles-list" role="listbox" aria-label="available profiles"></div>
       </div>
+      </details>
     </aside>
 
     <section class="card profiles-editor-card" aria-labelledby="profile-editor-title">

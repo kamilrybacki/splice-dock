@@ -38,12 +38,15 @@ html, body { overflow-x: hidden; overflow-x: clip; overscroll-behavior-x: none; 
 .swipe-card .tool { font-size: 1.6em; font-weight: 700; color: var(--fg); word-break: break-all; }
 .swipe-card pre.argv {
   margin: 0; padding: var(--gap-sm); background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--radius); white-space: pre-wrap; word-break: break-all; flex: 1 1 auto;
-  overflow-y: auto; color: var(--accent); font-size: var(--fz);
+  border-radius: var(--radius); white-space: pre-wrap; word-break: break-all;
+  color: var(--accent); font-size: var(--fz);
 }
 .swipe-card .meta { font-size: var(--fz-sm); color: var(--fg-muted); word-break: break-all; }
 .swipe-card .meta b { color: var(--fg-faint); font-weight: 400; }
 .swipe-card .foot { display: flex; justify-content: space-between; font-size: var(--fz-sm); color: var(--fg-muted); }
+.swipe-card .swipe-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap-sm); touch-action: pan-y; }
+.swipe-card .swipe-body > * { flex: none; }
+.swipe-card .details-link { font-size: var(--fz-sm); align-self: flex-start; }
 .swipe-card .strong-note { color: var(--warn); font-size: var(--fz-sm); }
 .stamp {
   position: absolute; top: 18px; padding: 4px 10px; border: 3px solid; border-radius: 8px;
@@ -170,12 +173,18 @@ const SCRIPT = `
     c.dataset.id = row.id;
     c.appendChild(el('div', 'stamp approve', 'APPROVE'));
     c.appendChild(el('div', 'stamp reject', 'REJECT'));
-    c.appendChild(el('div', 'tool', row.tool));
-    if (strong[row.id]) c.appendChild(el('div', 'strong-note', 'strong approval: needs the WebAuthn consent link'));
-    c.appendChild(el('pre', 'argv', fmtArgv(row.argv)));
-    if (row.approval_context) c.appendChild(metaLine('why', row.approval_context));
-    if (row.cwd) c.appendChild(metaLine('cwd', row.cwd));
-    c.appendChild(metaLine('rule', row.rule + (row.matched ? ' (' + row.matched + ')' : '')));
+    // One scroll area for all review content; stamps and the footer stay put.
+    var body = el('div', 'swipe-body');
+    body.appendChild(el('div', 'tool', row.tool));
+    if (strong[row.id]) body.appendChild(el('div', 'strong-note', 'strong approval: needs the WebAuthn consent link'));
+    body.appendChild(el('pre', 'argv', fmtArgv(row.argv)));
+    if (row.approval_context) body.appendChild(metaLine('why', row.approval_context));
+    if (row.cwd) body.appendChild(metaLine('cwd', row.cwd));
+    body.appendChild(metaLine('rule', row.rule + (row.matched ? ' (' + row.matched + ')' : '')));
+    var more = el('a', 'details-link', 'full details \u2192');
+    more.href = '/admin/approvals/' + encodeURIComponent(row.id);
+    body.appendChild(more);
+    c.appendChild(body);
     var foot = el('div', 'foot');
     foot.appendChild(el('span', null, typeof window.timeAgo === 'function' ? window.timeAgo(row.requested_at) : ''));
     var cd = el('span', 'countdown');
@@ -231,6 +240,7 @@ const SCRIPT = `
     var sx = 0, sy = 0, dx = 0, dy = 0;
     card.addEventListener('pointerdown', function (e) {
       if (busy) return;
+      if (e.target && e.target.closest && e.target.closest('a')) return; // let links navigate
       dragging = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
       card.style.transition = 'none';
       try { card.setPointerCapture(e.pointerId); } catch (_) {}
