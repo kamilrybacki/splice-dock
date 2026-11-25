@@ -18,6 +18,14 @@ All notable changes to this project are recorded here. The format follows
 
 ### Changed
 
+- Minted credentials now have a hard lifetime cap. `credential_providers.<name>.max_ttl_seconds`
+  (default 86400, at most 2592000) bounds how long the broker keeps a credential
+  after minting, whatever expiry the provider reports; a later expiry, or none,
+  is replaced by the cap and logged as `credential lifetime capped`. A stored
+  entry that was issued for longer than the cap, or records no lifetime, is
+  reminted instead of reused. **Migration:** a
+  `command` provider with `ttl_seconds` above 86400 now needs `max_ttl_seconds`
+  at least as large, because `ttl_seconds` must not exceed it.
 - **BREAKING:** `server.require_profile_token` now defaults to `true`. `POST /mcp`
   requires a valid profile-token bearer and ignores `?profile=`; a request
   without one gets HTTP 401 (`profile_token_required`). To migrate, create a

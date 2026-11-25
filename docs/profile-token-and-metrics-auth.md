@@ -107,6 +107,7 @@ credential_providers:
     args: ["--profile", "{profile}", "--agent", "{agent}"]
     timeout_ms: 10000
     ttl_seconds: 3000
+    max_ttl_seconds: 86400             # hard cap on how long any minted credential is kept
     output: { format: json, secret_field: token, expires_in_field: expires_in }
 
 credential_storage:
@@ -140,6 +141,17 @@ profiles:
 - Refresh happens at 10% of the credential's actual lifetime before expiry
   (capped at 60s), using the provider's reported expiry when it gives one and
   `ttl_seconds` otherwise.
+- **Lifetime cap.** A credential is never kept past `max_ttl_seconds` (default
+  86400, at most 2592000) after it was minted, whatever the provider reports. A
+  later expiry, or none, is replaced by the cap, and the broker logs
+  `credential lifetime capped` with the reported and effective expiry (never the
+  value). `ttl_seconds` must not exceed `max_ttl_seconds`; a config where it
+  does fails to load. A stored (L2) entry is reused only if it records a
+  lifetime (`ttl_ms`) within `max_ttl_seconds` and ends no later than that from
+  now (plus a one-minute allowance for clock skew between replicas). Anything
+  else was not written under the cap, so the broker logs
+  `credential store entry exceeds max_ttl; reminting` and mints again, which
+  overwrites the entry.
 - Every failure is **fail-closed**: `unknown_credential_provider`,
   `credential_unavailable` or `credential_identity_missing` — never a fallback
   to the shared tool-level credential.
@@ -228,6 +240,7 @@ credential_providers:
     command: node
     args: ["/app/scripts/mint/github-app-token.mjs", "{profile}", "{agent}", "{backend}"]
     ttl_seconds: 3600
+    max_ttl_seconds: 86400
     output: { format: json, secret_field: token, expires_in_field: expires_in }
 
 credential_defaults:
