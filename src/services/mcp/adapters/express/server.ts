@@ -146,7 +146,12 @@ export function buildMcpServer(
                   undefined,
                   // Minted credentials are per profile/agent: the driver re-resolves
                   // auth on every request and needs to know whose credential to ask for.
-                  { profile, agent: agent ?? null },
+                  {
+                    profile,
+                    agent: agent ?? null,
+                    authenticated: currentCaller()?.authenticated === true,
+                    tokenId: currentCaller()?.tokenId ?? null,
+                  },
                 );
                 await newDriver.connect();
                 proxyDrivers.set(driverKey, newDriver);

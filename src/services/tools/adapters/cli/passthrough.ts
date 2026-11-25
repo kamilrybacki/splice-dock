@@ -337,6 +337,8 @@ export async function callCliPassthrough(
             profile: caller?.profile ?? '',
             agent: caller?.agent ?? null,
             backend: config.name,
+            authenticated: caller?.authenticated === true,
+            tokenId: caller?.tokenId ?? null,
           });
     }
   } catch (err) {
@@ -346,6 +348,7 @@ export async function callCliPassthrough(
     // collapsed to the historical single message.
     return errorResult(
       code === 'credential_unavailable' || code === 'unknown_credential_provider' || code === 'credential_identity_missing'
+        || code === 'credential_identity_unauthenticated'
         ? code
         : 'vault_unavailable',
     );

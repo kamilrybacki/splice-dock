@@ -8,6 +8,10 @@ export interface MintTarget {
   profile: string;
   agent: string | null;
   backend: string;
+  /** Caller presented a valid profile-token bearer. Not part of any key. */
+  authenticated: boolean;
+  /** Non-secret token id, audit only. Not part of any key. */
+  tokenId: string | null;
 }
 
 const KEY_SEPARATOR = '\u0000';
@@ -67,6 +71,9 @@ export function resetCredentialBroker(): void {
 /** Current value for (provider, profile, agent, backend), minting only when needed. */
 export async function resolveMintedCredential(providerName: string, target: MintTarget): Promise<string> {
   if (target.profile === '') throw new Error('credential_identity_missing');
+  // Before the cache, single-flight and store: an unauthenticated session shares
+  // keys with untagged bearer tokens of the same profile.
+  if (target.authenticated !== true) throw new Error('credential_identity_unauthenticated');
   const providerConfig = providerConfigs.get(providerName);
   const provider = providers.get(providerName);
   if (!providerConfig || !provider) throw new Error('unknown_credential_provider');
@@ -201,6 +208,7 @@ async function mintAndStore(
     profile: target.profile,
     agent: target.agent,
     backend: target.backend,
+    token_id: target.tokenId,
     expires_at: expiresAt,
   });
   return mintedCredential.secret;

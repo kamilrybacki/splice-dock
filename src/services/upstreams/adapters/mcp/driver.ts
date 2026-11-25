@@ -10,6 +10,7 @@ import { resolveCredentialSource } from '../../../secrets/adapters/resolution.js
 import type { McpProxyToolConfig } from '../../../../config/types.js';
 import type { McpToolDef } from '../../../tools/registry.js';
 import { retry } from '../../../../common/retry.js';
+import { currentCaller } from '../../../../common/request/context.js';
 import { PACKAGE_VERSION } from '../../../../version.js';
 import type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
 export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js';
@@ -18,6 +19,10 @@ export type { McpCallResult } from '../../../../contracts/internal/mcp/result.js
 export interface DriverIdentity {
   profile: string;
   agent: string | null;
+  /** Caller presented a valid profile-token bearer; minting requires it. */
+  authenticated: boolean;
+  /** Non-secret token id, audit only. */
+  tokenId: string | null;
 }
 
 /**
@@ -38,7 +43,7 @@ export async function buildAuthHeaders(
   // `auth` is undefined only for configs built outside zod (defaults apply the
   // literal { type: 'none' } in production); treat both as "no auth".
   if (!auth || auth.type === 'none') return {};
-  const target = { profile: identity.profile, agent: identity.agent, backend };
+  const target = { profile: identity.profile, agent: identity.agent, backend, authenticated: identity.authenticated, tokenId: identity.tokenId };
   if (auth.type === 'bearer') {
     return { Authorization: `Bearer ${await resolveCredentialSource(auth.token, target)}` };
   }
@@ -102,7 +107,7 @@ export class McpProxyDriver {
   constructor(
     private readonly config: McpProxyToolConfig,
     private readonly pinnedPodIp?: string,
-    private readonly identity: DriverIdentity = { profile: '', agent: null },
+    private readonly identity: DriverIdentity = { profile: '', agent: null, authenticated: false, tokenId: null },
   ) {}
 
   async connect(): Promise<void> {
@@ -188,7 +193,19 @@ export class McpProxyDriver {
   /** Returns the cached tool definitions. Useful for refresh-service callers that connect, list, then disconnect. */
   async listTools(): Promise<McpToolDef[]> { return this.toolDefs; }
 
+  /**
+   * A driver is shared across sessions, so the identity it was built with does
+   * not describe the caller of this request. Minted upstream auth is only used
+   * on behalf of a caller authenticated by a profile-token bearer.
+   */
+  private assertCallerMayUseMintedAuth(): void {
+    if (usesMintedCredential(this.config.auth) && currentCaller()?.authenticated !== true) {
+      throw new Error('credential_identity_unauthenticated');
+    }
+  }
+
   async callReviewedTool(namespacedName: string, args: Record<string, unknown>, exchange: OperationExchange, signal: AbortSignal): Promise<ToolResult> {
+    this.assertCallerMayUseMintedAuth();
     const name = namespacedName.replace(`${this.config.name}__`, '');
     const client = this.client;
     if (this.config.transport === 'sse' || !client || !this.knownTools.has(name)) {
@@ -210,6 +227,7 @@ export class McpProxyDriver {
   }
 
   async callTool(namespacedName: string, args: Record<string, unknown>): Promise<McpCallResult> {
+    this.assertCallerMayUseMintedAuth();
     const originalName = namespacedName.replace(`${this.config.name}__`, '');
     if (!this.knownTools.has(originalName)) {
       return { content: [{ type: 'text', text: `Tool '${originalName}' not found on upstream '${this.config.name}'` }], isError: true };

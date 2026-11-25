@@ -8,6 +8,10 @@ export interface MintContext {
   readonly agent: string | null;
   /** Backend the credential is used against: an mcp_proxy namespace or a CLI tool name. */
   readonly backend: string;
+  /** True only when the caller presented a valid profile-token bearer. Never part of a cache key. */
+  readonly authenticated: boolean;
+  /** Non-secret id of the caller's token, for audit only. Never part of a cache key. */
+  readonly tokenId: string | null;
   /** Declared `credential_providers` instance name (the `mint:` value). */
   readonly provider: string;
   /** Parsed config of that provider instance. */

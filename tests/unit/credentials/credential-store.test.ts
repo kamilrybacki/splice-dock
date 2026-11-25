@@ -145,7 +145,7 @@ describe('broker with an injected store', () => {
       storage: { type: 'vault', prefix: PREFIX },
     }, adapters);
 
-    expect(await resolveMintedCredential('test', { profile: 'worker', agent: null, backend: 'gh' })).toBe('tok-1');
+    expect(await resolveMintedCredential('test', { profile: 'worker', agent: null, backend: 'gh', authenticated: true, tokenId: 'tid' })).toBe('tok-1');
     expect(put).toHaveBeenCalledWith('worker/gh/_/test', expect.objectContaining({ value: 'tok-1' }));
 
     await revokeProfileCredentials('worker');

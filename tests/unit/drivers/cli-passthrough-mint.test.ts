@@ -1,6 +1,6 @@
 import { credentialAdapters } from '../../../src/services/secrets/adapters/index.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { callCliPassthrough, configurePassthrough } from '../../../src/services/tools/adapters/cli/passthrough.js';
@@ -63,6 +63,18 @@ describe('cli_passthrough minted env', () => {
       tool === 'gh' && profile === 'worker' ? [{ name: 'GH_TOKEN', mint: 'gh' }] : undefined,});
 
     expect((await printToken()).content[0]!.text).toBe('tok-1');
+  });
+
+  it('refuses to mint for an unauthenticated caller', async () => {
+    configure();
+    configurePassthrough({profileEnvResolver: () => [{ name: 'GH_TOKEN', mint: 'gh' }]});
+
+    const result = await runWithCaller({ profile: 'worker', tokenId: 'legacy-query', authenticated: false, agent: null }, () =>
+      callCliPassthrough(makeConfig(), 'run', { args: ['-c', 'printf %s "${GH_TOKEN:-}"'] }, ['sh']),
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toBe('credential_identity_unauthenticated');
+    expect(readFileSync(counter, 'utf8').trim()).toBe('0');
   });
 
   it('reuses the minted value on the next call', async () => {

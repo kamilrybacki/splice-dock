@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { McpProxyToolConfig } from '../../../src/config/types.js';
+import { runWithCaller } from '../../../src/common/request/context.js';
 
 const state = vi.hoisted(() => ({ token: 'tok-1', connects: 0, calls: 0 }));
 
@@ -43,7 +44,8 @@ function makeConfig(auth: McpProxyToolConfig['auth']): McpProxyToolConfig {
   };
 }
 
-const identity = { profile: 'worker', agent: null };
+const identity = { profile: 'worker', agent: null, authenticated: true, tokenId: 'tid' };
+const caller = { profile: 'worker', tokenId: 'tid', authenticated: true };
 
 describe('McpProxyDriver — minted credential rotation', () => {
   beforeEach(() => {
@@ -57,11 +59,11 @@ describe('McpProxyDriver — minted credential rotation', () => {
     await driver.connect();
     expect(state.connects).toBe(1);
 
-    await driver.callTool('vault__read_secret', {});
+    await runWithCaller(caller, () => driver.callTool('vault__read_secret', {}));
     expect(state.connects).toBe(1);
 
     state.token = 'tok-2';
-    await driver.callTool('vault__read_secret', {});
+    await runWithCaller(caller, () => driver.callTool('vault__read_secret', {}));
     expect(state.connects).toBe(2);
     expect(state.calls).toBe(2);
   });
@@ -70,7 +72,7 @@ describe('McpProxyDriver — minted credential rotation', () => {
     const driver = new McpProxyDriver(makeConfig({ type: 'bearer', token: { from: 'env:VAULT_TOKEN' } }), undefined, identity);
     await driver.connect();
     state.token = 'tok-2';
-    await driver.callTool('vault__read_secret', {});
+    await runWithCaller(caller, () => driver.callTool('vault__read_secret', {}));
     expect(state.connects).toBe(1);
   });
 });

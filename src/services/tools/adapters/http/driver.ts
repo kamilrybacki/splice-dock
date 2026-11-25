@@ -89,7 +89,8 @@ async function buildHeaders(config: HttpToolConfig): Promise<Record<string, stri
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (config.auth.type === 'none') return headers;
   const caller = currentCaller();
-  const target = { profile: caller?.profile ?? '', agent: caller?.agent ?? null, backend: config.name };
+  const target = { profile: caller?.profile ?? '', agent: caller?.agent ?? null, backend: config.name,
+    authenticated: caller?.authenticated === true, tokenId: caller?.tokenId ?? null };
   if (config.auth.type === 'bearer') {
     headers['Authorization'] = `Bearer ${await resolveCredentialSource(config.auth.token, target)}`;
   } else if (config.auth.type === 'basic') {

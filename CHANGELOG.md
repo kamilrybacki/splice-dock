@@ -6,6 +6,17 @@ All notable changes to this project are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Credential minting now requires an authenticated caller (a valid profile
+  bearer token). Sessions that select a profile without a bearer token
+  (`?profile=` or the default profile) no longer receive minted credentials and
+  get `credential_identity_unauthenticated`. This applies to CLI passthrough,
+  HTTP tools and `mcp_proxy` upstreams with `mint:` auth; the `mcp_proxy` check
+  runs on every call, independent of which session opened the shared upstream
+  connection. Static `from:` credentials are unaffected. The "credential
+  minted" log line now includes `token_id`.
+
 ## [1.1.1] - 2026-11-24
 
 ### Changed
