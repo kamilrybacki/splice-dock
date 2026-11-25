@@ -62,11 +62,17 @@ export function card(opts: CardOpts): string {
   return `<div class="${cls}">${header}<div class="card-body">${opts.body}</div></div>`;
 }
 
-export function kpi(label: string, value: string | number, hint?: string): string {
+export function kpi(
+  label: string,
+  value: string | number,
+  hint?: string,
+  extraClass?: string,
+): string {
   const hintHtml = hint
     ? `<span class="kpi-hint">${escapeHtml(hint)}</span>`
     : '';
-  return `<div class="kpi">
+  const cls = extraClass ? `kpi ${escapeHtml(extraClass)}` : 'kpi';
+  return `<div class="${cls}">
 <span class="kpi-label">${escapeHtml(label)}</span>
 <span class="kpi-value">${escapeHtml(value)}</span>
 ${hintHtml}
@@ -75,7 +81,15 @@ ${hintHtml}
 
 const SPARK_CHARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
-export function spark(buckets: number[], opts?: { width?: number }): string {
+/**
+ * Missing data (null / undefined / empty series) draws no sparkline at all: a
+ * muted dash, never a flat line of zeros that reads as "zero traffic". A real
+ * series that happens to be all zeros still draws its flat baseline.
+ */
+export function spark(buckets: number[] | null | undefined, opts?: { width?: number }): string {
+  if (!buckets || buckets.length === 0) {
+    return '<span class="spark spark-empty" title="no data">—</span>';
+  }
   // Width precedence:
   //   1. opts.width if explicitly provided
   //   2. buckets.length if > 0
