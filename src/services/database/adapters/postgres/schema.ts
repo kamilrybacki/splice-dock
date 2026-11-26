@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS policy_overrides (
 CREATE TABLE IF NOT EXISTS profile_policy_overrides (
   tool_name TEXT NOT NULL, profile TEXT NOT NULL, policy_json TEXT NOT NULL, updated_at BIGINT NOT NULL,
   updated_by TEXT, PRIMARY KEY (tool_name, profile));
+CREATE TABLE IF NOT EXISTS metrics_applied_seq (
+  replica_id TEXT NOT NULL, tool_name TEXT NOT NULL, seq BIGINT NOT NULL, applied_at BIGINT NOT NULL,
+  PRIMARY KEY (replica_id, tool_name));
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
   tool_name TEXT PRIMARY KEY, total BIGINT NOT NULL DEFAULT 0, allow BIGINT NOT NULL DEFAULT 0,
   deny BIGINT NOT NULL DEFAULT 0, rule_denies_json TEXT, buckets_60s_json TEXT, buckets_1h_json TEXT,

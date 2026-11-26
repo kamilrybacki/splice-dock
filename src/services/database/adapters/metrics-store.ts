@@ -76,6 +76,10 @@ export async function listMetricsRows(db: SqlDb): Promise<MetricsSnapshotRow[]> 
  */
 export async function applyMetricsDelta(db: SqlDb, d: MetricsDelta): Promise<MetricsSnapshotRow> {
   return await db.transaction(async () => {
+    if (await alreadyApplied(db, d)) {
+      // A retry of a delta that already committed: report the current row, add nothing.
+      return (await readMetricsRow(db, d.tool_name)) ?? emptyRow(d.tool_name);
+    }
     await db.prepare(
       `INSERT INTO metrics_snapshots (
           tool_name, total, allow, deny, rule_denies_json,
@@ -126,12 +130,44 @@ export async function applyMetricsDelta(db: SqlDb, d: MetricsDelta): Promise<Met
       JSON.stringify(minutes.buckets), minutes.anchor, minutes.from,
       d.tool_name,
     );
+    await recordApplied(db, d);
     return {
       ...cur, rule_denies,
       buckets_1h: [...hourly.buckets], buckets_1h_anchor: hourly.anchor, buckets_1h_from: hourly.from,
       buckets_60s: [...minutes.buckets], buckets_60s_anchor: minutes.anchor, buckets_60s_from: minutes.from,
     };
   })();
+}
+
+/** Applied-seq rows untouched for this long are pruned (a replica that old is gone). */
+const APPLIED_SEQ_TTL_MS = 7 * 24 * 3600_000;
+
+async function alreadyApplied(db: SqlDb, d: MetricsDelta): Promise<boolean> {
+  if (d.replica_id == null || d.seq == null) return false;
+  const last = await db
+    .prepare('SELECT seq FROM metrics_applied_seq WHERE replica_id = ? AND tool_name = ?')
+    .get(d.replica_id, d.tool_name) as { seq: number | string } | undefined;
+  // Postgres returns BIGINT as a string.
+  return last !== undefined && Number(last.seq) >= d.seq;
+}
+
+async function recordApplied(db: SqlDb, d: MetricsDelta): Promise<void> {
+  if (d.replica_id == null || d.seq == null) return;
+  const now = Date.now();
+  await db.prepare(
+    `INSERT INTO metrics_applied_seq (replica_id, tool_name, seq, applied_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(replica_id, tool_name) DO UPDATE SET seq = excluded.seq, applied_at = excluded.applied_at`,
+  ).run(d.replica_id, d.tool_name, d.seq, now);
+  await db.prepare('DELETE FROM metrics_applied_seq WHERE applied_at < ?').run(now - APPLIED_SEQ_TTL_MS);
+}
+
+function emptyRow(tool: string): MetricsSnapshotRow {
+  return {
+    tool_name: tool, total: 0, allow: 0, deny: 0, rule_denies: {},
+    buckets_60s: [], buckets_60s_anchor: null, buckets_60s_from: null,
+    buckets_1h: [], buckets_1h_anchor: null, buckets_1h_from: null,
+    last_ts: null, last_duration_ms: null, updated_at: Date.now(),
+  };
 }
 
 export async function upsertMetricsRow(db: SqlDb, s: Omit<MetricsSnapshotRow, 'updated_at'>): Promise<void> {
