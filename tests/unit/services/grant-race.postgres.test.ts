@@ -44,7 +44,7 @@ async function grantApproved(raw: PgDb): Promise<number> {
 }
 /** Promote one grant on replica A and leave it a single use. */
 async function oneUseGrant(r: Awaited<ReturnType<typeof replicas>>) {
-  await r.execute(r.svcA, 'one'); await r.execute(r.svcA, 'two');
+  await r.execute(r.svcA, 'one'); await r.execute(r.svcA, 'two'); await r.execute(r.svcA, 'three');
   const [g] = await grants(r.raw); expect(g).toBeDefined();
   await r.raw.prepare('UPDATE standing_grants SET use_count_max=1 WHERE id=?').run(g!.id);
   return g!.id;
@@ -93,7 +93,7 @@ describe.skipIf(!TEST_PG_DSN)(TEST_PG_DSN ? 'standing grant races (Postgres)' : 
   });
 
   it.each(['revoked_at', 'suspended_at'])('a grant %s between match and consume is not used', async (column) => {
-    const r = await replicas(); await r.execute(r.svcA, 'one'); await r.execute(r.svcA, 'two');
+    const r = await replicas(); await r.execute(r.svcA, 'one'); await r.execute(r.svcA, 'two'); await r.execute(r.svcA, 'three');
     const [g] = await grants(r.raw);
     const holder = holdRowLocks(r.raw, `SELECT 1 FROM standing_grants WHERE id='${g!.id}' FOR UPDATE`);
     await holder.held;
@@ -110,7 +110,7 @@ describe.skipIf(!TEST_PG_DSN)(TEST_PG_DSN ? 'standing grant races (Postgres)' : 
   });
 
   it('concurrent promotions on two replicas create one grant', async () => {
-    const r = await replicas(); await r.execute(r.svcA, 'one');
+    const r = await replicas(); await r.execute(r.svcA, 'zero'); await r.execute(r.svcA, 'one');
     const a = await r.consumed(r.svcA, 'two'); const b = await r.consumed(r.svcB, 'three');
     // Hold both consumed rows so both executionResult calls start together.
     const holder = holdRowLocks(r.raw, `SELECT 1 FROM pending_approvals WHERE id IN ('${a}','${b}') FOR UPDATE`);
