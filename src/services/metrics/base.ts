@@ -14,9 +14,12 @@
 //
 // Two bucket arrays power sparklines:
 //   buckets_60s — 60 entries, one per minute, last hour
-//   buckets_1h  — 24 entries, one per hour, last day. Time semantics (and the
-//                 cross-replica merge) live in ./hourly.ts: anchor = hour of
-//                 index 23 (the current, in-progress hour).
+//   buckets_1h  — 24 entries, one per hour, last day.
+// Both are time-correct windows (./window.ts, bound in ./minutes.ts and
+// ./hourly.ts): anchor = absolute minute / hour of the newest index (the
+// current, in-progress one), `from` = first trustworthy unit (earlier units are
+// unknown, not zero). Each replica flushes its own per-window increments and the
+// DB sums them by absolute minute / hour, so replicas never overwrite each other.
 //
 // Each bucket holds the count of calls landing in that interval. We don't
 // store per-decision per-bucket counts — that's a 6× memory blowup for
@@ -26,28 +29,15 @@
 import type { MetricsDelta, MetricsRepository } from '../../contracts/outbound/repositories.js';
 import { logger } from '../../common/logger.js';
 import {
-  HOURS, MS_PER_HOUR, bumpWindow, emptyWindow, hourOf, hourlyView, mergeWindows, rollWindow, windowFromRow,
-  type HourlyWindow,
+  HOURS, MS_PER_HOUR, bumpWindow, emptyWindow, hourOf, hourlyView, mergeWindows, windowFromRow,
 } from './hourly.js';
+import { MINUTES, minuteOf, minutesFromRow } from './minutes.js';
+import {
+  applyHourly, applyMinutes, emptyPending, freshMetric, hourlyOf, metricFromRow, minutesOf, rollForward,
+  type KnownFrom, type PendingDelta, type ToolMetric,
+} from './metric-state.js';
 
-const MINUTES_BUCKETS = 60;
-const HOURS_BUCKETS = HOURS;
-const MS_PER_MINUTE = 60_000;
-
-export interface ToolMetric {
-  tool: string;
-  total: number;
-  allow: number;
-  deny: number;
-  rule_denies: Record<string, number>;
-  last_ts: number | null;
-  last_duration_ms: number | null;
-  buckets_60s: number[];   // length 60, oldest first after rollForward()
-  buckets_1h: number[];    // length 24, oldest first after rollForward()
-  bucket_60s_anchor: number;  // minute index at index 0
-  bucket_1h_anchor: number;   // absolute hour index of buckets_1h[23] (the current hour)
-  bucket_1h_from: number;     // first absolute hour whose count is known; earlier hours are unknown, not zero
-}
+export type { ToolMetric } from './metric-state.js';
 
 /** Aggregated hourly call history, oldest bucket first. */
 export interface HourlyHistoryView {
@@ -67,33 +57,6 @@ export interface ToolLocalCounters {
   readonly last_duration_ms: number | null;
 }
 
-function freshMetric(tool: string, now: number, from: number): ToolMetric {
-  return {
-    tool,
-    total: 0,
-    allow: 0,
-    deny: 0,
-    rule_denies: {},
-    last_ts: null,
-    last_duration_ms: null,
-    buckets_60s: new Array(MINUTES_BUCKETS).fill(0),
-    buckets_1h: new Array(HOURS_BUCKETS).fill(0),
-    bucket_60s_anchor: Math.floor(now / MS_PER_MINUTE),
-    bucket_1h_anchor: hourOf(now),
-    bucket_1h_from: from,
-  };
-}
-
-function windowOf(m: ToolMetric): HourlyWindow {
-  return { buckets: m.buckets_1h, anchor: m.bucket_1h_anchor, from: m.bucket_1h_from };
-}
-
-function applyWindow(m: ToolMetric, w: HourlyWindow): void {
-  m.buckets_1h = [...w.buckets];
-  m.bucket_1h_anchor = w.anchor;
-  m.bucket_1h_from = w.from;
-}
-
 export class ToolMetrics {
   private metrics = new Map<string, ToolMetric>();
   private flushHandle: NodeJS.Timeout | null = null;
@@ -106,8 +69,8 @@ export class ToolMetrics {
   // Flushes run one at a time (interval tick vs slow flush vs stop()); a
   // concurrent flush() chains behind the one in flight.
   private flushChain: Promise<void> = Promise.resolve();
-  // Without a store nothing predates this process, so hours before it started are unknown.
-  private readonly startHour = hourOf(Date.now());
+  // Without a store nothing predates this process, so earlier units are unknown.
+  private readonly startedAt = Date.now();
 
   constructor(
     private readonly store: MetricsRepository | null = null,
@@ -119,22 +82,7 @@ export class ToolMetrics {
     if (this.store) {
       const now = Date.now();
       for (const row of await this.store.listMetricsSnapshots()) {
-        const m = freshMetric(row.tool_name, now, hourOf(now));
-        m.total = row.total;
-        m.allow = row.allow;
-        m.deny = row.deny;
-        m.rule_denies = row.rule_denies;
-        m.last_ts = row.last_ts;
-        m.last_duration_ms = row.last_duration_ms;
-        m.buckets_60s = padToLength(row.buckets_60s, MINUTES_BUCKETS);
-        // Hourly buckets are anchored in absolute time: shift them by the hours
-        // that passed since the persisted anchor (downtime = zero calls). A legacy
-        // row without an anchor cannot be placed in time, so its history is unknown.
-        const anchor = row.buckets_1h_anchor;
-        applyWindow(m, anchor == null
-          ? emptyWindow(hourOf(now), hourOf(now))
-          : rollWindow(windowFromRow(row.buckets_1h, anchor, row.buckets_1h_from ?? anchor), hourOf(now)));
-        this.metrics.set(row.tool_name, m);
+        this.metrics.set(row.tool_name, metricFromRow(row, now));
       }
     }
     if (this.flushIntervalMs > 0 && this.store) {
@@ -164,8 +112,8 @@ export class ToolMetrics {
   }): void {
     const ts = args.ts ?? Date.now();
     const hour = hourOf(ts);
-    const m = this.metrics.get(args.tool)
-      ?? freshMetric(args.tool, ts, this.store ? hour - (HOURS - 1) : this.startHour);
+    const minute = minuteOf(ts);
+    const m = this.metrics.get(args.tool) ?? freshMetric(args.tool, ts, this.knownFrom(ts));
     rollForward(m, ts);
     m.total += 1;
     if (args.decision === 'allow') m.allow += 1; else m.deny += 1;
@@ -174,11 +122,12 @@ export class ToolMetrics {
     }
     m.last_ts = ts;
     if (args.duration_ms !== undefined) m.last_duration_ms = args.duration_ms;
-    m.buckets_60s[MINUTES_BUCKETS - 1] += 1;
-    applyWindow(m, bumpWindow(windowOf(m), hour));
+    applyHourly(m, bumpWindow(hourlyOf(m), hour));
+    applyMinutes(m, bumpWindow(minutesOf(m), minute));
     this.metrics.set(args.tool, m);
-    const p = this.pending.get(args.tool) ?? emptyPending(hour);
+    const p = this.pending.get(args.tool) ?? emptyPending(ts);
     p.hourly = bumpWindow(p.hourly, hour);
+    p.minutes = bumpWindow(p.minutes, minute);
     p.total += 1;
     if (args.decision === 'allow') p.allow += 1; else p.deny += 1;
     if (args.decision === 'deny' && args.rule) p.rule_denies[args.rule] = (p.rule_denies[args.rule] ?? 0) + 1;
@@ -189,6 +138,12 @@ export class ToolMetrics {
     if (args.decision === 'allow') l.allow += 1; else l.deny += 1;
     if (args.decision === 'deny' && args.rule) l.rule_denies[args.rule] = (l.rule_denies[args.rule] ?? 0) + 1;
     this.local.set(args.tool, l);
+  }
+
+  /** First hour / minute from which a tool first seen at `ts` has known counts. */
+  private knownFrom(ts: number): KnownFrom {
+    if (this.store) return { hour: hourOf(ts) - (HOURS - 1), minute: minuteOf(ts) - (MINUTES - 1) };
+    return { hour: hourOf(this.startedAt), minute: minuteOf(this.startedAt) };
   }
 
   /**
@@ -202,7 +157,7 @@ export class ToolMetrics {
     // mergeWindows aligns by absolute hour, so a window anchored ahead of this
     // clock (another replica's skew) is not summed into the wrong buckets.
     let merged = emptyWindow(hourNow, -Infinity);
-    for (const m of this.metrics.values()) merged = mergeWindows(merged, windowOf(m));
+    for (const m of this.metrics.values()) merged = mergeWindows(merged, hourlyOf(m));
     const view = hourlyView(merged, hourNow);
     if (!view) return null;
     return { buckets: view.buckets, startTs: view.startHour * MS_PER_HOUR, lastInProgress: true };
@@ -263,26 +218,31 @@ export class ToolMetrics {
         tool_name: tool,
         total: p.total, allow: p.allow, deny: p.deny,
         rule_denies: p.rule_denies,
-        buckets_60s: m.buckets_60s, buckets_1h: [...p.hourly.buckets],
+        buckets_60s: [...p.minutes.buckets], buckets_60s_anchor: p.minutes.anchor, buckets_60s_from: p.minutes.from,
+        buckets_1h: [...p.hourly.buckets],
         buckets_1h_anchor: p.hourly.anchor, buckets_1h_from: p.hourly.from,
         last_ts: p.last_ts, last_duration_ms: p.last_duration_ms,
       };
       try {
         const row = await this.store.addMetricsDelta(delta);
         // Adopt cluster-wide totals (other replicas' counts) plus anything recorded mid-flush.
-        const extra = this.pending.get(tool) ?? emptyPending(hourOf(Date.now()));
+        const extra = this.pending.get(tool) ?? emptyPending(Date.now());
         m.total = row.total + extra.total;
         m.allow = row.allow + extra.allow;
         m.deny = row.deny + extra.deny;
         m.rule_denies = { ...row.rule_denies };
         for (const [r, n] of Object.entries(extra.rule_denies)) m.rule_denies[r] = (m.rule_denies[r] ?? 0) + n;
         const rowAnchor = row.buckets_1h_anchor ?? extra.hourly.anchor;
-        applyWindow(m, mergeWindows(
+        applyHourly(m, mergeWindows(
           windowFromRow(row.buckets_1h, rowAnchor, row.buckets_1h_from ?? rowAnchor), extra.hourly));
+        const rowMinute = row.buckets_60s_anchor ?? extra.minutes.anchor;
+        applyMinutes(m, mergeWindows(
+          minutesFromRow(row.buckets_60s, rowMinute, row.buckets_60s_from ?? rowMinute), extra.minutes));
       } catch (err) {
         // Not persisted: keep the increments for the next flush.
-        const cur = this.pending.get(tool) ?? emptyPending(p.hourly.anchor);
+        const cur = this.pending.get(tool) ?? emptyPending(Date.now());
         cur.hourly = mergeWindows(cur.hourly, p.hourly);
+        cur.minutes = mergeWindows(cur.minutes, p.minutes);
         cur.total += p.total; cur.allow += p.allow; cur.deny += p.deny;
         for (const [r, n] of Object.entries(p.rule_denies)) cur.rule_denies[r] = (cur.rule_denies[r] ?? 0) + n;
         cur.last_ts = cur.last_ts ?? p.last_ts;
@@ -299,42 +259,4 @@ interface LocalCounters {
   allow: number;
   deny: number;
   rule_denies: Record<string, number>;
-}
-
-interface PendingDelta {
-  total: number;
-  allow: number;
-  deny: number;
-  rule_denies: Record<string, number>;
-  last_ts: number | null;
-  last_duration_ms: number | null;
-  /** This process's own hourly increments; every hour is known (zero = no calls). */
-  hourly: HourlyWindow;
-}
-
-function emptyPending(hour: number): PendingDelta {
-  return {
-    total: 0, allow: 0, deny: 0, rule_denies: {}, last_ts: null, last_duration_ms: null,
-    hourly: emptyWindow(hour, hour - (HOURS - 1)),
-  };
-}
-
-/** Advance the per-minute bucket window to "now", filling any intervening
- *  slots with zeros, and roll the hourly window to the current hour. */
-function rollForward(m: ToolMetric, now: number): void {
-  const minuteNow = Math.floor(now / MS_PER_MINUTE);
-  const minuteShift = Math.min(MINUTES_BUCKETS, Math.max(0, minuteNow - m.bucket_60s_anchor - (MINUTES_BUCKETS - 1)));
-  applyWindow(m, rollWindow(windowOf(m), hourOf(now)));
-  if (minuteShift > 0) {
-    m.buckets_60s.splice(0, minuteShift);
-    for (let i = 0; i < minuteShift; i++) m.buckets_60s.push(0);
-    m.bucket_60s_anchor += minuteShift;
-  }
-}
-
-function padToLength(arr: number[], len: number): number[] {
-  if (arr.length === len) return arr;
-  if (arr.length > len) return arr.slice(arr.length - len);
-  const out = new Array(len - arr.length).fill(0).concat(arr);
-  return out;
 }

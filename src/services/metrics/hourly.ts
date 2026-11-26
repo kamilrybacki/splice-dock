@@ -1,83 +1,28 @@
-// Time-correct hourly call buckets.
-//
-// Semantics (the single source of truth for record / rotate / read / merge):
-//   anchor — absolute hour index (epoch ms / 3_600_000) of buckets[23], the
-//            newest bucket, i.e. the hour the window was last rolled to.
-//   buckets[i] covers [anchor-(23-i), anchor-(22-i)) hours.
-//   from   — first absolute hour whose count is trustworthy. Hours before it
-//            are UNKNOWN (e.g. a legacy snapshot with no anchor), never zero.
-//
-// Windows are immutable values; every helper returns a new window.
+// Hourly (24 x 1h) binding of the generic window helpers in ./window.ts.
+// anchor = absolute hour index (epoch ms / 3_600_000) of buckets[23], the
+// current, in-progress hour. See window.ts for the full semantics.
+
+import {
+  emptyTimeWindow, windowFromRow as windowFromRowN, windowView, type TimeWindow,
+} from './window.js';
+
+export { bumpWindow, mergeWindows, rollWindow } from './window.js';
 
 export const HOURS = 24;
 export const MS_PER_HOUR = 3_600_000;
 
-export interface HourlyWindow {
-  readonly buckets: readonly number[];
-  readonly anchor: number;
-  readonly from: number;
-}
+export type HourlyWindow = TimeWindow;
 
 export function hourOf(ts: number): number {
   return Math.floor(ts / MS_PER_HOUR);
 }
 
 export function emptyWindow(anchor: number, from: number): HourlyWindow {
-  return { buckets: new Array<number>(HOURS).fill(0), anchor, from };
+  return emptyTimeWindow(HOURS, anchor, from);
 }
 
-/** Advance the window so buckets[23] is `hourNow`. Never moves backwards. */
-export function rollWindow(w: HourlyWindow, hourNow: number): HourlyWindow {
-  const shift = hourNow - w.anchor;
-  if (shift <= 0) return w;
-  const n = Math.min(shift, HOURS);
-  return {
-    buckets: [...w.buckets.slice(n), ...new Array<number>(n).fill(0)],
-    anchor: hourNow,
-    from: w.from,
-  };
-}
-
-/** Count one call in the bucket of `hour`; calls older than the window are dropped. */
-export function bumpWindow(w: HourlyWindow, hour: number): HourlyWindow {
-  const rolled = rollWindow(w, hour);
-  const idx = HOURS - 1 - (rolled.anchor - hour);
-  if (idx < 0) return rolled;
-  const buckets = rolled.buckets.slice();
-  buckets[idx] = (buckets[idx] ?? 0) + 1;
-  return { ...rolled, buckets };
-}
-
-/**
- * Combine two windows hour-by-hour. Counts are summed — the same rule the
- * totals use when replicas flush (each replica contributes its own calls).
- * An hour is known only if it is known in both operands, so `from` is the
- * later of the two.
- */
-export function mergeWindows(a: HourlyWindow, b: HourlyWindow): HourlyWindow {
-  const anchor = Math.max(a.anchor, b.anchor);
-  const ra = rollWindow(a, anchor);
-  const rb = rollWindow(b, anchor);
-  return {
-    buckets: ra.buckets.map((n, i) => n + (rb.buckets[i] ?? 0)),
-    anchor,
-    from: Math.max(a.from, b.from),
-  };
-}
-
-const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
-
-/**
- * Rebuild a window from persisted values. Short arrays leave older hours unknown,
- * and a corrupt value (non-numeric, negative) makes it and every older hour unknown.
- */
 export function windowFromRow(buckets: readonly number[], anchor: number, from: number): HourlyWindow {
-  const kept = buckets.length > HOURS ? buckets.slice(buckets.length - HOURS) : buckets;
-  const lastBad = kept.reduce((acc, n, i) => (isCount(n) ? acc : i), -1);
-  const clean = kept.map((n) => (isCount(n) ? n : 0));
-  const padded = [...new Array<number>(HOURS - clean.length).fill(0), ...clean];
-  const oldestKnown = anchor - (kept.length - 1) + (lastBad + 1);
-  return { buckets: padded, anchor, from: Math.max(from, oldestKnown) };
+  return windowFromRowN(HOURS, buckets, anchor, from);
 }
 
 export interface HourlyView {
@@ -89,9 +34,6 @@ export interface HourlyView {
 
 /** Roll to `hourNow` and drop the unknown leading hours. */
 export function hourlyView(w: HourlyWindow, hourNow: number): HourlyView | null {
-  const r = rollWindow(w, hourNow);
-  const oldest = r.anchor - (HOURS - 1);
-  const skip = Math.min(HOURS, Math.max(0, r.from - oldest));
-  if (skip >= HOURS) return null;
-  return { buckets: r.buckets.slice(skip) as number[], startHour: oldest + skip };
+  const v = windowView(w, hourNow);
+  return v ? { buckets: v.buckets, startHour: v.start } : null;
 }
