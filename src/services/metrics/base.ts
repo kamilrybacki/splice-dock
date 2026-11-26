@@ -40,6 +40,18 @@ import {
 
 export type { ToolMetric } from './metric-state.js';
 
+/**
+ * An unacknowledged delta is re-sent for at most this long. Must stay well below
+ * the store's applied-seq TTL (7 days, database/adapters/metrics-store.ts), or a
+ * re-send could arrive after its seq row was pruned and be counted twice.
+ */
+export const MAX_RETRY_AGE_MS = 24 * 3600_000;
+
+interface UnackedDelta {
+  readonly delta: MetricsDelta;
+  readonly firstSentAt: number;
+}
+
 /** Aggregated hourly call history, oldest bucket first. */
 export interface HourlyHistoryView {
   readonly buckets: number[];
@@ -68,8 +80,8 @@ export class ToolMetrics {
   // overwritten from the DB, so they only ever increase.
   private local = new Map<string, LocalCounters>();
   // Deltas sent (or about to be) but not yet acknowledged by the store, per tool.
-  // Re-sent unchanged, with the same seq, until acknowledged.
-  private unacked = new Map<string, MetricsDelta>();
+  // Re-sent unchanged, with the same seq, until acknowledged or MAX_RETRY_AGE_MS old.
+  private unacked = new Map<string, UnackedDelta>();
   private seqs = new Map<string, number>();
   // Identifies this process in the store's applied-seq bookkeeping.
   private readonly replicaId = randomUUID();
@@ -258,8 +270,15 @@ export class ToolMetrics {
   private async flushTool(store: MetricsRepository, tool: string): Promise<void> {
     let row: MetricsSnapshotRow | null = null;
     const retry = this.unacked.get(tool);
-    if (retry) {
-      row = await store.addMetricsDelta(retry);
+    if (retry && Date.now() - retry.firstSentAt > MAX_RETRY_AGE_MS) {
+      // The store may have pruned this delta's seq row by now, so a re-send could be
+      // counted twice. Losing these counts is the lesser evil.
+      logger.warn('tool metrics delta dropped after retrying too long', {
+        tool, seq: retry.delta.seq, total: retry.delta.total,
+      });
+      this.unacked.delete(tool);
+    } else if (retry) {
+      row = await store.addMetricsDelta(retry.delta);
       this.unacked.delete(tool);
     }
     const p = this.pending.get(tool);
@@ -268,7 +287,7 @@ export class ToolMetrics {
       const seq = (this.seqs.get(tool) ?? 0) + 1;
       this.seqs.set(tool, seq);
       const delta = this.toDelta(tool, p, seq);
-      this.unacked.set(tool, delta);
+      this.unacked.set(tool, { delta, firstSentAt: Date.now() });
       row = await store.addMetricsDelta(delta);
       this.unacked.delete(tool);
     }
@@ -298,6 +317,11 @@ function adoptRow(m: ToolMetric, row: MetricsSnapshotRow, extra: PendingDelta): 
   m.deny = row.deny + extra.deny;
   m.rule_denies = { ...row.rule_denies };
   for (const [r, n] of Object.entries(extra.rule_denies)) m.rule_denies[r] = (m.rule_denies[r] ?? 0) + n;
+  // The newest call wins, whichever replica made it (same rule as the store's upsert).
+  if (row.last_ts != null && (m.last_ts == null || row.last_ts > m.last_ts)) {
+    m.last_ts = row.last_ts;
+    m.last_duration_ms = row.last_duration_ms ?? m.last_duration_ms;
+  }
   const rowAnchor = row.buckets_1h_anchor ?? extra.hourly.anchor;
   applyHourly(m, mergeWindows(
     windowFromRow(row.buckets_1h, rowAnchor, row.buckets_1h_from ?? rowAnchor), extra.hourly));

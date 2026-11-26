@@ -24,6 +24,7 @@ export interface WebUiOptions {
       allow: number;
       deny: number;
       calls_in_window?: number;
+      calls_in_window_complete?: boolean;
       buckets_24h?: number[];
     }>;
   }>;

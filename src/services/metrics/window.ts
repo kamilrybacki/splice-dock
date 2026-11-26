@@ -92,6 +92,26 @@ export function windowView(w: TimeWindow, unitNow: number): WindowView | null {
   return { buckets: r.buckets.slice(skip) as number[], start: oldest + skip };
 }
 
+export interface WindowSum {
+  /** Calls in the known units of the last `units` units (current one included). */
+  readonly sum: number;
+  /** False when some of those units are unknown, so `sum` is only a lower bound. */
+  readonly complete: boolean;
+}
+
+/** Sum the last `units` units up to `unitNow`, counting only known units. */
+export function windowSum(w: TimeWindow, unitNow: number, units: number): WindowSum {
+  const size = w.buckets.length;
+  const n = Math.max(0, Math.min(size, units));
+  const r = rollWindow(w, unitNow);
+  const first = r.anchor - (n - 1);
+  let sum = 0;
+  for (let unit = Math.max(first, r.from); unit <= r.anchor; unit++) {
+    sum += r.buckets[size - 1 - (r.anchor - unit)] ?? 0;
+  }
+  return { sum, complete: first >= r.from };
+}
+
 /** A persisted window as stored on a row (null anchor/from = legacy, unknown). */
 export interface StoredWindow {
   readonly buckets: readonly number[];
