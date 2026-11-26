@@ -1,7 +1,7 @@
 # ADR 0008: Learned Standing Grants for Approval-Gated Operations
 
 **Date:** 2026-11-01
-**Status:** Accepted (2026-11-01)
+**Status:** Accepted (2026-11-01); sections 3, 5 and 6 superseded by [ADR 0009](0009-shape-only-standing-grants.md) (2026-11-26)
 
 ## Context
 
@@ -91,6 +91,8 @@ Default config exceptions (removable): `kubectl drain`, `kubectl cordon`,
 
 ### 3. Automatic promotion
 
+> Superseded by ADR 0009: threshold 3, shape-only matching, TTL 3 days, 20 uses, context is deny-only.
+
 Operator decision 2026-11-01: no confirmation click. Once the threshold is crossed,
 matching operations are approved automatically for 7 days.
 
@@ -126,6 +128,8 @@ history filter for `consent_method='grant'`.
 
 ### 5. Lifetime and revocation
 
+> Superseded by ADR 0009: threshold 3, shape-only matching, TTL 3 days, 20 uses, context is deny-only.
+
 - TTL **7 days** from creation, no silent renewal. A new grant is created only by
   crossing the threshold again after expiry.
 - `use_count_max` (default 200) as a safety stop.
@@ -134,6 +138,8 @@ history filter for `consent_method='grant'`.
   is suspended.
 
 ### 6. Conversation context
+
+> Superseded by ADR 0009: threshold 3, shape-only matching, TTL 3 days, 20 uses, context is deny-only.
 
 Approval-gated tools get an optional `approval_context` input (at most 500
 characters). The tool description tells agents to put in a one or two sentence

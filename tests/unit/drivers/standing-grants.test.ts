@@ -16,7 +16,7 @@ it('carries context through policy, learns after real spawns and emits grant met
   configurePassthrough({ cliProfiles: builtinCliProfiles, approvalHookFactory: (tool,ctx)=>svc.makeHook(tool,ctx.cwd,undefined,ctx.requireStrong,ctx.approvalContext), approvalSettler: svc});
   const run=(name:string)=>runWithCaller({profile:'test',tokenId:'fixture',authenticated:true},()=>callCliPassthrough(cfg,'run',{args:['delete','job',name],approval_context:'clean up completed batch jobs',cwd:process.cwd()},['echo']));
   try {
-    for(const name of ['one','two']){expect((await run(name)).isError).toBe(true);const row=(await svc.list({status:'pending'}))[0];expect(row.approval_context).toBe('clean up completed batch jobs');await svc.approve(row.id,'operator');expect((await run(name)).isError).toBe(false);}
+    for(const name of ['one','two','seed']){expect((await run(name)).isError).toBe(true);const row=(await svc.list({status:'pending'}))[0];expect(row.approval_context).toBe('clean up completed batch jobs');await svc.approve(row.id,'operator');expect((await run(name)).isError).toBe(false);}
     expect((await run('three')).isError).toBe(false);
     expect((await svc.list()).filter(r=>r.consent_method==='grant')).toHaveLength(1);
     expect(await metrics.registry.metrics()).toMatch(/splicedock_approval_grant_used_total\{[^}]*tool="kubectl",verb="delete"[^}]*\} 1/);

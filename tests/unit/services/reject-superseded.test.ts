@@ -17,7 +17,7 @@ describe('rejecting an approval already superseded by a grant', () => {
       const approved = await request(name); await svc.finalize(approved.id!); await svc.executionResult(approved.id!, true);
     };
     const pending = await request('x');
-    await execute('one'); await execute('two');
+    await execute('one'); await execute('two'); await execute('three');
     expect(await svc.listGrants()).toHaveLength(1);
     // A request matching the grant supersedes the still-pending approval.
     expect((await request('x')).approved).toBe(true);

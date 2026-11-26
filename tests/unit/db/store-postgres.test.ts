@@ -70,7 +70,7 @@ describe('SplicedockStore on Postgres (PGlite, functional parity)', () => {
 
   it('standing grants: exception upsert fires DO UPDATE on the second write', async () => {
     const db = store.consentDatabase();
-    const g = new StandingGrants(db, true, 3, 0.5, () => Date.now());
+    const g = new StandingGrants(db, true, 3, () => Date.now());
     await g.setException('helm', 'uninstall', true, 'a');
     await g.setException('helm', 'uninstall', true, 'b');
     const rows = (await g.exceptions()).filter((e) => e.tool === 'helm');

@@ -2,9 +2,12 @@ import type { SqlDb } from '../../database/base.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { baseShapeKey, type OperationShape } from '../../policy/shape/base.js';
 import { NO_SHAPES, type ShapeRegistry } from '../../policy/shape/registry.js';
-import { contextSimilarity } from '../../policy/context/similarity.js';
+import { contextEscalates, escalationComparer } from '../../policy/context/escalation.js';
 import { logger } from '../../../common/logger.js';
 const WEEK=7*86400000;
+/** ADR 0009: a grant lives three days and covers at most twenty operations. */
+export const GRANT_TTL=3*86400000;
+export const GRANT_USE_MAX=20;
 export interface GrantRow extends Omit<OperationShape, 'flags_allowed'> {
   id:string; flags_allowed:string; created_at:number; expires_at:number; revoked_at:number|null;
   suspended_at:number|null; use_count:number; use_count_max:number; last_used_at:number|null; context_refs:string;
@@ -16,7 +19,7 @@ export class StandingGrants {
   /** Seeding the configured exceptions is async; it starts here and every
    *  exception read/write awaits it, so a caller never sees a half-seeded set. */
   private readonly seeded:Promise<void>;
-  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly minSimilarity:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined, private readonly shapes:ShapeRegistry=NO_SHAPES) {
+  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined, private readonly shapes:ShapeRegistry=NO_SHAPES) {
     this.seeded=this.seed(configured);
     this.seeded.catch(()=>{/* surfaced to the first caller that awaits it */});
   }
@@ -48,16 +51,19 @@ export class StandingGrants {
     await this.db.prepare(`UPDATE standing_grants SET revoked_at=?,revoked_by=? WHERE revoked_at IS NULL ${id?'AND id=?':''}`).run(this.now(),actor,...(id?[id]:[]));
   }
   private async blocked(key:string):Promise<boolean> {return !!await this.db.prepare('SELECT 1 FROM grant_blocks WHERE shape_key=? AND until>?').get(key,this.now());}
-  private score(context:string,refs:readonly ContextRow[]):number {
-    const corpus=refs.map(r=>r.approval_context);
-    return Math.max(0,...refs.map(r=>contextSimilarity(context,r.approval_context,corpus)));
-  }
+  /** Block key of a whole caller/tool/verb scope, written by ambiguous rejections. */
+  private scopeKey(profile:string,tokenId:string,tool:string,verb:string):string {return JSON.stringify(['scope',profile,tokenId,tool,verb]);}
   private async refs(ids:string):Promise<ContextRow[]>{const out:ContextRow[]=[];for(const id of JSON.parse(ids) as string[]){const r=await this.db.prepare('SELECT id,approval_context FROM pending_approvals WHERE id=? AND approval_context IS NOT NULL').get(id) as ContextRow|undefined;if(r)out.push(r);}return out;}
   async match(shape:OperationShape,context:string):Promise<GrantRow|undefined> {
-    if(!this.enabled || !context.trim() || await this.blocked(baseShapeKey(shape)))return;
-    const rows=await this.db.prepare('SELECT * FROM standing_grants WHERE tool=? AND verb_path=? AND profile=? AND token_id=? AND expires_at>? AND revoked_at IS NULL AND suspended_at IS NULL AND use_count<use_count_max').all(shape.tool,shape.verb_path,shape.profile,shape.token_id,this.now()) as GrantRow[];
+    if(!this.enabled || !context.trim() || await this.blocked(baseShapeKey(shape)) || await this.blocked(this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path)))return;
+    const rows=await this.db.prepare('SELECT * FROM standing_grants WHERE tool=? AND verb_path=? AND profile=? AND token_id=? AND expires_at>? AND created_at>? AND revoked_at IS NULL AND suspended_at IS NULL AND use_count<use_count_max AND use_count<?').all(shape.tool,shape.verb_path,shape.profile,shape.token_id,this.now(),this.now()-GRANT_TTL,GRANT_USE_MAX) as GrantRow[];
     for(const r of rows){if(r.resource_kind!==shape.resource_kind || r.namespace!==shape.namespace || r.object_count_max!==shape.object_count_max || r.flags_allowed !== JSON.stringify(shape.flags_allowed))continue;
-      const score=this.score(context,await this.refs(r.context_refs));logger.info('grant context match',{tool:shape.tool,grant_id:r.id,similarity:score});if(score>=this.minSimilarity)return r;
+      // ADR 0009: the shape decides; context can only send the request back to a human.
+      const refs=await this.refs(r.context_refs);
+      // Grants promoted under ADR 0008 may rest on fewer approvals; they need fresh evidence.
+      if(refs.length<this.threshold)continue;
+      if(contextEscalates(context,refs.map(ref=>ref.approval_context))){logger.info('grant context escalated',{tool:shape.tool,grant_id:r.id});continue;}
+      return r;
     }
   }
   /** Atomically consume one use of a matched grant. The WHERE clause rechecks
@@ -66,7 +72,7 @@ export class StandingGrants {
    *  winner's row), so a concurrent use, revoke or suspend makes the claim fail. */
   async claim(id:string):Promise<boolean> {
     const now=this.now();
-    return (await this.db.prepare('UPDATE standing_grants SET use_count=use_count+1,last_used_at=? WHERE id=? AND use_count<use_count_max AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>?').run(now,id,now)).changes===1;
+    return (await this.db.prepare('UPDATE standing_grants SET use_count=use_count+1,last_used_at=? WHERE id=? AND use_count<use_count_max AND use_count<? AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?').run(now,id,GRANT_USE_MAX,now,now-GRANT_TTL)).changes===1;
   }
   private async lockScope(profile:string,tokenId:string,tool:string,verb:string):Promise<void> {
     await this.db.lockInTransaction(JSON.stringify(['standing_grant',profile,tokenId,tool,verb]));
@@ -81,20 +87,45 @@ export class StandingGrants {
     // grant, and a rejection that commits between promote's block check and its
     // insert revokes nothing and leaves the new grant live.
     await this.lockScope(shape.profile,shape.token_id,shape.tool,shape.verb_path);
-    if(await this.blocked(baseShapeKey(shape)))return;
-    const block=await this.db.prepare('SELECT until FROM grant_blocks WHERE shape_key=?').get(baseShapeKey(shape)) as {until:number}|undefined;
+    const scopeKey=this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path);
+    if(await this.blocked(baseShapeKey(shape)) || await this.blocked(scopeKey))return;
+    const until=this.db.prepare('SELECT until FROM grant_blocks WHERE shape_key=?');
+    const block=await until.get(baseShapeKey(shape)) as {until:number}|undefined;
+    const scopeBlock=await until.get(scopeKey) as {until:number}|undefined;
     // Identity-scoped queries use the lookup index and must never inherit the
     // admin listing's global pagination (which could renew an older quota).
     const identity='tool=? AND verb_path=? AND profile=? AND token_id=? AND resource_kind=? AND namespace=?';
     const params=[shape.tool,shape.verb_path,shape.profile,shape.token_id,shape.resource_kind,shape.namespace];
-    if(await this.db.prepare(`SELECT 1 FROM standing_grants WHERE ${identity} AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>?`).get(...params,this.now()))return;
-    const history=await this.db.prepare(`SELECT MAX(COALESCE(revoked_at,suspended_at,expires_at)) AS cutoff FROM standing_grants WHERE ${identity}`).get(...params) as {cutoff:number|null};
-    const cutoff=Math.max(this.now()-WEEK,block ? block.until-WEEK : 0,history.cutoff ?? 0);
+    if(await this.db.prepare(`SELECT 1 FROM standing_grants WHERE ${identity} AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?`).get(...params,this.now(),this.now()-GRANT_TTL))return;
+    // A grant ends at revocation, suspension or its effective expiry; ADR 0008 grants keep a longer stored expires_at.
+    const ended=await this.db.prepare(`SELECT revoked_at,suspended_at,expires_at,created_at FROM standing_grants WHERE ${identity}`).all(...params) as {revoked_at:number|null;suspended_at:number|null;expires_at:number;created_at:number}[];
+    const history=ended.reduce((latest,g)=>Math.max(latest,g.revoked_at ?? g.suspended_at ?? Math.min(g.expires_at,g.created_at+GRANT_TTL)),0);
+    const cutoff=Math.max(this.now()-WEEK,block ? block.until-WEEK : 0,scopeBlock ? scopeBlock.until-WEEK : 0,history);
     const refs=await this.db.prepare("SELECT id,approval_context FROM pending_approvals WHERE shape_key=? AND status='consumed' AND execution_success=1 AND grant_id IS NULL AND approval_context IS NOT NULL AND profile IS NOT NULL AND token_id IS NOT NULL AND consumed_at>? ORDER BY consumed_at DESC LIMIT 1000").all(row.shape_key,cutoff) as ContextRow[];
-    const similar=refs.filter(r=>{const similarity=contextSimilarity(row.approval_context!,r.approval_context,refs.map(c=>c.approval_context));logger.info('grant promotion context',{tool:row.tool,approval_id:id,similarity});return similarity>=this.minSimilarity;});
-    if(similar.length<this.threshold)return;
+    // Evidence is a set of same-shape approvals whose contexts are mutually consistent,
+    // built greedily from the newest. Consistency is not transitive, so every new piece
+    // is checked against this context and every piece already kept, in both directions.
+    // Repeated contexts are compared once: verdicts are cached per unordered pair, and a
+    // candidate is checked against each distinct kept context rather than every kept row.
+    const escalates=escalationComparer();
+    const verdicts=new Map<string,boolean>();
+    const consistent=(a:string,b:string)=>{
+      const key=JSON.stringify(a<b ? [a,b] : [b,a]);
+      const known=verdicts.get(key);
+      if(known!==undefined)return known;
+      const verdict=!escalates(a,b) && !escalates(b,a);
+      verdicts.set(key,verdict);
+      return verdict;
+    };
+    const {kept:evidence}=refs.reduce<{kept:ContextRow[];contexts:ReadonlySet<string>}>(({kept,contexts},r)=>
+      consistent(row.approval_context!,r.approval_context) && [...contexts].every(c=>consistent(c,r.approval_context))
+        ? {kept:[...kept,r],contexts:new Set([...contexts,r.approval_context])}
+        : {kept,contexts},
+      {kept:[],contexts:new Set<string>()});
+    logger.info('grant promotion evidence',{tool:row.tool,approval_id:id,approvals:refs.length,consistent:evidence.length});
+    if(evidence.length<this.threshold)return;
     const grantId=randomUUID();
-    await this.db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(grantId,shape.profile,shape.token_id,shape.tool,shape.verb_path,shape.resource_kind,shape.namespace,shape.object_count_max,JSON.stringify(shape.flags_allowed),this.now(),`auto:${id}`,id,JSON.stringify(similar.map(r=>r.id)),this.now()+WEEK);
+    await this.db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at,use_count_max) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(grantId,shape.profile,shape.token_id,shape.tool,shape.verb_path,shape.resource_kind,shape.namespace,shape.object_count_max,JSON.stringify(shape.flags_allowed),this.now(),`auto:${id}`,id,JSON.stringify(evidence.map(r=>r.id)),this.now()+GRANT_TTL,GRANT_USE_MAX);
     logger.info('standing grant created',{tool:row.tool,grant_id:grantId});
   }
   async rejected(id:string):Promise<void> {
@@ -119,6 +150,8 @@ export class StandingGrants {
       for(const grant of grants)await block.run(baseShapeKey(grant),now+WEEK);
       // Also reset learning evidence when a precise base has no grant yet.
       if(shape)await block.run(baseShapeKey(shape),now+WEEK);
+      // An ambiguous rejection resets it for the whole scope, grant or not.
+      else await block.run(this.scopeKey(row.profile,row.token_id,row.tool,row.matched),now+WEEK);
       await this.db.prepare(`UPDATE standing_grants SET revoked_at=?,revoked_by=? WHERE ${scope}${narrowing} AND revoked_at IS NULL`).run(now,`rejection:${id}`,...params);
     })();
   }

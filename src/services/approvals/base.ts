@@ -2,6 +2,7 @@ import { runSweepExclusive } from '../database/sweep/lock.js';
 import { StandingGrants, type GrantException } from './grants/standing.js';
 import { baseShapeKey } from '../policy/shape/base.js';
 import { NO_SHAPES, type ShapeRegistry } from '../policy/shape/registry.js';
+import { DEFAULT_GRANT_THRESHOLD } from '../policy/grants/config.js';
 // Approval flow for policies with on_violation: approval.
 //
 // Responsibilities:
@@ -46,7 +47,6 @@ export interface ApprovalServiceOptions {
   store: ApprovalRepository;
   grantsEnabled?: boolean;
   grantThreshold?: number;
-  grantContextMinSim?: number;
   grantExceptions?: readonly GrantException[];
   /** Per-tool standing-grant shapes. Default: none, so no grant ever applies. */
   shapes?: ShapeRegistry;
@@ -105,7 +105,7 @@ export class ApprovalService {
     this.reservationTtlMs = opts.reservationTtlMs ?? 5 * 60 * 1000;
     this.now = opts.now ?? Date.now;
     this.onEvent = opts.onEvent;
-    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? 2, opts.grantContextMinSim ?? 0.5, this.now, opts.grantExceptions, opts.shapes ?? NO_SHAPES);
+    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? DEFAULT_GRANT_THRESHOLD, this.now, opts.grantExceptions, opts.shapes ?? NO_SHAPES);
 
     const sweepInterval = opts.sweepIntervalMs ?? 60_000;
     if (sweepInterval > 0) {

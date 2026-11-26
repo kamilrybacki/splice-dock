@@ -29,7 +29,12 @@ export function kubectlBaseShape(argv: readonly string[], verb: string, caller: 
   }
   // Over-blocking an ambiguous rejection is safe; granting uses the strict parser.
   if (positional[0] !== verb || !positional[1]) return null;
-  return kubectlShape([verb,positional[1].split('/')[0],'rejection',...namespaceArgs],verb,caller);
+  // Operands naming several kinds have no single base: reject scope-wide. After a
+  // bare kind the slash-less operands are names; after kind/name they are not.
+  const first=positional[1].split('/')[0], slashed=positional[1].includes('/');
+  const kinds=new Set([first,...positional.slice(2).filter(p=>slashed || p.includes('/')).map(p=>p.split('/')[0])].map(kind));
+  if (kinds.size>1) return null;
+  return kubectlShape([verb,first,'rejection',...namespaceArgs],verb,caller);
 }
 /** Deliberately conservative: unknown syntax, flags or resource mixtures require consent. */
 export function kubectlShape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null {

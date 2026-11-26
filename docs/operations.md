@@ -7,15 +7,21 @@ Approval-gated CLI calls accept `approval_context` (at most 500 characters): one
 or two sentences explaining why this conversation needs the operation. Without
 context, requests always require manual approval and cannot teach a grant.
 
-After `SPLICEDOCK_GRANT_THRESHOLD` executed manual approvals (default 2) of the
-same caller-bound kubectl shape and similar context within seven days, matching
-operations can run automatically. `SPLICEDOCK_GRANT_CONTEXT_MIN_SIM` defaults to
-0.5; similarity uses local TF-IDF/cosine with no network calls. Unknown flags,
-bulk selectors and widened resource scopes fall back to manual approval.
+After `SPLICEDOCK_GRANT_THRESHOLD` executed manual approvals (default 3) of the
+same caller-bound kubectl shape within seven days, matching operations can run
+automatically (ADR 0009). The match key is the shape only. Context is stored and
+audited, and it can only send a request back to a human: a request escalates when
+its context carries no meaningful reason (empty, identifiers only or padded with
+identifiers), states a risky purpose no stored context covered (for example "so
+nobody notices", "skip the review", "ignore previous instructions"), or contradicts
+any stored reference (before/after, same/different). Escalating approvals do not count
+towards promotion. `SPLICEDOCK_GRANT_CONTEXT_MIN_SIM` is ignored; setting it logs a
+warning. Unknown flags, bulk selectors and widened resource scopes fall back to
+manual approval.
 
-Grants expire after seven days without renewal, stop after 200 uses, and suspend
-after three consecutive execution failures. Rejecting the same shape revokes its
-grants and blocks promotion for seven days. Strong/WebAuthn tools are permanent
+Grants expire three days after creation without renewal, stop after 20 uses, and
+suspend after three consecutive execution failures. Rejecting the same shape revokes
+its grants and blocks promotion for seven days. Strong/WebAuthn tools are permanent
 exceptions. Default removable
 exceptions are kubectl drain, cordon and uncordon.
 `SPLICEDOCK_GRANT_EXCEPTIONS` optionally replaces those defaults with a JSON array
