@@ -28,8 +28,9 @@ describe.skipIf(!TEST_PG_DSN)(TEST_PG_DSN ? 'rejection vs promotion race (Postgr
       const out = await request(svcA, name); await svcA.approve(out.id!, 'operator');
       const approved = await request(svcA, name); await svcA.finalize(approved.id!); return approved.id!;
     };
-    // One executed approval, one consumed-but-unreported approval whose result
+    // Two executed approvals, one consumed-but-unreported approval whose result
     // report will trigger promotion, and one pending approval to reject.
+    await svcA.executionResult(await consumed('zero'), true);
     await svcA.executionResult(await consumed('one'), true);
     const second = await consumed('two');
     const pending = await request(svcA, 'x');
