@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS profile_policy_overrides (
   PRIMARY KEY (tool_name, profile)
 );
 
+CREATE TABLE IF NOT EXISTS metrics_applied_seq (
+  replica_id TEXT NOT NULL,
+  tool_name  TEXT NOT NULL,
+  seq        INTEGER NOT NULL,
+  applied_at INTEGER NOT NULL,
+  PRIMARY KEY (replica_id, tool_name)
+);
+
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
   tool_name        TEXT PRIMARY KEY,
   total            INTEGER NOT NULL DEFAULT 0,

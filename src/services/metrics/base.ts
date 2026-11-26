@@ -26,7 +26,8 @@
 // modest UX gain. The WebUI shows total calls per bucket + a separate
 // rule-deny breakdown bar from the all-time totals.
 
-import type { MetricsDelta, MetricsRepository } from '../../contracts/outbound/repositories.js';
+import { randomUUID } from 'node:crypto';
+import type { MetricsDelta, MetricsRepository, MetricsSnapshotRow } from '../../contracts/outbound/repositories.js';
 import { logger } from '../../common/logger.js';
 import {
   HOURS, MS_PER_HOUR, bumpWindow, emptyWindow, hourOf, hourlyView, mergeWindows, windowFromRow,
@@ -66,6 +67,12 @@ export class ToolMetrics {
   // Process-local counters for the Prometheus exposition. Never hydrated or
   // overwritten from the DB, so they only ever increase.
   private local = new Map<string, LocalCounters>();
+  // Deltas sent (or about to be) but not yet acknowledged by the store, per tool.
+  // Re-sent unchanged, with the same seq, until acknowledged.
+  private unacked = new Map<string, MetricsDelta>();
+  private seqs = new Map<string, number>();
+  // Identifies this process in the store's applied-seq bookkeeping.
+  private readonly replicaId = randomUUID();
   // Flushes run one at a time (interval tick vs slow flush vs stop()); a
   // concurrent flush() chains behind the one in flight.
   private flushChain: Promise<void> = Promise.resolve();
@@ -195,10 +202,13 @@ export class ToolMetrics {
    * waits for it and then flushes whatever was recorded meanwhile, so an older
    * result can never overwrite a newer one.
    *
-   * Delivery is at-least-once: if the upsert commits but the client then sees
-   * an error (dropped connection before the COMMIT reply), the increments are
-   * kept and re-sent on the next flush, so they can be counted twice. That is
-   * accepted for usage metrics; there are no idempotency tokens.
+   * Delivery is idempotent. Every delta carries (replica_id, seq) with seq
+   * increasing per tool, and the store applies it only if seq is above the last
+   * one it applied for that pair. A delta stays in `unacked` until the store
+   * answers: if the upsert committed but the client saw an error (dropped
+   * connection before the COMMIT reply), the very same delta is re-sent first on
+   * the next flush and the store recognises it instead of counting it twice.
+   * Newer increments get a new seq and are never folded into an unacked delta.
    */
   flush(): Promise<void> {
     const run = this.flushChain.catch(() => undefined).then(() => this.flushOnce());
@@ -207,52 +217,68 @@ export class ToolMetrics {
   }
 
   private async flushOnce(): Promise<void> {
-    if (!this.store || this.pending.size === 0) return;
-    const batch = this.pending;
-    this.pending = new Map();
+    if (!this.store) return;
     let firstError: unknown;
-    for (const [tool, p] of batch) {
-      const m = this.metrics.get(tool);
-      if (!m) continue;
-      const delta: MetricsDelta = {
-        tool_name: tool,
-        total: p.total, allow: p.allow, deny: p.deny,
-        rule_denies: p.rule_denies,
-        buckets_60s: [...p.minutes.buckets], buckets_60s_anchor: p.minutes.anchor, buckets_60s_from: p.minutes.from,
-        buckets_1h: [...p.hourly.buckets],
-        buckets_1h_anchor: p.hourly.anchor, buckets_1h_from: p.hourly.from,
-        last_ts: p.last_ts, last_duration_ms: p.last_duration_ms,
-      };
+    for (const tool of new Set([...this.unacked.keys(), ...this.pending.keys()])) {
       try {
-        const row = await this.store.addMetricsDelta(delta);
-        // Adopt cluster-wide totals (other replicas' counts) plus anything recorded mid-flush.
-        const extra = this.pending.get(tool) ?? emptyPending(Date.now());
-        m.total = row.total + extra.total;
-        m.allow = row.allow + extra.allow;
-        m.deny = row.deny + extra.deny;
-        m.rule_denies = { ...row.rule_denies };
-        for (const [r, n] of Object.entries(extra.rule_denies)) m.rule_denies[r] = (m.rule_denies[r] ?? 0) + n;
-        const rowAnchor = row.buckets_1h_anchor ?? extra.hourly.anchor;
-        applyHourly(m, mergeWindows(
-          windowFromRow(row.buckets_1h, rowAnchor, row.buckets_1h_from ?? rowAnchor), extra.hourly));
-        const rowMinute = row.buckets_60s_anchor ?? extra.minutes.anchor;
-        applyMinutes(m, mergeWindows(
-          minutesFromRow(row.buckets_60s, rowMinute, row.buckets_60s_from ?? rowMinute), extra.minutes));
+        await this.flushTool(this.store, tool);
       } catch (err) {
-        // Not persisted: keep the increments for the next flush.
-        const cur = this.pending.get(tool) ?? emptyPending(Date.now());
-        cur.hourly = mergeWindows(cur.hourly, p.hourly);
-        cur.minutes = mergeWindows(cur.minutes, p.minutes);
-        cur.total += p.total; cur.allow += p.allow; cur.deny += p.deny;
-        for (const [r, n] of Object.entries(p.rule_denies)) cur.rule_denies[r] = (cur.rule_denies[r] ?? 0) + n;
-        cur.last_ts = cur.last_ts ?? p.last_ts;
-        cur.last_duration_ms = cur.last_duration_ms ?? p.last_duration_ms;
-        this.pending.set(tool, cur);
         firstError ??= err;
       }
     }
     if (firstError !== undefined) throw firstError;
   }
+
+  /** Send a tool's unacked delta (if any), then its pending increments. */
+  private async flushTool(store: MetricsRepository, tool: string): Promise<void> {
+    let row: MetricsSnapshotRow | null = null;
+    const retry = this.unacked.get(tool);
+    if (retry) {
+      row = await store.addMetricsDelta(retry);
+      this.unacked.delete(tool);
+    }
+    const p = this.pending.get(tool);
+    if (p) {
+      this.pending.delete(tool);
+      const seq = (this.seqs.get(tool) ?? 0) + 1;
+      this.seqs.set(tool, seq);
+      const delta = this.toDelta(tool, p, seq);
+      this.unacked.set(tool, delta);
+      row = await store.addMetricsDelta(delta);
+      this.unacked.delete(tool);
+    }
+    const m = this.metrics.get(tool);
+    // Adopt cluster-wide totals (other replicas' counts) plus anything recorded mid-flush.
+    if (row && m) adoptRow(m, row, this.pending.get(tool) ?? emptyPending(Date.now()));
+  }
+
+  private toDelta(tool: string, p: PendingDelta, seq: number): MetricsDelta {
+    return {
+      tool_name: tool,
+      total: p.total, allow: p.allow, deny: p.deny,
+      rule_denies: { ...p.rule_denies },
+      buckets_60s: [...p.minutes.buckets], buckets_60s_anchor: p.minutes.anchor, buckets_60s_from: p.minutes.from,
+      buckets_1h: [...p.hourly.buckets],
+      buckets_1h_anchor: p.hourly.anchor, buckets_1h_from: p.hourly.from,
+      last_ts: p.last_ts, last_duration_ms: p.last_duration_ms,
+      replica_id: this.replicaId, seq,
+    };
+  }
+}
+
+/** Replace a metric's cluster-wide view with the DB row plus increments not yet sent. */
+function adoptRow(m: ToolMetric, row: MetricsSnapshotRow, extra: PendingDelta): void {
+  m.total = row.total + extra.total;
+  m.allow = row.allow + extra.allow;
+  m.deny = row.deny + extra.deny;
+  m.rule_denies = { ...row.rule_denies };
+  for (const [r, n] of Object.entries(extra.rule_denies)) m.rule_denies[r] = (m.rule_denies[r] ?? 0) + n;
+  const rowAnchor = row.buckets_1h_anchor ?? extra.hourly.anchor;
+  applyHourly(m, mergeWindows(
+    windowFromRow(row.buckets_1h, rowAnchor, row.buckets_1h_from ?? rowAnchor), extra.hourly));
+  const rowMinute = row.buckets_60s_anchor ?? extra.minutes.anchor;
+  applyMinutes(m, mergeWindows(
+    minutesFromRow(row.buckets_60s, rowMinute, row.buckets_60s_from ?? rowMinute), extra.minutes));
 }
 
 interface LocalCounters {

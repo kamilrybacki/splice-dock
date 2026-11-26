@@ -53,6 +53,13 @@ export interface MetricsDelta {
   buckets_1h_from?: number | null;
   last_ts: number | null;
   last_duration_ms: number | null;
+  /**
+   * Idempotency token: the store applies a delta only if `seq` is greater than the
+   * last seq applied for (replica_id, tool_name), so a retry of a delta that already
+   * committed is not counted twice. Omit both to always apply.
+   */
+  replica_id?: string;
+  seq?: number;
 }
 
 export type RuntimeToolDriver = 'http' | 'cli' | 'mcp_proxy';
