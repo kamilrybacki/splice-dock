@@ -76,7 +76,7 @@ export async function listMetricsRows(db: SqlDb): Promise<MetricsSnapshotRow[]> 
  */
 export async function applyMetricsDelta(db: SqlDb, d: MetricsDelta): Promise<MetricsSnapshotRow> {
   return await db.transaction(async () => {
-    if (await alreadyApplied(db, d)) {
+    if (!(await claimSeq(db, d))) {
       // A retry of a delta that already committed: report the current row, add nothing.
       return (await readMetricsRow(db, d.tool_name)) ?? emptyRow(d.tool_name);
     }
@@ -130,7 +130,7 @@ export async function applyMetricsDelta(db: SqlDb, d: MetricsDelta): Promise<Met
       JSON.stringify(minutes.buckets), minutes.anchor, minutes.from,
       d.tool_name,
     );
-    await recordApplied(db, d);
+    await pruneAppliedSeqs(db);
     return {
       ...cur, rule_denies,
       buckets_1h: [...hourly.buckets], buckets_1h_anchor: hourly.anchor, buckets_1h_from: hourly.from,
@@ -139,26 +139,36 @@ export async function applyMetricsDelta(db: SqlDb, d: MetricsDelta): Promise<Met
   })();
 }
 
-/** Applied-seq rows untouched for this long are pruned (a replica that old is gone). */
+/**
+ * Applied-seq rows untouched for this long are pruned (a replica that old is gone).
+ * Must stay well above MAX_RETRY_AGE_MS in services/metrics/base.ts: a replica
+ * gives up re-sending a delta long before its seq row could be pruned.
+ */
 const APPLIED_SEQ_TTL_MS = 7 * 24 * 3600_000;
 
-async function alreadyApplied(db: SqlDb, d: MetricsDelta): Promise<boolean> {
-  if (d.replica_id == null || d.seq == null) return false;
-  const last = await db
-    .prepare('SELECT seq FROM metrics_applied_seq WHERE replica_id = ? AND tool_name = ?')
-    .get(d.replica_id, d.tool_name) as { seq: number | string } | undefined;
-  // Postgres returns BIGINT as a string.
-  return last !== undefined && Number(last.seq) >= d.seq;
+/**
+ * Atomically record (replica_id, tool_name, seq) unless an equal or higher seq is
+ * already recorded. Returns false for a delta that was already applied.
+ *
+ * Check and record are one conditional upsert, the first statement of the
+ * transaction, so it is race-free on both backends: on Postgres a concurrent
+ * transaction claiming the same pair blocks on the row (or on the unique index
+ * for a first insert) until the other commits, then re-evaluates the WHERE
+ * against the committed seq; SQLite transactions are serialised. A rollback
+ * releases the claim together with everything else.
+ */
+async function claimSeq(db: SqlDb, d: MetricsDelta): Promise<boolean> {
+  if (d.replica_id == null || d.seq == null) return true;
+  const res = await db.prepare(
+    `INSERT INTO metrics_applied_seq (replica_id, tool_name, seq, applied_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(replica_id, tool_name) DO UPDATE SET seq = excluded.seq, applied_at = excluded.applied_at
+     WHERE metrics_applied_seq.seq < excluded.seq`,
+  ).run(d.replica_id, d.tool_name, d.seq, Date.now());
+  return res.changes > 0;
 }
 
-async function recordApplied(db: SqlDb, d: MetricsDelta): Promise<void> {
-  if (d.replica_id == null || d.seq == null) return;
-  const now = Date.now();
-  await db.prepare(
-    `INSERT INTO metrics_applied_seq (replica_id, tool_name, seq, applied_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(replica_id, tool_name) DO UPDATE SET seq = excluded.seq, applied_at = excluded.applied_at`,
-  ).run(d.replica_id, d.tool_name, d.seq, now);
-  await db.prepare('DELETE FROM metrics_applied_seq WHERE applied_at < ?').run(now - APPLIED_SEQ_TTL_MS);
+async function pruneAppliedSeqs(db: SqlDb): Promise<void> {
+  await db.prepare('DELETE FROM metrics_applied_seq WHERE applied_at < ?').run(Date.now() - APPLIED_SEQ_TTL_MS);
 }
 
 function emptyRow(tool: string): MetricsSnapshotRow {

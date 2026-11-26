@@ -6,35 +6,28 @@
 
 import type { FastifyInstance } from 'fastify';
 import type { ToolMetrics, ToolMetric } from '../../../../metrics/base.js';
+import { hourlyOf, minutesOf } from '../../../../metrics/metric-state.js';
+import { hourOf } from '../../../../metrics/hourly.js';
+import { minuteOf } from '../../../../metrics/minutes.js';
+import { windowSum } from '../../../../metrics/window.js';
 
-function slice(metric: ToolMetric, sinceMinutes: number | null): {
-  total: number; allow: number; deny: number; calls_in_window: number;
+/**
+ * Calls in the last `sinceMinutes`, read from the time-correct windows: rolled to
+ * now (no calls since the last one = zeros) and counting only known units.
+ * `calls_in_window_complete` is false when part of the range is unknown (e.g. a
+ * legacy snapshot with no anchor), so the count is only a lower bound.
+ */
+function slice(metric: ToolMetric, sinceMinutes: number | null, now: number): {
+  total: number; allow: number; deny: number; calls_in_window: number; calls_in_window_complete: boolean;
 } {
+  const base = { total: metric.total, allow: metric.allow, deny: metric.deny };
   if (sinceMinutes === null) {
-    return {
-      total: metric.total,
-      allow: metric.allow,
-      deny: metric.deny,
-      calls_in_window: metric.total,
-    };
+    return { ...base, calls_in_window: metric.total, calls_in_window_complete: true };
   }
-  if (sinceMinutes <= 60) {
-    const slice60 = metric.buckets_60s.slice(metric.buckets_60s.length - sinceMinutes);
-    return {
-      total: metric.total,
-      allow: metric.allow,
-      deny: metric.deny,
-      calls_in_window: slice60.reduce((a, b) => a + b, 0),
-    };
-  }
-  const hours = Math.min(24, Math.ceil(sinceMinutes / 60));
-  const sliceH = metric.buckets_1h.slice(metric.buckets_1h.length - hours);
-  return {
-    total: metric.total,
-    allow: metric.allow,
-    deny: metric.deny,
-    calls_in_window: sliceH.reduce((a, b) => a + b, 0),
-  };
+  const w = sinceMinutes <= 60
+    ? windowSum(minutesOf(metric), minuteOf(now), sinceMinutes)
+    : windowSum(hourlyOf(metric), hourOf(now), Math.min(24, Math.ceil(sinceMinutes / 60)));
+  return { ...base, calls_in_window: w.sum, calls_in_window_complete: w.complete };
 }
 
 function parseSince(s: string | undefined): number | null {
@@ -52,7 +45,7 @@ export function registerUsageRoutes(app: FastifyInstance, metrics: ToolMetrics):
     const sinceMinutes = parseSince(req.query.since);
     const out = metrics.list().map(m => ({
       tool: m.tool,
-      ...slice(m, sinceMinutes),
+      ...slice(m, sinceMinutes, Date.now()),
       rule_denies: m.rule_denies,
       last_ts: m.last_ts,
       last_duration_ms: m.last_duration_ms,
@@ -73,7 +66,7 @@ export function registerUsageRoutes(app: FastifyInstance, metrics: ToolMetrics):
     reply.send({
       data: {
         tool: m.tool,
-        ...slice(m, sinceMinutes),
+        ...slice(m, sinceMinutes, Date.now()),
         rule_denies: m.rule_denies,
         last_ts: m.last_ts,
         last_duration_ms: m.last_duration_ms,
