@@ -27,12 +27,12 @@ export function createApprovals(
   const pushNotifier = vapid ? createPushNotifier({ store: pushStore, vapid }) : undefined;
   logger.info(pushNotifier ? 'web push enabled' : 'web push disabled (no VAPID keys)');
   const grantConfig = readGrantConfig(env);
+  if (env.SPLICEDOCK_GRANT_CONTEXT_MIN_SIM !== undefined) logger.warn('SPLICEDOCK_GRANT_CONTEXT_MIN_SIM is ignored: standing grants match on operation shape only (ADR 0009)');
   const consent = config.server.consent;
   const approvalService = new ApprovalService({
     store,
     grantsEnabled: grantsEnabledFromEnv(env),
     grantThreshold: grantConfig.threshold,
-    grantContextMinSim: grantConfig.minSimilarity,
     grantExceptions: grantConfig.exceptions,
     shapes: builtinShapes,
     onGrantUsed: (tool, verb) => metrics.approvalGrantUsed.inc({ tool, verb }),

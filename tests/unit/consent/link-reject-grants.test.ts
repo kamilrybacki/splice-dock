@@ -22,7 +22,7 @@ it('rejecting through a consent link revokes and blocks the matching grant', asy
   };
   const pending = await request('x');
   const link = await svc.consent.bind(pending.id!);
-  await execute('one'); await execute('two');
+  await execute('one'); await execute('two'); await execute('three');
   expect(await svc.listGrants()).toHaveLength(1);
 
   const consent = new WebAuthnConsent(await ConsentStore.open(store.consentDatabase()), { enabled: true, rp_id: 'consent.example.test', origin, max_attempts: 3, rate_limit_per_minute: 50 });

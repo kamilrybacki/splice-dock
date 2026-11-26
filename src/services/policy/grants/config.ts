@@ -12,11 +12,14 @@ export function isBuiltInGrantException(tool:string,verb:string):boolean {
 
 /** Human-readable labels for the built-in exceptions (admin API and UI). */
 export const BUILT_IN_GRANT_EXCEPTION_LABELS:readonly string[]=['requireStrong/WebAuthn',...BUILT_IN_GRANT_EXCEPTIONS.map(e=>`${e.tool} ${e.verb_path}`)];
-export function readGrantConfig(env:NodeJS.ProcessEnv):{threshold:number;minSimilarity:number;exceptions:GrantException[]|undefined} {
-  if(env.SPLICEDOCK_GRANTS!=='1')return {threshold:2,minSimilarity:0.5,exceptions:undefined};
-  const threshold=Number(env.SPLICEDOCK_GRANT_THRESHOLD ?? 2),minSimilarity=Number(env.SPLICEDOCK_GRANT_CONTEXT_MIN_SIM ?? 0.5);
-  if(!Number.isInteger(threshold) || threshold<1 || !Number.isFinite(minSimilarity) || minSimilarity<=0 || minSimilarity>1)throw new Error('invalid standing grant thresholds');
+/** ADR 0009: executed same-shape approvals needed before a grant is learned. */
+export const DEFAULT_GRANT_THRESHOLD=3;
+/** SPLICEDOCK_GRANT_CONTEXT_MIN_SIM is ignored since ADR 0009: context never widens a match. */
+export function readGrantConfig(env:NodeJS.ProcessEnv):{threshold:number;exceptions:GrantException[]|undefined} {
+  if(env.SPLICEDOCK_GRANTS!=='1')return {threshold:DEFAULT_GRANT_THRESHOLD,exceptions:undefined};
+  const threshold=Number(env.SPLICEDOCK_GRANT_THRESHOLD ?? DEFAULT_GRANT_THRESHOLD);
+  if(!Number.isInteger(threshold) || threshold<1)throw new Error('invalid standing grant thresholds');
   const exceptions:unknown=JSON.parse(env.SPLICEDOCK_GRANT_EXCEPTIONS ?? '[]');
   if(!Array.isArray(exceptions) || exceptions.some(e=>!e || typeof e.tool!=='string' || !e.tool || (e.verb_path!==undefined && (typeof e.verb_path!=='string' || !e.verb_path))))throw new Error('invalid standing grant exceptions');
-  return {threshold,minSimilarity,exceptions:env.SPLICEDOCK_GRANT_EXCEPTIONS===undefined?undefined:exceptions};
+  return {threshold,exceptions:env.SPLICEDOCK_GRANT_EXCEPTIONS===undefined?undefined:exceptions};
 }

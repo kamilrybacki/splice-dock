@@ -27,7 +27,7 @@ for (const backend of ['sqlite', 'postgres']) {
             .run(String(i), i === 0 ? 'p' : `other${i}`, 't', 'kubectl', 'delete', shape.resource_kind, shape.namespace, '[]', i, 'test', '[]', now + 10000, i === 0 && state === 'revoked' ? now : null, i === 0 && state === 'suspended' ? now : null);
         }
       })();
-      const grants = new StandingGrants(db, true, 1, 0, () => now);
+      const grants = new StandingGrants(db, true, 1, () => now);
       await db.transaction(async () => { await grants.promote('evidence'); })();
       expect(await db.prepare("SELECT id FROM standing_grants WHERE profile='p' AND token_id='t'").all()).toHaveLength(1);
     });
