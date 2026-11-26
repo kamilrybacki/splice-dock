@@ -107,4 +107,19 @@ describe('ToolMetrics hourly buckets', () => {
     expect(row.buckets_1h[23]).toBe(2);
     expect(a.get('git')!.buckets_1h[23]).toBe(2);
   });
+
+  it('aligns a window anchored in the future (replica clock skew) by absolute hour', async () => {
+    const store = await SplicedockStore.open(':memory:');
+    vi.setSystemTime(T0 + 2 * HOUR);
+    const ahead = new ToolMetrics(store, 0);
+    await ahead.start(); call(ahead, 'a'); await ahead.flush();
+    vi.setSystemTime(T0);
+    const m = new ToolMetrics(store, 0);
+    await m.start(); call(m, 'b');
+    const h = m.hourlyHistory()!;
+    // 'b' at hour H, 'a' at hour H+2: they must not be added into the same bucket.
+    expect(h.buckets.slice(-3)).toEqual([1, 0, 1]);
+    expect(h.startTs + (h.buckets.length - 1) * HOUR).toBe(Math.floor((T0 + 2 * HOUR) / HOUR) * HOUR);
+  });
 });
+

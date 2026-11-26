@@ -72,4 +72,13 @@ describe('hourly window semantics', () => {
     expect(w.buckets.slice(-2)).toEqual([1, 2]);
     expect(w.from).toBe(H - 1); // older hours are unknown, not zero
   });
+
+  it('windowFromRow treats a corrupt stored value as unknown, not zero', () => {
+    const buckets = new Array<number>(HOURS).fill(1);
+    buckets[5] = null as unknown as number;
+    const w = windowFromRow(buckets, H, 0);
+    // index 5 covers hour H-18, so only hours after it are trustworthy
+    expect(w.from).toBe(H - 17);
+    expect(hourlyView(w, H)!.buckets).toEqual(new Array<number>(18).fill(1));
+  });
 });

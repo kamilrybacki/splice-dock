@@ -65,12 +65,18 @@ export function mergeWindows(a: HourlyWindow, b: HourlyWindow): HourlyWindow {
   };
 }
 
-/** Rebuild a window from persisted values; short arrays leave older hours unknown. */
+const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+
+/**
+ * Rebuild a window from persisted values. Short arrays leave older hours unknown,
+ * and a corrupt value (non-numeric, negative) makes it and every older hour unknown.
+ */
 export function windowFromRow(buckets: readonly number[], anchor: number, from: number): HourlyWindow {
-  const clean = buckets.map((n) => (Number.isFinite(n) && n > 0 ? n : 0));
-  const kept = clean.length > HOURS ? clean.slice(clean.length - HOURS) : clean;
-  const padded = [...new Array<number>(HOURS - kept.length).fill(0), ...kept];
-  const oldestKnown = anchor - (kept.length - 1);
+  const kept = buckets.length > HOURS ? buckets.slice(buckets.length - HOURS) : buckets;
+  const lastBad = kept.reduce((acc, n, i) => (isCount(n) ? acc : i), -1);
+  const clean = kept.map((n) => (isCount(n) ? n : 0));
+  const padded = [...new Array<number>(HOURS - clean.length).fill(0), ...clean];
+  const oldestKnown = anchor - (kept.length - 1) + (lastBad + 1);
   return { buckets: padded, anchor, from: Math.max(from, oldestKnown) };
 }
 

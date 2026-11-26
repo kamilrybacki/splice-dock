@@ -198,17 +198,12 @@ export class ToolMetrics {
    */
   hourlyHistory(now = Date.now()): HourlyHistoryView | null {
     const hourNow = hourOf(now);
-    let sum: number[] = new Array<number>(HOURS).fill(0);
-    let from = -Infinity;
-    let any = false;
-    for (const m of this.metrics.values()) {
-      const w = rollWindow(windowOf(m), hourNow);
-      sum = sum.map((n, i) => n + (w.buckets[i] ?? 0));
-      from = Math.max(from, w.from);
-      any = true;
-    }
-    if (!any) return null;
-    const view = hourlyView({ buckets: sum, anchor: hourNow, from }, hourNow);
+    if (this.metrics.size === 0) return null;
+    // mergeWindows aligns by absolute hour, so a window anchored ahead of this
+    // clock (another replica's skew) is not summed into the wrong buckets.
+    let merged = emptyWindow(hourNow, -Infinity);
+    for (const m of this.metrics.values()) merged = mergeWindows(merged, windowOf(m));
+    const view = hourlyView(merged, hourNow);
     if (!view) return null;
     return { buckets: view.buckets, startTs: view.startHour * MS_PER_HOUR, lastInProgress: true };
   }
