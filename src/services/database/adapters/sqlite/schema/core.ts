@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
   rule_denies_json TEXT,
   buckets_60s_json TEXT,
   buckets_1h_json  TEXT,
+  buckets_1h_anchor INTEGER,
+  buckets_1h_from  INTEGER,
   last_ts          INTEGER,
   last_duration_ms INTEGER,
   updated_at       INTEGER NOT NULL
@@ -116,4 +118,14 @@ export async function migrateApprovalBinding(db: SqlDb): Promise<void> {
     `CREATE INDEX IF NOT EXISTS pending_approvals_binding
        ON pending_approvals (tool, argv_hash, profile, token_id, status)`,
   );
+}
+
+/** Idempotent: add the hourly-window anchor columns to metrics_snapshots.
+ *  Pre-existing rows keep NULL and are treated as "history unknown". */
+export async function migrateMetricsHourlyAnchor(db: SqlDb): Promise<void> {
+  const cols = (await db.prepare('PRAGMA table_info(metrics_snapshots)').all() as Array<{ name: string }>).map(
+    c => c.name,
+  );
+  if (!cols.includes('buckets_1h_anchor')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_1h_anchor INTEGER');
+  if (!cols.includes('buckets_1h_from')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_1h_from INTEGER');
 }

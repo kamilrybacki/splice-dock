@@ -23,6 +23,10 @@ export interface MetricsSnapshotRow {
   rule_denies: Record<string, number>;
   buckets_60s: number[];
   buckets_1h: number[];
+  /** Absolute hour index of buckets_1h[23]; null for legacy rows with no anchor. */
+  buckets_1h_anchor?: number | null;
+  /** First absolute hour whose count is trustworthy (earlier hours are unknown). */
+  buckets_1h_from?: number | null;
   last_ts: number | null;
   last_duration_ms: number | null;
   updated_at: number;
@@ -37,6 +41,9 @@ export interface MetricsDelta {
   rule_denies: Record<string, number>;
   buckets_60s: number[];
   buckets_1h: number[];
+  /** Hour windows are merged by absolute hour: anchor = hour of buckets_1h[23]. */
+  buckets_1h_anchor?: number | null;
+  buckets_1h_from?: number | null;
   last_ts: number | null;
   last_duration_ms: number | null;
 }
