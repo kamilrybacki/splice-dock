@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
   last_ts BIGINT, last_duration_ms BIGINT, updated_at BIGINT NOT NULL);
 ALTER TABLE metrics_snapshots ADD COLUMN IF NOT EXISTS buckets_1h_anchor BIGINT;
 ALTER TABLE metrics_snapshots ADD COLUMN IF NOT EXISTS buckets_1h_from BIGINT;
+ALTER TABLE metrics_snapshots ADD COLUMN IF NOT EXISTS buckets_60s_anchor BIGINT;
+ALTER TABLE metrics_snapshots ADD COLUMN IF NOT EXISTS buckets_60s_from BIGINT;
 CREATE TABLE IF NOT EXISTS pending_approvals (
   id TEXT PRIMARY KEY, tool TEXT NOT NULL, argv_hash TEXT NOT NULL, argv_json TEXT NOT NULL,
   rule TEXT NOT NULL, matched TEXT, status TEXT NOT NULL DEFAULT 'pending',

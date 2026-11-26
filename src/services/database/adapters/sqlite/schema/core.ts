@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
   deny             INTEGER NOT NULL DEFAULT 0,
   rule_denies_json TEXT,
   buckets_60s_json TEXT,
+  buckets_60s_anchor INTEGER,
+  buckets_60s_from INTEGER,
   buckets_1h_json  TEXT,
   buckets_1h_anchor INTEGER,
   buckets_1h_from  INTEGER,
@@ -128,4 +130,14 @@ export async function migrateMetricsHourlyAnchor(db: SqlDb): Promise<void> {
   );
   if (!cols.includes('buckets_1h_anchor')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_1h_anchor INTEGER');
   if (!cols.includes('buckets_1h_from')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_1h_from INTEGER');
+}
+
+/** Idempotent: add the minute-window anchor columns to metrics_snapshots.
+ *  Pre-existing rows keep NULL and are treated as "minute history unknown". */
+export async function migrateMetricsMinuteAnchor(db: SqlDb): Promise<void> {
+  const cols = (await db.prepare('PRAGMA table_info(metrics_snapshots)').all() as Array<{ name: string }>).map(
+    c => c.name,
+  );
+  if (!cols.includes('buckets_60s_anchor')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_60s_anchor INTEGER');
+  if (!cols.includes('buckets_60s_from')) await db.exec('ALTER TABLE metrics_snapshots ADD COLUMN buckets_60s_from INTEGER');
 }
