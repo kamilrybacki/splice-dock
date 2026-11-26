@@ -18,6 +18,9 @@ import { authEvent, tokenEvent } from '../../authentication/lifecycle/events.js'
 // changes in a transaction via `db.transaction(...)`.
 
 import Database from 'better-sqlite3';
+import {
+  HOURS, emptyWindow, hourOf, mergeWindows, windowFromRow, type HourlyWindow,
+} from '../../metrics/hourly.js';
 import { PgDb } from './postgres/db.js';
 import type {
   ApprovalRepository, ApprovalRow, ApprovalRowInsert, MetricsDelta, MetricsRepository, MetricsSnapshotRow,
@@ -499,7 +502,8 @@ export class SplicedockStore
     const row = await this.db
       .prepare(
         `SELECT tool_name, total, allow, deny, rule_denies_json,
-                buckets_60s_json, buckets_1h_json, last_ts, last_duration_ms, updated_at
+                buckets_60s_json, buckets_1h_json, buckets_1h_anchor, buckets_1h_from,
+                last_ts, last_duration_ms, updated_at
          FROM metrics_snapshots WHERE tool_name = ?`,
       )
       .get(tool) as
@@ -511,6 +515,8 @@ export class SplicedockStore
           rule_denies_json: string | null;
           buckets_60s_json: string | null;
           buckets_1h_json: string | null;
+          buckets_1h_anchor: number | null;
+          buckets_1h_from: number | null;
           last_ts: number | null;
           last_duration_ms: number | null;
           updated_at: number;
@@ -525,6 +531,8 @@ export class SplicedockStore
       rule_denies: row.rule_denies_json ? safeParseObj(row.rule_denies_json) : {},
       buckets_60s: row.buckets_60s_json ? safeParseArr(row.buckets_60s_json) : [],
       buckets_1h: row.buckets_1h_json ? safeParseArr(row.buckets_1h_json) : [],
+      buckets_1h_anchor: row.buckets_1h_anchor ?? null,
+      buckets_1h_from: row.buckets_1h_from ?? null,
       last_ts: row.last_ts,
       last_duration_ms: row.last_duration_ms,
       updated_at: row.updated_at,
@@ -779,8 +787,9 @@ export class SplicedockStore
    * Add one replica's counter increments to the shared row without losing a
    * concurrent replica's. Counters use `col = col + excluded.col` (atomic on
    * both backends); rule_denies is merged under the row lock that the upsert
-   * takes for the rest of the transaction. Buckets are last-writer-wins (they
-   * are time-anchored sparkline hints, not counters). Returns the merged row.
+   * takes for the rest of the transaction. Hourly buckets are aligned by absolute
+   * hour and summed (see mergeWindows: same rule as the totals). Minute buckets
+   * stay last-writer-wins. Returns the merged row.
    */
   async addMetricsDelta(d: MetricsDelta): Promise<MetricsSnapshotRow> {
     return await this.db.transaction(async () => {
@@ -794,7 +803,6 @@ export class SplicedockStore
            allow            = metrics_snapshots.allow + excluded.allow,
            deny             = metrics_snapshots.deny + excluded.deny,
            buckets_60s_json = excluded.buckets_60s_json,
-           buckets_1h_json  = excluded.buckets_1h_json,
            last_duration_ms = CASE WHEN excluded.last_ts IS NOT NULL
              AND (metrics_snapshots.last_ts IS NULL OR excluded.last_ts >= metrics_snapshots.last_ts)
              THEN COALESCE(excluded.last_duration_ms, metrics_snapshots.last_duration_ms)
@@ -804,8 +812,9 @@ export class SplicedockStore
              THEN excluded.last_ts ELSE metrics_snapshots.last_ts END,
            updated_at       = excluded.updated_at`,
       ).run(
+        // '[]' + NULL anchor marks a row created by this very delta (legacy rows hold 24 entries).
         d.tool_name, d.total, d.allow, d.deny, '{}',
-        JSON.stringify(d.buckets_60s), JSON.stringify(d.buckets_1h),
+        JSON.stringify(d.buckets_60s), '[]',
         d.last_ts, d.last_duration_ms, Date.now(),
       );
       // The upsert holds the row lock until commit, so this read-merge-write is serialised.
@@ -816,7 +825,14 @@ export class SplicedockStore
         await this.db.prepare('UPDATE metrics_snapshots SET rule_denies_json = ? WHERE tool_name = ?')
           .run(JSON.stringify(merged), d.tool_name);
       }
-      const row: MetricsSnapshotRow = { ...cur, rule_denies: merged };
+      const hourly = mergeHourly(cur, d);
+      await this.db.prepare(
+        'UPDATE metrics_snapshots SET buckets_1h_json = ?, buckets_1h_anchor = ?, buckets_1h_from = ? WHERE tool_name = ?',
+      ).run(JSON.stringify(hourly.buckets), hourly.anchor, hourly.from, d.tool_name);
+      const row: MetricsSnapshotRow = {
+        ...cur, rule_denies: merged,
+        buckets_1h: [...hourly.buckets], buckets_1h_anchor: hourly.anchor, buckets_1h_from: hourly.from,
+      };
       return row;
     })();
   }
@@ -826,8 +842,9 @@ export class SplicedockStore
       .prepare(
         `INSERT INTO metrics_snapshots (
             tool_name, total, allow, deny, rule_denies_json,
-            buckets_60s_json, buckets_1h_json, last_ts, last_duration_ms, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            buckets_60s_json, buckets_1h_json, buckets_1h_anchor, buckets_1h_from,
+            last_ts, last_duration_ms, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(tool_name) DO UPDATE SET
            total            = excluded.total,
            allow            = excluded.allow,
@@ -835,6 +852,8 @@ export class SplicedockStore
            rule_denies_json = excluded.rule_denies_json,
            buckets_60s_json = excluded.buckets_60s_json,
            buckets_1h_json  = excluded.buckets_1h_json,
+           buckets_1h_anchor = excluded.buckets_1h_anchor,
+           buckets_1h_from  = excluded.buckets_1h_from,
            last_ts          = excluded.last_ts,
            last_duration_ms = excluded.last_duration_ms,
            updated_at       = excluded.updated_at`,
@@ -847,11 +866,29 @@ export class SplicedockStore
         JSON.stringify(snapshot.rule_denies),
         JSON.stringify(snapshot.buckets_60s),
         JSON.stringify(snapshot.buckets_1h),
+        snapshot.buckets_1h_anchor ?? null,
+        snapshot.buckets_1h_from ?? null,
         snapshot.last_ts,
         snapshot.last_duration_ms,
         Date.now(),
       );
   }
+}
+
+/**
+ * Combine the stored hourly window with a replica's delta, by absolute hour.
+ * Row just created by this delta: all-zero base that is known from 23h back
+ * (no earlier calls existed). Legacy row (data but no anchor): its hours cannot
+ * be placed in time, so the base is zeros known only from the delta's hour.
+ */
+function mergeHourly(cur: MetricsSnapshotRow, d: MetricsDelta): HourlyWindow {
+  const dAnchor = d.buckets_1h_anchor ?? hourOf(Date.now());
+  const incoming = windowFromRow(d.buckets_1h, dAnchor, d.buckets_1h_from ?? dAnchor - (HOURS - 1));
+  if (cur.buckets_1h_anchor == null) {
+    const fresh = cur.buckets_1h.length === 0;
+    return mergeWindows(emptyWindow(dAnchor, fresh ? dAnchor - (HOURS - 1) : dAnchor), incoming);
+  }
+  return mergeWindows(windowFromRow(cur.buckets_1h, cur.buckets_1h_anchor, cur.buckets_1h_from ?? cur.buckets_1h_anchor), incoming);
 }
 
 interface ApprovalRowRaw {
