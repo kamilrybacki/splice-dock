@@ -141,9 +141,10 @@ export class ToolMetrics {
     p.last_ts = ts;
     if (args.duration_ms !== undefined) p.last_duration_ms = args.duration_ms;
     this.pending.set(args.tool, p);
-    const l = this.local.get(args.tool) ?? { allow: 0, deny: 0, rule_denies: {} };
+    const l = this.local.get(args.tool) ?? { allow: 0, deny: 0, rule_denies: {}, last_duration_ms: null };
     if (args.decision === 'allow') l.allow += 1; else l.deny += 1;
     if (args.decision === 'deny' && args.rule) l.rule_denies[args.rule] = (l.rule_denies[args.rule] ?? 0) + 1;
+    if (args.duration_ms !== undefined) l.last_duration_ms = args.duration_ms;
     this.local.set(args.tool, l);
   }
 
@@ -191,8 +192,8 @@ export class ToolMetrics {
    *  for exposition adapters. Never reflects cluster-wide DB totals. */
   localCounters(): readonly ToolLocalCounters[] {
     return this.list().map(m => {
-      const l = this.local.get(m.tool) ?? { allow: 0, deny: 0, rule_denies: {} };
-      return { tool: m.tool, allow: l.allow, deny: l.deny, rule_denies: { ...l.rule_denies }, last_duration_ms: m.last_duration_ms };
+      const l = this.local.get(m.tool) ?? { allow: 0, deny: 0, rule_denies: {}, last_duration_ms: null };
+      return { tool: m.tool, allow: l.allow, deny: l.deny, rule_denies: { ...l.rule_denies }, last_duration_ms: l.last_duration_ms };
     });
   }
 
@@ -226,7 +227,31 @@ export class ToolMetrics {
         firstError ??= err;
       }
     }
+    await this.refreshFromStore(this.store);
     if (firstError !== undefined) throw firstError;
+  }
+
+  /**
+   * Pick up rows written by other replicas, including tools this process has
+   * never seen (it only learns of those at start otherwise). Tools with pending
+   * or unacked increments are skipped: their DB row lacks our counts, so adopting
+   * it would regress the view. Checked after the await, as record() may have run
+   * meanwhile. Runs inside the flush chain, so it cannot interleave with a flush.
+   * Only the cluster-wide view changes; local counters are untouched.
+   */
+  private async refreshFromStore(store: MetricsRepository): Promise<void> {
+    let rows: MetricsSnapshotRow[];
+    try {
+      rows = await store.listMetricsSnapshots();
+    } catch (err) {
+      logger.warn('tool metrics refresh failed', { err: String(err) });
+      return;
+    }
+    const now = Date.now();
+    for (const row of rows) {
+      if (this.pending.has(row.tool_name) || this.unacked.has(row.tool_name)) continue;
+      this.metrics.set(row.tool_name, metricFromRow(row, now));
+    }
   }
 
   /** Send a tool's unacked delta (if any), then its pending increments. */
@@ -285,4 +310,5 @@ interface LocalCounters {
   allow: number;
   deny: number;
   rule_denies: Record<string, number>;
+  last_duration_ms: number | null;
 }
