@@ -7,6 +7,8 @@ export interface ToolShapes {
   shape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null;
   /** Looser shape used to record rejections; it can only deny, never authorize. */
   baseShape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null;
+  /** Bare names of the objects the operation targets (ADR 0010). Absent or null: no grant forms or matches. */
+  objectNames?(argv: readonly string[], verb: string): string[] | null;
 }
 
 /** Tool name (as configured in YAML) to its shape functions. */

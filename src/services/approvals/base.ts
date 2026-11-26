@@ -48,6 +48,8 @@ export interface ApprovalServiceOptions {
   grantsEnabled?: boolean;
   grantThreshold?: number;
   grantExceptions?: readonly GrantException[];
+  /** ADR 0010: exact namespaces standing grants may form and match in. Empty or unset: none. */
+  grantNamespaces?: readonly string[];
   /** Per-tool standing-grant shapes. Default: none, so no grant ever applies. */
   shapes?: ShapeRegistry;
   onGrantUsed?: (tool:string,verb:string)=>void;
@@ -105,7 +107,7 @@ export class ApprovalService {
     this.reservationTtlMs = opts.reservationTtlMs ?? 5 * 60 * 1000;
     this.now = opts.now ?? Date.now;
     this.onEvent = opts.onEvent;
-    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? DEFAULT_GRANT_THRESHOLD, this.now, opts.grantExceptions, opts.shapes ?? NO_SHAPES);
+    this.grants = new StandingGrants(opts.store.consentDatabase(), opts.grantsEnabled ?? false, opts.grantThreshold ?? DEFAULT_GRANT_THRESHOLD, this.now, opts.grantExceptions, opts.shapes ?? NO_SHAPES, opts.grantNamespaces ?? []);
 
     const sweepInterval = opts.sweepIntervalMs ?? 60_000;
     if (sweepInterval > 0) {
@@ -189,7 +191,8 @@ export class ApprovalService {
 
     const toolShapes = (this.options.shapes ?? NO_SHAPES).shapesFor(tool);
     const shape = this.grants.enabled && toolShapes && !await this.grants.exception(tool,matched,requireStrong) ? toolShapes.shape(argv,matched,caller) : null;
-    const candidate = shape && approvalContext ? await this.grants.match(shape,approvalContext) : undefined;
+    const objectNames = shape ? toolShapes?.objectNames?.(argv,matched) ?? [] : [];
+    const candidate = shape && approvalContext ? await this.grants.match(shape,approvalContext,objectNames) : undefined;
     // Lock the pending approval before claiming a grant, matching reject's
     // approval -> grant order. The locked read rechecks status after waiting;
     // claim then rechecks quota, revocation, suspension and expiry.

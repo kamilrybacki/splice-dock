@@ -9,7 +9,7 @@ const context = 'Clean up completed batch jobs after investigating failed schedu
 async function setup() {
   let now=1000000;
   const store=await SplicedockStore.open(':memory:');
-  const svc=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,shapes:builtinShapes,now:()=>now});
+  const svc=new ApprovalService({store,grantsEnabled:true,grantNamespaces:['batch','other'],sweepIntervalMs:0,shapes:builtinShapes,now:()=>now});
   const request=(...argv:string[])=>svc.makeHook('kubectl','/workspace',caller,false,context)({tool:'kubectl',argv,rule:'approval_subcommands',matched:'delete'});
   const execute=async (...argv:string[])=>{const out=await request(...argv);await svc.approve(out.id!,'operator');const approved=await request(...argv);expect(approved.approved).toBe(true);await svc.finalize(approved.id!);await svc.executionResult(approved.id!,true);};
   const live=async ()=>(await svc.listGrants()).filter(g=>g.revoked_at===null);
@@ -32,12 +32,12 @@ describe('mixed-kind kubectl rejection', () => {
   });
   it('revokes a grant of every kind named in the rejected command',async ()=>{
     const {store,svc,request,execute,live}=await setup();
-    await execute('delete','pod','one','-n','batch');await execute('delete','pod','two','-n','batch');await execute('delete','pod','three','-n','batch');
+    await execute('delete','pod','job-one','-n','batch');await execute('delete','pod','job-two','-n','batch');await execute('delete','pod','job-three','-n','batch');
     expect(await live()).toHaveLength(1);
     const rejected=await request('delete','job/a','pod/b','-n','batch');
     expect(rejected.approved).toBe(false);await svc.reject(rejected.id!,'operator');
     expect(await live()).toHaveLength(0);
-    expect((await request('delete','pod','b','-n','batch')).approved).toBe(false);
+    expect((await request('delete','pod','job-b','-n','batch')).approved).toBe(false);
     await store.close();
   });
 });
@@ -48,32 +48,32 @@ describe('ambiguous rejection without an existing grant', () => {
     ['delete','job','flagged','-nbatch'],
   ])('resets learning evidence for the caller scope (%j)',async (...argv)=>{
     const {store,svc,request,execute,live,advance}=await setup();
-    await execute('delete','job','one','-n','batch');
+    await execute('delete','job','job-one','-n','batch');
     const rejected=await request(...argv);await svc.reject(rejected.id!,'operator');
-    await execute('delete','job','two','-n','batch');await execute('delete','job','three','-n','batch');await execute('delete','job','four','-n','batch');
+    await execute('delete','job','job-two','-n','batch');await execute('delete','job','job-three','-n','batch');await execute('delete','job','job-four','-n','batch');
     expect(await live()).toHaveLength(0);
     // Other bases in the same caller/tool/verb scope are blocked as well.
-    await execute('delete','pod','one','-n','other');await execute('delete','pod','two','-n','other');await execute('delete','pod','three','-n','other');
+    await execute('delete','pod','job-one','-n','other');await execute('delete','pod','job-two','-n','other');await execute('delete','pod','job-three','-n','other');
     expect(await live()).toHaveLength(0);
     advance();
-    await execute('delete','job','fresh-one','-n','batch');await execute('delete','job','fresh-two','-n','batch');expect(await live()).toHaveLength(0);
-    await execute('delete','job','fresh-three','-n','batch');expect(await live()).toHaveLength(1);
+    await execute('delete','job','job-fresh-one','-n','batch');await execute('delete','job','job-fresh-two','-n','batch');expect(await live()).toHaveLength(0);
+    await execute('delete','job','job-fresh-three','-n','batch');expect(await live()).toHaveLength(1);
     await store.close();
   });
   it('does not match a grant in a scope-blocked caller scope',async ()=>{
     const {store,svc,request,execute}=await setup();
-    await execute('delete','job','one','-n','batch');await execute('delete','job','two','-n','batch');await execute('delete','job','three','-n','batch');
+    await execute('delete','job','job-one','-n','batch');await execute('delete','job','job-two','-n','batch');await execute('delete','job','job-three','-n','batch');
     const original=(await svc.listGrants())[0];
     const rejected=await request('delete','job','--all','-A');await svc.reject(rejected.id!,'operator');
-    await store.consentDatabase().prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at)
-      SELECT 'late',profile,token_id,tool,verb_path,'pod','other',object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at FROM standing_grants WHERE id=?`).run(original.id);
-    expect((await request('delete','pod','x','-n','other')).approved).toBe(false);
+    await store.consentDatabase().prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,name_prefix,created_at,created_by,source_approval,context_refs,expires_at)
+      SELECT 'late',profile,token_id,tool,verb_path,'pod','other',object_count_max,flags_allowed,'job-',created_at,created_by,source_approval,context_refs,expires_at FROM standing_grants WHERE id=?`).run(original.id);
+    expect((await request('delete','pod','job-x','-n','other')).approved).toBe(false);
     await store.close();
   });
   it('a precise rejection does not block other bases of the scope',async ()=>{
     const {store,svc,request,execute,live}=await setup();
     const rejected=await request('delete','job','flagged','-n','batch');await svc.reject(rejected.id!,'operator');
-    await execute('delete','pod','one','-n','other');await execute('delete','pod','two','-n','other');await execute('delete','pod','three','-n','other');
+    await execute('delete','pod','job-one','-n','other');await execute('delete','pod','job-two','-n','other');await execute('delete','pod','job-three','-n','other');
     expect(await live()).toHaveLength(1);
     await store.close();
   });

@@ -1,5 +1,5 @@
 import type { SplicedockConfig } from './config/types.js';
-import { approvalTtlMsFromEnv, grantsEnabledFromEnv, type Env } from './env-config.js';
+import { approvalTtlMsFromEnv, grantNamespacesFromEnv, grantsEnabledFromEnv, type Env } from './env-config.js';
 import { logger } from './common/logger.js';
 import { readGrantConfig } from './services/policy/grants/config.js';
 import { builtinShapes } from './builtin-backends.js';
@@ -28,12 +28,15 @@ export function createApprovals(
   logger.info(pushNotifier ? 'web push enabled' : 'web push disabled (no VAPID keys)');
   const grantConfig = readGrantConfig(env);
   if (env.SPLICEDOCK_GRANT_CONTEXT_MIN_SIM !== undefined) logger.warn('SPLICEDOCK_GRANT_CONTEXT_MIN_SIM is ignored: standing grants match on operation shape only (ADR 0009)');
+  const grantNamespaces = grantNamespacesFromEnv(env);
+  if (grantsEnabledFromEnv(env) && grantNamespaces.length === 0) logger.warn('SPLICEDOCK_GRANTS=1 but SPLICEDOCK_GRANT_NAMESPACES is empty: standing grants are effectively off (ADR 0010)');
   const consent = config.server.consent;
   const approvalService = new ApprovalService({
     store,
     grantsEnabled: grantsEnabledFromEnv(env),
     grantThreshold: grantConfig.threshold,
     grantExceptions: grantConfig.exceptions,
+    grantNamespaces,
     shapes: builtinShapes,
     onGrantUsed: (tool, verb) => metrics.approvalGrantUsed.inc({ tool, verb }),
     ttlMs: approvalTtlMsFromEnv(env) ?? consent.approval_ttl_seconds * 1000,

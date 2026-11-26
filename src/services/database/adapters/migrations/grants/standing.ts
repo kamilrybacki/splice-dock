@@ -11,12 +11,14 @@ export async function migrateStandingGrants(db:SqlDb):Promise<void> {
       created_at INTEGER NOT NULL, created_by TEXT NOT NULL, source_approval TEXT,
       context_refs TEXT NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, revoked_by TEXT,
       suspended_at INTEGER, use_count INTEGER NOT NULL DEFAULT 0, use_count_max INTEGER NOT NULL DEFAULT 200,
-      consecutive_failures INTEGER NOT NULL DEFAULT 0, last_used_at INTEGER);
+      consecutive_failures INTEGER NOT NULL DEFAULT 0, last_used_at INTEGER, name_prefix TEXT);
       CREATE INDEX IF NOT EXISTS standing_grants_lookup ON standing_grants(tool,verb_path,profile,token_id,expires_at);
       CREATE INDEX IF NOT EXISTS pending_approvals_shape ON pending_approvals(shape_key,status,requested_at);
       CREATE TABLE IF NOT EXISTS grant_exceptions(tool TEXT NOT NULL,verb_path TEXT NOT NULL DEFAULT '*',added_at INTEGER NOT NULL,added_by TEXT NOT NULL,PRIMARY KEY(tool,verb_path));
       CREATE TABLE IF NOT EXISTS grant_blocks(shape_key TEXT PRIMARY KEY,until INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS grant_settings(key TEXT PRIMARY KEY);`);
+    const grantCols=new Set((await db.prepare('PRAGMA table_info(standing_grants)').all() as {name:string}[]).map(c=>c.name));
+    if(!grantCols.has('name_prefix'))await db.exec('ALTER TABLE standing_grants ADD COLUMN name_prefix TEXT');
     if(!await db.prepare("SELECT 1 FROM grant_settings WHERE key='exceptions_seeded'").get()){
       for(const verb of ['drain','cordon','uncordon'])await db.prepare('INSERT OR IGNORE INTO grant_exceptions VALUES (?,?,?,?)').run('kubectl',verb,Date.now(),'default');
       await db.prepare("INSERT INTO grant_settings VALUES ('exceptions_seeded')").run();

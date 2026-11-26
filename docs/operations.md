@@ -19,6 +19,17 @@ towards promotion. `SPLICEDOCK_GRANT_CONTEXT_MIN_SIM` is ignored; setting it log
 warning. Unknown flags, bulk selectors and widened resource scopes fall back to
 manual approval.
 
+ADR 0010 narrows grants further. `SPLICEDOCK_GRANT_NAMESPACES` is a comma-separated
+list of exact namespaces (for example `batch,ci-jobs`); entries are trimmed and must
+be valid DNS-1123 labels, otherwise they are ignored with a warning. It is
+default-deny: unset or empty means no grant forms or matches, and with
+`SPLICEDOCK_GRANTS=1` a startup warning says grants are effectively off. The list is
+checked at promotion and at every match, so removing a namespace stops its grants at
+once. A grant also stores a `name_prefix`, the longest common prefix of the approved
+object names cut after the last `-` or `.` (at least three characters before it).
+It matches only when every requested name starts with that prefix. No usable prefix
+means no grant; grants without a prefix never match.
+
 Grants expire three days after creation without renewal, stop after 20 uses, and
 suspend after three consecutive execution failures. Rejecting the same shape revokes
 its grants and blocks promotion for seven days. Strong/WebAuthn tools are permanent

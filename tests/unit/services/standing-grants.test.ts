@@ -38,8 +38,8 @@ describe('standing grants lifecycle', () => {
   async function setup(enabled=true) {
     let now=1000000;
     const store=await SplicedockStore.open(':memory:');
-    const svc=new ApprovalService({store,grantsEnabled:enabled,sweepIntervalMs:0,shapes:builtinShapes,now:()=>now});
-    const request=(name:string,ctx:string|undefined=context,who=caller,tool='kubectl',verb='delete',strong=false)=>svc.makeHook(tool,'/workspace',who,strong,ctx)({tool,argv:[verb,'job',name,'-n','batch'],rule:'approval_subcommands',matched:verb});
+    const svc=new ApprovalService({store,grantsEnabled:enabled,grantNamespaces:['batch'],sweepIntervalMs:0,shapes:builtinShapes,now:()=>now});
+    const request=(name:string,ctx:string|undefined=context,who=caller,tool='kubectl',verb='delete',strong=false)=>svc.makeHook(tool,'/workspace',who,strong,ctx)({tool,argv:[verb,'job','job-'+name,'-n','batch'],rule:'approval_subcommands',matched:verb});
     const execute=async (name:string)=>{const out=await request(name);await svc.approve(out.id!,'operator');const approved=await request(name);expect(approved.approved).toBe(true);await svc.finalize(approved.id!);await svc.executionResult(approved.id!,true);};
     return {store,svc,request,execute,advance:()=>{now+=7*86400000+1;},advanceBy:(ms:number)=>{now+=ms;}};
   }
@@ -124,17 +124,17 @@ describe('standing grants lifecycle', () => {
     // Its stored seven-day expiry does not hold back fresh evidence once it has effectively expired.
     await execute('fresh-one');await execute('fresh-two');await execute('fresh-three');
     expect(await svc.listGrants()).toHaveLength(2);
-    expect((await request('renewed')).approved).toBe(true);
+    expect((await request('fresh-renewed')).approved).toBe(true);
     await store.close();
   });
   it.each(['--all','-A','--all-namespaces','-l','--selector','--field-selector','--force','--grace-period=0','--now','--cascade=orphan','-f','--filename','-k','--kustomize','--unknown'])('falls back to manual even with an active grant for %s',async flag=>{
     const {store,svc,execute}=await setup();await execute('one');await execute('two');await execute('seed');
-    const out=await svc.makeHook('kubectl','/workspace',caller,false,context)({tool:'kubectl',argv:['delete','job','third', '-n','batch',flag],rule:'approval_subcommands',matched:'delete'});
+    const out=await svc.makeHook('kubectl','/workspace',caller,false,context)({tool:'kubectl',argv:['delete','job','job-third', '-n','batch',flag],rule:'approval_subcommands',matched:'delete'});
     expect(out.approved).toBe(false);expect((await svc.get(out.id!))?.status).toBe('pending');await store.close();
   });
   it('missing context cannot match an active grant',async ()=>{
     const {store,svc,execute}=await setup();await execute('one');await execute('two');await execute('seed');
-    expect((await svc.makeHook('kubectl','/workspace',caller)({tool:'kubectl',argv:['delete','job','third','-n','batch'],rule:'approval_subcommands',matched:'delete'})).approved).toBe(false);await store.close();
+    expect((await svc.makeHook('kubectl','/workspace',caller)({tool:'kubectl',argv:['delete','job','job-third','-n','batch'],rule:'approval_subcommands',matched:'delete'})).approved).toBe(false);await store.close();
   });
   it.each(['40P01', '40001'])('retries a rejected transaction on %s without losing the decision', async code => {
     const {store,svc,request}=await setup();
@@ -178,7 +178,7 @@ describe('standing grants lifecycle', () => {
 
   it('never matches an active grant across namespaces',async ()=>{
     const {store,svc,execute}=await setup();await execute('one');await execute('two');await execute('seed');
-    const out=await svc.makeHook('kubectl','/workspace',caller,false,context)({argv:['delete','job','third','-n','other'],rule:'approval_subcommands',matched:'delete'});
+    const out=await svc.makeHook('kubectl','/workspace',caller,false,context)({argv:['delete','job','job-third','-n','other'],rule:'approval_subcommands',matched:'delete'});
     expect(out.approved).toBe(false);await store.close();
   });
   it('two failed approved executions never promote',async ()=>{
@@ -224,8 +224,8 @@ describe('standing grants lifecycle', () => {
     const db=store.consentDatabase();
     // Clone a real grant to exercise multiple namespaces/kinds and scope boundaries.
     const clone=async (id:string,profile:string,token:string,verb:string,kind:string,namespace:string)=>{
-      await db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at)
-        SELECT ?,?,?,tool,?,?,?,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at FROM standing_grants WHERE id=?`).run(id,profile,token,verb,kind,namespace,original.id);
+      await db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,name_prefix,created_at,created_by,source_approval,context_refs,expires_at)
+        SELECT ?,?,?,tool,?,?,?,object_count_max,flags_allowed,name_prefix,created_at,created_by,source_approval,context_refs,expires_at FROM standing_grants WHERE id=?`).run(id,profile,token,verb,kind,namespace,original.id);
     };
     await clone('other-base',caller.profile,caller.tokenId,'delete','pod','other');
     await clone('foreign-profile','other',caller.tokenId,'delete','job','batch');
@@ -240,7 +240,7 @@ describe('standing grants lifecycle', () => {
   });
   it('release expires a grant reservation after the flag is disabled',async ()=>{
     const {store,svc,request,execute}=await setup();await execute('one');await execute('two');await execute('seed');const out=await request('three');
-    const disabled=new ApprovalService({store,grantsEnabled:false,sweepIntervalMs:0,shapes:builtinShapes});
+    const disabled=new ApprovalService({store,grantsEnabled:false,grantNamespaces:['batch'],sweepIntervalMs:0,shapes:builtinShapes});
     expect(await disabled.release(out.id!)).toBe(true);expect((await svc.get(out.id!))?.status).toBe('expired');await store.close();
   });
   it('supersedes pending approvals atomically on grant match',async ()=>{
@@ -249,8 +249,8 @@ describe('standing grants lifecycle', () => {
   });
   it('does not count pre-flag successes after enabling',async ()=>{
     const {store,svc,execute}=await setup(false);await execute('one');await execute('two');await execute('seed');
-    const enabled=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,shapes:builtinShapes,now:()=>1000000});
-    const run=async (name:string)=>{const hook=enabled.makeHook('kubectl','/workspace',caller,false,context);const input={argv:['delete','job',name,'-n','batch'],rule:'approval_subcommands' as const,matched:'delete'};const out=await hook(input);await enabled.approve(out.id!,'operator');await enabled.finalize((await hook(input)).id!);await enabled.executionResult(out.id!,true);};
+    const enabled=new ApprovalService({store,grantsEnabled:true,grantNamespaces:['batch'],sweepIntervalMs:0,shapes:builtinShapes,now:()=>1000000});
+    const run=async (name:string)=>{const hook=enabled.makeHook('kubectl','/workspace',caller,false,context);const input={argv:['delete','job','job-'+name,'-n','batch'],rule:'approval_subcommands' as const,matched:'delete'};const out=await hook(input);await enabled.approve(out.id!,'operator');await enabled.finalize((await hook(input)).id!);await enabled.executionResult(out.id!,true);};
     await run('fresh-one');await run('fresh-two');expect(await enabled.listGrants()).toHaveLength(0);await run('fresh-three');expect(await enabled.listGrants()).toHaveLength(1);expect(await svc.listGrants()).toHaveLength(1);await store.close();
   });
   it('success resets failures and duplicate result reports count only once',async ()=>{
@@ -261,7 +261,7 @@ describe('standing grants lifecycle', () => {
   });
   it('config exceptions can be removed in WebUI and strong tools remain exceptions',async ()=>{
     const store=await SplicedockStore.open(':memory:');
-    const svc=new ApprovalService({store,grantsEnabled:true,grantExceptions:[{tool:'kubectl',verb_path:'delete'}],sweepIntervalMs:0,shapes:builtinShapes});
+    const svc=new ApprovalService({store,grantsEnabled:true,grantExceptions:[{tool:'kubectl',verb_path:'delete'}],grantNamespaces:['batch'],sweepIntervalMs:0,shapes:builtinShapes});
     expect(await svc.grants.exception('kubectl','delete',false)).toBe(true);
     await svc.grants.setException('kubectl','delete',false,'operator');expect(await svc.grants.exception('kubectl','delete',false)).toBe(false);
     expect(await svc.grants.exception('kubectl','delete',true)).toBe(true);await store.close();

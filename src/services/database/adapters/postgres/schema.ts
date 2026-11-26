@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS standing_grants (
   created_at BIGINT NOT NULL, created_by TEXT NOT NULL, source_approval TEXT,
   context_refs TEXT NOT NULL, expires_at BIGINT NOT NULL, revoked_at BIGINT, revoked_by TEXT,
   suspended_at BIGINT, use_count INTEGER NOT NULL DEFAULT 0, use_count_max INTEGER NOT NULL DEFAULT 200,
-  consecutive_failures INTEGER NOT NULL DEFAULT 0, last_used_at BIGINT);
+  consecutive_failures INTEGER NOT NULL DEFAULT 0, last_used_at BIGINT, name_prefix TEXT);
+ALTER TABLE standing_grants ADD COLUMN IF NOT EXISTS name_prefix TEXT;
 CREATE INDEX IF NOT EXISTS standing_grants_lookup ON standing_grants(tool, verb_path, profile, token_id, expires_at);
 CREATE TABLE IF NOT EXISTS grant_exceptions(tool TEXT NOT NULL, verb_path TEXT NOT NULL DEFAULT '*',
   added_at BIGINT NOT NULL, added_by TEXT NOT NULL, PRIMARY KEY(tool, verb_path));

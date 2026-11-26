@@ -7,7 +7,7 @@ import { createReadonlyProbes, type ReadonlyProbe } from './services/policy/brea
 import { ghProfile } from './services/policy/cli/profiles/gh.js';
 import { createCliProfileRegistry } from './services/policy/cli/profiles/index.js';
 import { kubectlProfile } from './services/policy/cli/profiles/kubectl.js';
-import { kubectlBaseShape, kubectlReadonlyProbe, kubectlShape } from './services/policy/shape/kubectl.js';
+import { kubectlBaseShape, kubectlObjectNames, kubectlReadonlyProbe, kubectlShape } from './services/policy/shape/kubectl.js';
 import { createShapeRegistry } from './services/policy/shape/registry.js';
 
 const GH_READONLY_COMMANDS = ['repo view', 'repo list', 'pr list', 'issue list', 'run list'];
@@ -18,7 +18,7 @@ export const builtinCliProfiles = createCliProfileRegistry([ghProfile, kubectlPr
 
 /** Standing-grant shapes shipped with the gateway, keyed by YAML tool name. */
 export const builtinShapes = createShapeRegistry({
-  kubectl: { shape: kubectlShape, baseShape: kubectlBaseShape },
+  kubectl: { shape: kubectlShape, baseShape: kubectlBaseShape, objectNames: kubectlObjectNames },
 });
 
 /** Breaker read-only exemptions shipped with the gateway, keyed by YAML tool name. */

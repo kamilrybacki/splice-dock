@@ -8,6 +8,14 @@ All notable changes to this project are recorded here. The format follows
 
 ### Added
 
+- `SPLICEDOCK_GRANT_NAMESPACES` (comma-separated exact namespaces, default none)
+  restricts standing grants to listed namespaces, at promotion and at every
+  match. Unset or empty disables grants; a startup warning says so when
+  `SPLICEDOCK_GRANTS=1` (ADR 0010).
+- Standing grants store a `name_prefix` (new `standing_grants.name_prefix`
+  column) and match only requests whose object names all start with it. Grants
+  without a prefix never match, and promotion creates none when the approved
+  names share no usable prefix (ADR 0010).
 - `server.host` and `server.admin_host` choose the interface the MCP endpoint
   and the admin API bind to. The defaults keep the current behaviour (every
   interface), so nothing changes unless you set them. Outside a container, set
