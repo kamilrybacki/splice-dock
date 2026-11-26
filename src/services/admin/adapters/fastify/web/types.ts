@@ -51,6 +51,9 @@ export interface WebUiOptions {
   metricsList: () => Promise<
     Array<{ tool: string; total: number; allow: number; deny: number; rule_denies: Record<string, number>; last_ts: number | null }>
   >;
+  /** Aggregated hourly call history (oldest first, last bucket in progress);
+   *  null/absent when it is not reliable, so the UI keeps saying "unavailable". */
+  metricsHourly?: () => { buckets: number[]; startTs: number; lastInProgress: boolean } | null;
   grantsEnabled?: boolean;
   approvalsList?: (status?: string) => Promise<
     Array<{
