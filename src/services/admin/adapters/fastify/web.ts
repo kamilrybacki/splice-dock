@@ -160,6 +160,7 @@ export function registerWebUiRoutes(app: FastifyInstance, opts: WebUiOptions): v
     if (!requireSession(req, reply, authCtx)) return;
     const raw = await opts.metricsList();
     const metrics = raw.map((m) => ({ ...m, last_ts: m.last_ts ?? 0 }));
-    reply.type('text/html').send(renderPage({ title: 'Metrics', navKey: 'metrics', body: renderMetricsPage({ metrics }) }));
+    const hourly = opts.metricsHourly?.() ?? null;
+    reply.type('text/html').send(renderPage({ title: 'Metrics', navKey: 'metrics', body: renderMetricsPage({ metrics, ...(hourly ? { hourly } : {}) }) }));
   });
 }

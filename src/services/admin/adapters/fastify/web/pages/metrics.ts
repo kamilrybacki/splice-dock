@@ -4,8 +4,8 @@
 // Returns the inner body for /admin/metrics (between <main>...</main>); the
 // caller is responsible for HEAD, NAV, and FOOT.
 //
-// `metricsList()` does not currently surface bucket history, so the table
-// does not include a sparkline column. All tool names and rule names are
+// The per-tool table has no sparkline column; the Calls dialog gets the
+// aggregated hourly history via the optional `hourly` input. All tool names and rule names are
 // HTML-escaped before interpolation. Formatting (numbers, deny rate, relative
 // time) lives in ../format.ts and is deterministic: `now` is injectable.
 

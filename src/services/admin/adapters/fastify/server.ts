@@ -212,6 +212,7 @@ export async function createAdminServer(
         tool: m.tool, total: m.total, allow: m.allow, deny: m.deny,
         rule_denies: m.rule_denies, last_ts: m.last_ts,
       })),
+      metricsHourly: () => extras.toolMetrics.hourlyHistory(),
       grantsEnabled: extras.approvalService?.grants.enabled,
       approvalsList: extras.approvalService
         ? async (status) => {
