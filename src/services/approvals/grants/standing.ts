@@ -4,22 +4,26 @@ import { baseShapeKey, type OperationShape } from '../../policy/shape/base.js';
 import { NO_SHAPES, type ShapeRegistry } from '../../policy/shape/registry.js';
 import { contextEscalates, escalationComparer } from '../../policy/context/escalation.js';
 import { logger } from '../../../common/logger.js';
+import { grantNamePrefix } from './name-prefix.js';
 const WEEK=7*86400000;
 /** ADR 0009: a grant lives three days and covers at most twenty operations. */
 export const GRANT_TTL=3*86400000;
 export const GRANT_USE_MAX=20;
 export interface GrantRow extends Omit<OperationShape, 'flags_allowed'> {
   id:string; flags_allowed:string; created_at:number; expires_at:number; revoked_at:number|null;
-  suspended_at:number|null; use_count:number; use_count_max:number; last_used_at:number|null; context_refs:string;
+  suspended_at:number|null; name_prefix:string|null; use_count:number; use_count_max:number; last_used_at:number|null; context_refs:string;
 }
-interface ContextRow {id:string;approval_context:string;}
+interface ContextRow {id:string;approval_context:string;argv_json:string;}
 import { isBuiltInGrantException, type GrantException } from '../../policy/grants/config.js';
 export type { GrantException } from '../../policy/grants/config.js';
 export class StandingGrants {
   /** Seeding the configured exceptions is async; it starts here and every
    *  exception read/write awaits it, so a caller never sees a half-seeded set. */
   private readonly seeded:Promise<void>;
-  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined, private readonly shapes:ShapeRegistry=NO_SHAPES) {
+  /** ADR 0010: exact namespaces grants may form and match in. Empty means none (default-deny). */
+  private readonly namespaces:ReadonlySet<string>;
+  constructor(private readonly db:SqlDb, readonly enabled:boolean, private readonly threshold:number, private readonly now:()=>number, configured:readonly GrantException[]|undefined=undefined, private readonly shapes:ShapeRegistry=NO_SHAPES, namespaces:readonly string[]=[]) {
+    this.namespaces=new Set(namespaces);
     this.seeded=this.seed(configured);
     this.seeded.catch(()=>{/* surfaced to the first caller that awaits it */});
   }
@@ -54,10 +58,11 @@ export class StandingGrants {
   /** Block key of a whole caller/tool/verb scope, written by ambiguous rejections. */
   private scopeKey(profile:string,tokenId:string,tool:string,verb:string):string {return JSON.stringify(['scope',profile,tokenId,tool,verb]);}
   private async refs(ids:string):Promise<ContextRow[]>{const out:ContextRow[]=[];for(const id of JSON.parse(ids) as string[]){const r=await this.db.prepare('SELECT id,approval_context FROM pending_approvals WHERE id=? AND approval_context IS NOT NULL').get(id) as ContextRow|undefined;if(r)out.push(r);}return out;}
-  async match(shape:OperationShape,context:string):Promise<GrantRow|undefined> {
-    if(!this.enabled || !context.trim() || await this.blocked(baseShapeKey(shape)) || await this.blocked(this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path)))return;
+  /** `names` are the bare object names of the request; a grant matches only when every one starts with its name_prefix. */
+  async match(shape:OperationShape,context:string,names:readonly string[]):Promise<GrantRow|undefined> {
+    if(!this.enabled || !context.trim() || !names.length || !this.namespaces.has(shape.namespace) || await this.blocked(baseShapeKey(shape)) || await this.blocked(this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path)))return;
     const rows=await this.db.prepare('SELECT * FROM standing_grants WHERE tool=? AND verb_path=? AND profile=? AND token_id=? AND expires_at>? AND created_at>? AND revoked_at IS NULL AND suspended_at IS NULL AND use_count<use_count_max AND use_count<?').all(shape.tool,shape.verb_path,shape.profile,shape.token_id,this.now(),this.now()-GRANT_TTL,GRANT_USE_MAX) as GrantRow[];
-    for(const r of rows){if(r.resource_kind!==shape.resource_kind || r.namespace!==shape.namespace || r.object_count_max!==shape.object_count_max || r.flags_allowed !== JSON.stringify(shape.flags_allowed))continue;
+    for(const r of rows){if(r.name_prefix===null || !names.every(name=>name.startsWith(r.name_prefix!)) || r.resource_kind!==shape.resource_kind || r.namespace!==shape.namespace || r.object_count_max!==shape.object_count_max || r.flags_allowed !== JSON.stringify(shape.flags_allowed))continue;
       // ADR 0009: the shape decides; context can only send the request back to a human.
       const refs=await this.refs(r.context_refs);
       // Grants promoted under ADR 0008 may rest on fewer approvals; they need fresh evidence.
@@ -72,7 +77,10 @@ export class StandingGrants {
    *  winner's row), so a concurrent use, revoke or suspend makes the claim fail. */
   async claim(id:string):Promise<boolean> {
     const now=this.now();
-    return (await this.db.prepare('UPDATE standing_grants SET use_count=use_count+1,last_used_at=? WHERE id=? AND use_count<use_count_max AND use_count<? AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?').run(now,id,GRANT_USE_MAX,now,now-GRANT_TTL)).changes===1;
+    const listed=[...this.namespaces];
+    if(!listed.length)return false;
+    // Defence in depth: legacy NULL-prefix grants and de-listed namespaces never claim, even for a stale match.
+    return (await this.db.prepare(`UPDATE standing_grants SET use_count=use_count+1,last_used_at=? WHERE id=? AND name_prefix IS NOT NULL AND namespace IN (${listed.map(()=>'?').join(',')}) AND use_count<use_count_max AND use_count<? AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?`).run(now,id,...listed,GRANT_USE_MAX,now,now-GRANT_TTL)).changes===1;
   }
   private async lockScope(profile:string,tokenId:string,tool:string,verb:string):Promise<void> {
     await this.db.lockInTransaction(JSON.stringify(['standing_grant',profile,tokenId,tool,verb]));
@@ -82,6 +90,7 @@ export class StandingGrants {
     const row=await this.db.prepare("SELECT * FROM pending_approvals WHERE id=? AND status='consumed' AND execution_success=1 AND grant_id IS NULL AND level!='strong'").get(id) as {shape_key:string|null;approval_context:string|null;tool:string;matched:string;profile:string;token_id:string}|undefined;
     if(!row?.shape_key || !row.approval_context?.trim() || !row.profile || !row.token_id || await this.exception(row.tool,row.matched,false))return;
     const shape=JSON.parse(row.shape_key) as OperationShape;
+    if(!this.namespaces.has(shape.namespace)){logger.info('grant promotion skipped: namespace not in allowlist',{tool:row.tool,approval_id:id,namespace:shape.namespace});return;}
     // Serialise promotion against other promotions and rejections of the same
     // caller/tool/verb across replicas: without it two promotions both insert a
     // grant, and a rejection that commits between promote's block check and its
@@ -96,12 +105,12 @@ export class StandingGrants {
     // admin listing's global pagination (which could renew an older quota).
     const identity='tool=? AND verb_path=? AND profile=? AND token_id=? AND resource_kind=? AND namespace=?';
     const params=[shape.tool,shape.verb_path,shape.profile,shape.token_id,shape.resource_kind,shape.namespace];
-    if(await this.db.prepare(`SELECT 1 FROM standing_grants WHERE ${identity} AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?`).get(...params,this.now(),this.now()-GRANT_TTL))return;
+    if(await this.db.prepare(`SELECT 1 FROM standing_grants WHERE ${identity} AND name_prefix IS NOT NULL AND revoked_at IS NULL AND suspended_at IS NULL AND expires_at>? AND created_at>?`).get(...params,this.now(),this.now()-GRANT_TTL))return;
     // A grant ends at revocation, suspension or its effective expiry; ADR 0008 grants keep a longer stored expires_at.
     const ended=await this.db.prepare(`SELECT revoked_at,suspended_at,expires_at,created_at FROM standing_grants WHERE ${identity}`).all(...params) as {revoked_at:number|null;suspended_at:number|null;expires_at:number;created_at:number}[];
     const history=ended.reduce((latest,g)=>Math.max(latest,g.revoked_at ?? g.suspended_at ?? Math.min(g.expires_at,g.created_at+GRANT_TTL)),0);
     const cutoff=Math.max(this.now()-WEEK,block ? block.until-WEEK : 0,scopeBlock ? scopeBlock.until-WEEK : 0,history);
-    const refs=await this.db.prepare("SELECT id,approval_context FROM pending_approvals WHERE shape_key=? AND status='consumed' AND execution_success=1 AND grant_id IS NULL AND approval_context IS NOT NULL AND profile IS NOT NULL AND token_id IS NOT NULL AND consumed_at>? ORDER BY consumed_at DESC LIMIT 1000").all(row.shape_key,cutoff) as ContextRow[];
+    const refs=await this.db.prepare("SELECT id,approval_context,argv_json FROM pending_approvals WHERE shape_key=? AND status='consumed' AND execution_success=1 AND grant_id IS NULL AND approval_context IS NOT NULL AND profile IS NOT NULL AND token_id IS NOT NULL AND consumed_at>? ORDER BY consumed_at DESC LIMIT 1000").all(row.shape_key,cutoff) as ContextRow[];
     // Evidence is a set of same-shape approvals whose contexts are mutually consistent,
     // built greedily from the newest. Consistency is not transitive, so every new piece
     // is checked against this context and every piece already kept, in both directions.
@@ -124,9 +133,14 @@ export class StandingGrants {
       {kept:[],contexts:new Set<string>()});
     logger.info('grant promotion evidence',{tool:row.tool,approval_id:id,approvals:refs.length,consistent:evidence.length});
     if(evidence.length<this.threshold)return;
+    // ADR 0010: the grant covers only the object-name segments every evidence approval shares.
+    const objectNames=this.shapes.shapesFor(row.tool)?.objectNames;
+    const names=objectNames ? evidence.map(r=>objectNames(JSON.parse(r.argv_json) as string[],row.matched)) : [null];
+    const namePrefix=names.some(n=>n===null) ? null : grantNamePrefix((names as string[][]).flat());
+    if(namePrefix===null){logger.info('grant promotion skipped: no common object-name prefix',{tool:row.tool,approval_id:id});return;}
     const grantId=randomUUID();
-    await this.db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at,use_count_max) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(grantId,shape.profile,shape.token_id,shape.tool,shape.verb_path,shape.resource_kind,shape.namespace,shape.object_count_max,JSON.stringify(shape.flags_allowed),this.now(),`auto:${id}`,id,JSON.stringify(evidence.map(r=>r.id)),this.now()+GRANT_TTL,GRANT_USE_MAX);
-    logger.info('standing grant created',{tool:row.tool,grant_id:grantId});
+    await this.db.prepare(`INSERT INTO standing_grants(id,profile,token_id,tool,verb_path,resource_kind,namespace,object_count_max,flags_allowed,created_at,created_by,source_approval,context_refs,expires_at,use_count_max,name_prefix) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(grantId,shape.profile,shape.token_id,shape.tool,shape.verb_path,shape.resource_kind,shape.namespace,shape.object_count_max,JSON.stringify(shape.flags_allowed),this.now(),`auto:${id}`,id,JSON.stringify(evidence.map(r=>r.id)),this.now()+GRANT_TTL,GRANT_USE_MAX,namePrefix);
+    logger.info('standing grant created',{tool:row.tool,grant_id:grantId,name_prefix:namePrefix});
   }
   async rejected(id:string):Promise<void> {
     if(!this.enabled)return;

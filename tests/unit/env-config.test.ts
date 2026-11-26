@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { approvalTtlMsFromEnv, grantsEnabledFromEnv, shadowKillSwitchFromEnv } from '../../src/env-config.js';
+import { approvalTtlMsFromEnv, grantNamespacesFromEnv, grantsEnabledFromEnv, shadowKillSwitchFromEnv } from '../../src/env-config.js';
 
 describe('env to config mapping', () => {
   it('APPROVAL_TTL_SEC: positive integers become ms, everything else defers to config', () => {
@@ -14,6 +14,14 @@ describe('env to config mapping', () => {
     expect(grantsEnabledFromEnv({ SPLICEDOCK_GRANTS: '1' })).toBe(true);
     expect(grantsEnabledFromEnv({ SPLICEDOCK_GRANTS: 'true' })).toBe(false);
     expect(grantsEnabledFromEnv({})).toBe(false);
+  });
+
+  it('SPLICEDOCK_GRANT_NAMESPACES: trims, drops empties and invalid names, de-duplicates, defaults to none', () => {
+    expect(grantNamespacesFromEnv({})).toEqual([]);
+    expect(grantNamespacesFromEnv({ SPLICEDOCK_GRANT_NAMESPACES: '' })).toEqual([]);
+    expect(grantNamespacesFromEnv({ SPLICEDOCK_GRANT_NAMESPACES: ' batch , ,ci-jobs,batch,' })).toEqual(['batch', 'ci-jobs']);
+    expect(grantNamespacesFromEnv({ SPLICEDOCK_GRANT_NAMESPACES: 'Batch,-bad,bad-,a_b,*,a.b,ok1,default/x' })).toEqual(['ok1']);
+    expect(grantNamespacesFromEnv({ SPLICEDOCK_GRANT_NAMESPACES: 'x' })).toEqual(['x']);
   });
 
   it('SPLICEDOCK_SHADOW kill switch is on only for exactly "off"', () => {

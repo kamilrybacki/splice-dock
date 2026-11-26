@@ -11,10 +11,10 @@ import { builtinCliProfiles, useBuiltinCliProfiles } from '../../helpers/cli-pro
 useBuiltinCliProfiles();
 it('carries context through policy, learns after real spawns and emits grant metrics',async()=>{
   const store=await SplicedockStore.open(':memory:'),metrics=createPrometheusMetrics();
-  const svc=new ApprovalService({store,grantsEnabled:true,sweepIntervalMs:0,shapes:builtinShapes,onGrantUsed:(tool,verb)=>metrics.approvalGrantUsed.inc({tool,verb})});
+  const svc=new ApprovalService({store,grantsEnabled:true,grantNamespaces:['batch'],sweepIntervalMs:0,shapes:builtinShapes,onGrantUsed:(tool,verb)=>metrics.approvalGrantUsed.inc({tool,verb})});
   const cfg:CliPassthroughToolConfig={type:'cli_passthrough',name:'kubectl',description:'fixture',command:'echo',deny_subcommands:[],env:[],timeout_ms:5000,isolate_config:false,policy:{approval_subcommands:['delete'],on_violation:'approval',audit:false}};
   configurePassthrough({ cliProfiles: builtinCliProfiles, approvalHookFactory: (tool,ctx)=>svc.makeHook(tool,ctx.cwd,undefined,ctx.requireStrong,ctx.approvalContext), approvalSettler: svc});
-  const run=(name:string)=>runWithCaller({profile:'test',tokenId:'fixture',authenticated:true},()=>callCliPassthrough(cfg,'run',{args:['delete','job',name],approval_context:'clean up completed batch jobs',cwd:process.cwd()},['echo']));
+  const run=(name:string)=>runWithCaller({profile:'test',tokenId:'fixture',authenticated:true},()=>callCliPassthrough(cfg,'run',{args:['delete','job','job-'+name,'-n','batch'],approval_context:'clean up completed batch jobs',cwd:process.cwd()},['echo']));
   try {
     for(const name of ['one','two','seed']){expect((await run(name)).isError).toBe(true);const row=(await svc.list({status:'pending'}))[0];expect(row.approval_context).toBe('clean up completed batch jobs');await svc.approve(row.id,'operator');expect((await run(name)).isError).toBe(false);}
     expect((await run('three')).isError).toBe(false);

@@ -36,9 +36,10 @@ export function kubectlBaseShape(argv: readonly string[], verb: string, caller: 
   if (kinds.size>1) return null;
   return kubectlShape([verb,first,'rejection',...namespaceArgs],verb,caller);
 }
-/** Deliberately conservative: unknown syntax, flags or resource mixtures require consent. */
-export function kubectlShape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null {
-  if (!caller.authenticated || !caller.profile || !caller.tokenId) return null;
+interface ParsedKubectl {namespace:string; resource:string; names:string[];}
+/** Strict argv parse shared by the shape and the object-name extractor, so both
+ *  accept exactly the same syntax. `names` are bare object names (no `kind/`). */
+function parseKubectl(argv: readonly string[], verb: string): ParsedKubectl | null {
   const positional:string[]=[];
   let namespace='<default>', seenNamespace=false;
   for(let i=0;i<argv.length;i++) {
@@ -61,7 +62,19 @@ export function kubectlShape(argv: readonly string[], verb: string, caller: Call
   const names=parts.length===2 ? [first,...positional] : positional;
   if(!names.length || names.length>5)return null;
   for(const name of names){const pieces=name.split('/');if(pieces.length>2 || (pieces.length===2 && kind(pieces[0])!==resource) || !/^[a-z0-9][a-z0-9.-]*$/.test(pieces.at(-1)!))return null;}
-  return {profile:caller.profile,token_id:caller.tokenId,tool:'kubectl',verb_path:verb,resource_kind:resource,namespace,object_count_max:5,flags_allowed:ALLOWED};
+  return {namespace,resource,names:names.map(name=>name.split('/').at(-1)!)};
+}
+/** Deliberately conservative: unknown syntax, flags or resource mixtures require consent. */
+export function kubectlShape(argv: readonly string[], verb: string, caller: CallerIdentity): OperationShape | null {
+  if (!caller.authenticated || !caller.profile || !caller.tokenId) return null;
+  const parsed=parseKubectl(argv,verb);
+  if(!parsed)return null;
+  return {profile:caller.profile,token_id:caller.tokenId,tool:'kubectl',verb_path:verb,resource_kind:parsed.resource,namespace:parsed.namespace,object_count_max:5,flags_allowed:ALLOWED};
+}
+/** Bare object names a grantable `kubectl <verb> <kind> <names...>` argv operates on
+ *  (ADR 0010), or null when the argv is not a grantable shape. Same parser as `kubectlShape`. */
+export function kubectlObjectNames(argv: readonly string[], verb: string): string[] | null {
+  return parseKubectl(argv,verb)?.names ?? null;
 }
 
 const READONLY_KUBECTL_KINDS = ['pods', 'services', 'deployments', 'namespaces', 'nodes'];

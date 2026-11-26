@@ -22,10 +22,10 @@ async function replicas() {
   const raw = new PgDb(s.dsn);
   open.push(storeA, storeB, raw);
   const now = () => Date.now();
-  const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
-  const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
+  const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, grantNamespaces: ['batch'], shapes: builtinShapes, sweepIntervalMs: 0, now });
+  const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, grantNamespaces: ['batch'], shapes: builtinShapes, sweepIntervalMs: 0, now });
   const request = (svc: ApprovalService, name: string) =>
-    svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
+    svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', 'job-' + name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
   // Manually approve, reserve and consume one operation; returns the consumed id.
   const consumed = async (svc: ApprovalService, name: string) => {
     const out = await request(svc, name); await svc.approve(out.id!, 'operator');

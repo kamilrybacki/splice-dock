@@ -13,9 +13,9 @@ const origin = 'https://consent.example.test';
 
 it('rejecting through a consent link revokes and blocks the matching grant', async () => {
   const store = await SplicedockStore.open(':memory:');
-  const svc = new ApprovalService({ store, grantsEnabled: true, sweepIntervalMs: 0, shapes: builtinShapes });
+  const svc = new ApprovalService({ store, grantsEnabled: true, grantNamespaces: ['batch'], sweepIntervalMs: 0, shapes: builtinShapes });
   const request = (name: string) =>
-    svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
+    svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', 'job-' + name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
   const execute = async (name: string) => {
     const out = await request(name); await svc.approve(out.id!, 'operator');
     const approved = await request(name); await svc.finalize(approved.id!); await svc.executionResult(approved.id!, true);

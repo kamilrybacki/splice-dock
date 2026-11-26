@@ -1,7 +1,7 @@
 # ADR 0009: Shape-Only Standing Grants with Deny-Only Context
 
 **Date:** 2026-11-26
-**Status:** Accepted (2026-11-26). Supersedes sections 3, 5 and 6 of ADR 0008.
+**Status:** Accepted (2026-11-26). Supersedes sections 3, 5 and 6 of ADR 0008. Amended by ADR 0010 (name prefix and namespace allowlist).
 
 ## Context
 

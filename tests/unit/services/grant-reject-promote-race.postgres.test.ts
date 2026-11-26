@@ -20,10 +20,10 @@ describe.skipIf(!TEST_PG_DSN)(TEST_PG_DSN ? 'rejection vs promotion race (Postgr
     const storeA = await SplicedockStore.open(s.dsn); const storeB = await SplicedockStore.open(s.dsn);
     const raw = new PgDb(s.dsn); open.push(storeA, storeB, raw);
     const now = () => Date.now();
-    const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
-    const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, shapes: builtinShapes, sweepIntervalMs: 0, now });
+    const svcA = new ApprovalService({ store: storeA, grantsEnabled: true, grantNamespaces: ['batch'], shapes: builtinShapes, sweepIntervalMs: 0, now });
+    const svcB = new ApprovalService({ store: storeB, grantsEnabled: true, grantNamespaces: ['batch'], shapes: builtinShapes, sweepIntervalMs: 0, now });
     const request = (svc: ApprovalService, name: string) =>
-      svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
+      svc.makeHook('kubectl', '/workspace', caller, false, context)({ tool: 'kubectl', argv: ['delete', 'job', 'job-' + name, '-n', 'batch'], rule: 'approval_subcommands', matched: 'delete' });
     const consumed = async (name: string) => {
       const out = await request(svcA, name); await svcA.approve(out.id!, 'operator');
       const approved = await request(svcA, name); await svcA.finalize(approved.id!); return approved.id!;
