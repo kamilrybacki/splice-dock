@@ -5,7 +5,13 @@ import { NO_SHAPES, type ShapeRegistry } from '../../policy/shape/registry.js';
 import { contextEscalates, escalationComparer } from '../../policy/context/escalation.js';
 import { logger } from '../../../common/logger.js';
 import { grantNamePrefix } from './name-prefix.js';
+import { classifyOperation } from '../../policy/classify/index.js';
 const WEEK=7*86400000;
+/** ADR 0011: deny-only. A shape the classifier calls destructive or cannot classify never forms or matches a grant. */
+export function classifierDeniesGrant(shape:Pick<OperationShape,'tool'|'verb_path'|'resource_kind'>):boolean {
+  const c=classifyOperation(shape.tool,[...shape.verb_path.split(' '),shape.resource_kind]);
+  return c.class==='destructive' || c.class==='unknown';
+}
 /** ADR 0009: a grant lives three days and covers at most twenty operations. */
 export const GRANT_TTL=3*86400000;
 export const GRANT_USE_MAX=20;
@@ -60,7 +66,7 @@ export class StandingGrants {
   private async refs(ids:string):Promise<ContextRow[]>{const out:ContextRow[]=[];for(const id of JSON.parse(ids) as string[]){const r=await this.db.prepare('SELECT id,approval_context FROM pending_approvals WHERE id=? AND approval_context IS NOT NULL').get(id) as ContextRow|undefined;if(r)out.push(r);}return out;}
   /** `names` are the bare object names of the request; a grant matches only when every one starts with its name_prefix. */
   async match(shape:OperationShape,context:string,names:readonly string[]):Promise<GrantRow|undefined> {
-    if(!this.enabled || !context.trim() || !names.length || !this.namespaces.has(shape.namespace) || await this.blocked(baseShapeKey(shape)) || await this.blocked(this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path)))return;
+    if(!this.enabled || !context.trim() || !names.length || classifierDeniesGrant(shape) || !this.namespaces.has(shape.namespace) || await this.blocked(baseShapeKey(shape)) || await this.blocked(this.scopeKey(shape.profile,shape.token_id,shape.tool,shape.verb_path)))return;
     const rows=await this.db.prepare('SELECT * FROM standing_grants WHERE tool=? AND verb_path=? AND profile=? AND token_id=? AND expires_at>? AND created_at>? AND revoked_at IS NULL AND suspended_at IS NULL AND use_count<use_count_max AND use_count<?').all(shape.tool,shape.verb_path,shape.profile,shape.token_id,this.now(),this.now()-GRANT_TTL,GRANT_USE_MAX) as GrantRow[];
     for(const r of rows){if(r.name_prefix===null || !names.every(name=>name.startsWith(r.name_prefix!)) || r.resource_kind!==shape.resource_kind || r.namespace!==shape.namespace || r.object_count_max!==shape.object_count_max || r.flags_allowed !== JSON.stringify(shape.flags_allowed))continue;
       // ADR 0009: the shape decides; context can only send the request back to a human.
@@ -90,6 +96,7 @@ export class StandingGrants {
     const row=await this.db.prepare("SELECT * FROM pending_approvals WHERE id=? AND status='consumed' AND execution_success=1 AND grant_id IS NULL AND level!='strong'").get(id) as {shape_key:string|null;approval_context:string|null;tool:string;matched:string;profile:string;token_id:string}|undefined;
     if(!row?.shape_key || !row.approval_context?.trim() || !row.profile || !row.token_id || await this.exception(row.tool,row.matched,false))return;
     const shape=JSON.parse(row.shape_key) as OperationShape;
+    if(classifierDeniesGrant(shape)){logger.info('grant promotion skipped: classifier',{tool:row.tool,approval_id:id});return;}
     if(!this.namespaces.has(shape.namespace)){logger.info('grant promotion skipped: namespace not in allowlist',{tool:row.tool,approval_id:id,namespace:shape.namespace});return;}
     // Serialise promotion against other promotions and rejections of the same
     // caller/tool/verb across replicas: without it two promotions both insert a

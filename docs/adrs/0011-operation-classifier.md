@@ -34,3 +34,8 @@ the same verb has different impact on different objects (`delete pod` is recreat
   negatives, never silent allows.
 - Follow-up (not in this ADR): consume the class as a deny-only check at grant
   promotion and match, and a queue of `unknown` keys for operator review.
+
+
+## Consumption (deny-only)
+
+`classifierDeniesGrant` (`src/services/approvals/grants/standing.ts`) runs at grant promotion and at match. A shape classified `destructive` or `unknown` never forms or matches a grant and goes to a human; `benign` and `disruptive` are left to the existing shape rules. The classifier never authorizes anything. `kubectl delete job|jobs` is `disruptive` in the table so the grantable set of ADR 0009 keeps working.
