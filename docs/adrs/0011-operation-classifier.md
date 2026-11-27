@@ -1,7 +1,7 @@
 # ADR 0011: Typed Operation Classifier with Abstention
 
 **Date:** 2026-11-27
-**Status:** Proposed. Adds a module; nothing consumes it yet.
+**Status:** Accepted. The grant check consumes the classifier as a deny-only gate (see Consumption).
 
 ## Context
 

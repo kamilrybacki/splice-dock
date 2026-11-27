@@ -2,7 +2,8 @@
 
 ## Learned standing grants
 
-`SPLICEDOCK_GRANTS=1` enables ADR 0008 standing grants; the default is off.
+`SPLICEDOCK_GRANTS=1` enables learned standing grants (ADR 0008); the default is off. The full algorithm is on the
+[Learned grants](web/grants.html) docs page (source: `docs/web/grants-page.mjs`).
 Approval-gated CLI calls accept `approval_context` (at most 500 characters): one
 or two sentences explaining why this conversation needs the operation. Without
 context, requests always require manual approval and cannot teach a grant.
@@ -30,6 +31,11 @@ object names cut after the last `-` or `.` (at least three characters before it)
 It matches only when every requested name starts with that prefix. No usable prefix
 means no grant; grants without a prefix never match.
 
+ADR 0011 adds a deny-only operation classifier: `destructive` and `unknown` operations
+(for example `kubectl delete deployment`) never form or match a grant, while
+`delete pod|job` is `disruptive` and stays grantable. Unrecognised verbs, kinds or flags
+are `unknown`.
+
 Grants expire three days after creation without renewal, stop after 20 uses, and
 suspend after three consecutive execution failures. Rejecting the same shape revokes
 its grants and blocks promotion for seven days. Strong/WebAuthn tools are permanent
@@ -48,7 +54,8 @@ and `POST /api/v1/grant-exceptions` (`tool`, optional `verb_path`, `remove`).
 Cookie-authenticated mutations require the existing CSRF header.
 
 Prometheus metrics count automatic approvals by tool and verb. Structured logs
-include context similarity scores. Grant-reserved approvals that
+name each decision (`grant promotion evidence`, `standing grant created`, `grant context
+escalated`, `grant promotion skipped: ...`). Grant-reserved approvals that
 fail before spawn expire instead of being refunded, so revocation cannot be
 bypassed by retrying a released grant row. Such attempts still consume the grant
 use budget.

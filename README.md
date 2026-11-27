@@ -252,7 +252,7 @@ listed the available tools, and then ran the three reads in parallel.
   reverse proxy on another host must reach it. [Admin UI and observability](https://kamilrybacki.github.io/splice-dock/webui.html).
 - **Storage.** Run a single replica with SQLite or use shared PostgreSQL for
   multiple replicas. [Storage configuration and migration](docs/operations.md#storage-backend).
-- **Approvals.** Review [learned grants and phone approvals](docs/operations.md)
+- **Approvals.** Review [learned grants and phone approvals](docs/operations.md) (the algorithm is on the Learned grants docs page)
   before enabling them. See the [hardening runbooks](docs/hardening/) for deployment details.
 
 ## <img src="docs/assets/section-build.svg" width="30" height="24" alt="">Develop locally
