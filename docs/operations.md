@@ -3,7 +3,7 @@
 ## Learned standing grants
 
 `SPLICEDOCK_GRANTS=1` enables learned standing grants (ADR 0008); the default is off. The full algorithm is on the
-[Learned grants](web/grants.html) docs page (source: `docs/web/grants-page.mjs`).
+[Learned grants](https://kamilrybacki.github.io/splice-dock/grants.html) docs page (source: `docs/web/grants-page.mjs`).
 Approval-gated CLI calls accept `approval_context` (at most 500 characters): one
 or two sentences explaining why this conversation needs the operation. Without
 context, requests always require manual approval and cannot teach a grant.

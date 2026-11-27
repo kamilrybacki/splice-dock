@@ -14,8 +14,8 @@ export function grantsSections({ terminal, table, paragraph }) {
       ['<code>tool</code>, <code>verb_path</code>', 'The tool and its verb.', '<code>kubectl</code>, <code>delete</code>'],
       ['<code>resource_kind</code>', 'The kind of object.', '<code>job</code>'],
       ['<code>namespace</code>', 'Resolved namespace. The <code>&lt;default&gt;</code> namespace never matches.', '<code>splicedock</code>'],
-      ['<code>object_count_max</code>', 'How many objects the request names.', '<code>1</code>'],
-      ['<code>flags_allowed</code>', 'The set of flags used. Unknown flags make the request ineligible.', '(none)'],
+      ['<code>object_count_max</code>', 'A fixed cap, always <strong>5</strong>. A request naming 1 to 5 objects matches; more than 5 is never eligible. A grant learned from one object therefore also covers up to five prefixed objects.', '<code>5</code>'],
+      ['<code>flags_allowed</code>', 'The fixed set of flags the parser accepts (the namespace flag and <code>--wait</code>). Any other flag makes the request ineligible; adding <code>--wait</code> does not change the shape.', 'namespace, <code>--wait</code>'],
     ]) + paragraph('The object <em>names</em> are deliberately not part of the shape. They are handled separately by the name prefix, described below.')],
     ['lifecycle', 'The lifecycle at a glance', terminal('Lifecycle', [
       'request  ->  no live grant matches  ->  human approves  ->  command runs',
@@ -38,7 +38,7 @@ export function grantsSections({ terminal, table, paragraph }) {
       '<li>The operation classifier does not call it <code>destructive</code> or <code>unknown</code> (see below).</li>' +
       '<li>Its namespace is in <code>SPLICEDOCK_GRANT_NAMESPACES</code>.</li>' +
       '<li>The shape is not blocked after a recent rejection, and no live grant already exists for the same caller, tool, verb, kind and namespace.</li>' +
-      '<li>At least <strong>3</strong> successful approvals of the exact same shape exist from the last 7 days, and their contexts are <strong>mutually consistent</strong>.</li>' +
+      '<li>At least <strong>3</strong> successful approvals of the exact same shape exist from the last 7 days, and their contexts are <strong>mutually consistent</strong>. Approvals from before the previous grant ended, or before a rejection, do not count, even inside the 7 days, so relearning needs fresh evidence.</li>' +
       '<li>The approved object names share a usable <strong>name prefix</strong>.</li>' +
       '</ol>' +
       paragraph('<strong>Consistent evidence.</strong> Evidence is built greedily from the newest approval. A candidate is kept only if its context does not escalate against the current request and against every piece already kept, in both directions. Consistency is not transitive (“before” and “after” can each agree with a neutral reason), so every pair is checked. The log line <code>grant promotion evidence</code> reports <code>approvals</code> (candidates) and <code>consistent</code> (kept).')],
@@ -96,7 +96,7 @@ export function grantsSections({ terminal, table, paragraph }) {
       ['<code>grant promotion evidence</code>', '<code>approvals</code> candidates, <code>consistent</code> kept. Learning needs <code>consistent</code> ≥ threshold.'],
       ['<code>grant promotion skipped: …</code>', 'Classifier, namespace allowlist or no common name prefix.'],
       ['<code>standing grant created</code>', 'A grant now exists.'],
-      ['<code>cli_passthrough approval bypass</code>', 'A grant matched and the request ran without a human.'],
+      ['<code>cli_passthrough approval bypass</code>', 'The approval was reserved before execution. It also appears for manually approved requests, so look for a grant-specific line (or no <code>pending</code> entry) to tell an automatic approval apart. It does not prove the command succeeded.'],
       ['<code>approval consumed</code>', 'The approval was used.'],
       ['<code>grant context escalated</code>', 'Shape matched, but the context sent it to a human.'],
     ])],
@@ -104,7 +104,7 @@ export function grantsSections({ terminal, table, paragraph }) {
       '<li>Grants are off, or the namespace is not in <code>SPLICEDOCK_GRANT_NAMESPACES</code>.</li>' +
       '<li>No <code>approval_context</code>, or it changed style since the evidence (<code>grant context escalated</code>).</li>' +
       '<li>The operation is <code>destructive</code> or <code>unknown</code> to the classifier.</li>' +
-      '<li>A flag, namespace, kind or object count differs, or a name does not start with the prefix.</li>' +
+      '<li>A flag, namespace or kind differs, more than 5 objects are named, or a name does not start with the prefix.</li>' +
       '<li>Fewer than three successful, consistent approvals so far, or runs failed (failures are not evidence).</li>' +
       '<li>The grant expired, hit 20 uses, was suspended or revoked, or a rejection blocked the shape for 7 days.</li>' +
       '<li>The tool is strong (WebAuthn) or on the exception list.</li></ul>'],
