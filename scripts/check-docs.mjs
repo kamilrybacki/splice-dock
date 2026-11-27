@@ -22,5 +22,5 @@ for(const page of pages){
  }
  assert.doesNotMatch(html,/(?:10\.42\.\d+\.\d+|192\.168\.\d+\.\d+|secret\/homelab|splicedock\.svc\.cluster\.local|sha256:[0-9a-f]{64})/,page+' private infrastructure reference');
 }
-const index=JSON.parse(readFileSync(join(output,'search-index.json'),'utf8'));assert.equal(index.length,10);assert.ok(index.some(p=>p.url==='code-mode.html'));assert.ok(index.every(p=>p.text.length>100));
+const index=JSON.parse(readFileSync(join(output,'search-index.json'),'utf8'));assert.equal(index.length,11);assert.ok(index.some(p=>p.url==='code-mode.html'));assert.ok(index.every(p=>p.text.length>100));
 console.log(`PASS: ${pages.length} HTML files, ${count} local links/assets, search index and public-content scan.`);

@@ -93,6 +93,9 @@ name and injected through two registries:
 - `ReadonlyProbes` (`policy/breaker/readonly.ts`) maps a tool name to a
   read-only argv probe, used by the circuit breaker's `read_allowlist`.
 
+The standing-grant algorithm itself (promotion, matching, classifier, limits) is
+described for users in the Learned grants docs page (`docs/web/grants-page.mjs`).
+
 Both default to empty. The built-in entries are defined in the composition
 root (`src/builtin-backends.ts`, with the kubectl implementation in
 `policy/shape/kubectl.ts`) and passed in from there. Other keyed data, such as
