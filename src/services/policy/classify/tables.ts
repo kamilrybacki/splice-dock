@@ -27,8 +27,8 @@ export const TABLES: Readonly<Record<string, ToolTable>> = {
       { verb: 'taint', class: 'disruptive' },
       { verb: 'replace', class: 'destructive' },
       { verb: 'exec', class: 'unknown' },
-      // Deleting is destructive by default; the listed kinds are recreated by their controller.
-      { verb: 'delete', class: 'destructive', kinds: { pod: 'disruptive', pods: 'disruptive', po: 'disruptive' } },
+      // Deleting is destructive by default; pods are recreated by their controller; batch jobs are disposable run records (the grantable set of ADR 0009).
+      { verb: 'delete', class: 'destructive', kinds: { pod: 'disruptive', pods: 'disruptive', po: 'disruptive', job: 'disruptive', jobs: 'disruptive' } },
       { verb: 'rollout restart', class: 'disruptive' },
       { verb: 'rollout undo', class: 'disruptive' },
       { verb: 'scale', class: 'disruptive' },

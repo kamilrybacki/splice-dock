@@ -43,8 +43,9 @@ describe('classifyOperation', () => {
   });
 
   it('returns a typed key usable for review queues', () => {
-    expect(c('kubectl', 'delete', 'job', 'nightly-1').key).toBe('kubectl|delete|job');
-    expect(c('kubectl', 'delete', 'job', 'nightly-1').class).toBe('destructive');
+    expect(c('kubectl', 'delete', 'configmap', 'x').key).toBe('kubectl|delete|configmap');
+    expect(c('kubectl', 'delete', 'configmap', 'x').class).toBe('destructive');
+    expect(c('kubectl', 'delete', 'job', 'nightly-1').class).toBe('disruptive');
   });
 });
 
@@ -62,5 +63,19 @@ describe('classifyOperation: extended tables', () => {
   it('abstains on exec and unlisted verbs of new tools', () => {
     expect(c('kubectl', 'exec', 'pod', '--', 'sh').class).toBe('unknown');
     expect(c('helm', 'repo', 'add').class).toBe('unknown');
+  });
+});
+
+import { classifierDeniesGrant } from '../../../src/services/approvals/grants/standing.js';
+
+describe('classifierDeniesGrant (deny-only)', () => {
+  const shape = (tool: string, verb_path: string, resource_kind: string) => ({ tool, verb_path, resource_kind });
+  it('lets the grantable pairs through', () => {
+    expect(classifierDeniesGrant(shape('kubectl', 'delete', 'pod'))).toBe(false);
+    expect(classifierDeniesGrant(shape('kubectl', 'delete', 'job'))).toBe(false);
+  });
+  it('denies destructive and unclassifiable shapes', () => {
+    expect(classifierDeniesGrant(shape('kubectl', 'delete', 'namespace'))).toBe(true);
+    expect(classifierDeniesGrant(shape('terraform', 'apply', 'x'))).toBe(true);
   });
 });
