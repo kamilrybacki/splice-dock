@@ -8,6 +8,9 @@ All notable changes to this project are recorded here. The format follows
 
 ### Added
 
+- Typed operation classifier (ADR 0011): closed per-tool tables, kind-aware
+  classes, raise-only flags, abstention on anything unknown. Not wired into
+  grants yet.
 - `SPLICEDOCK_GRANT_NAMESPACES` (comma-separated exact namespaces, default none)
   restricts standing grants to listed namespaces, at promotion and at every
   match. Unset or empty disables grants; a startup warning says so when
