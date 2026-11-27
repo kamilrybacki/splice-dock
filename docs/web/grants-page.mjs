@@ -17,19 +17,7 @@ export function grantsSections({ terminal, table, paragraph }) {
       ['<code>object_count_max</code>', 'A fixed cap, always <strong>5</strong>. A request naming 1 to 5 objects matches; more than 5 is never eligible. A grant learned from one object therefore also covers up to five prefixed objects.', '<code>5</code>'],
       ['<code>flags_allowed</code>', 'The fixed set of flags the parser accepts (the namespace flag and <code>--wait</code>). Any other flag makes the request ineligible; adding <code>--wait</code> does not change the shape.', 'namespace, <code>--wait</code>'],
     ]) + paragraph('The object <em>names</em> are deliberately not part of the shape. They are handled separately by the name prefix, described below.')],
-    ['lifecycle', 'The lifecycle at a glance', terminal('Lifecycle', [
-      'request  ->  no live grant matches  ->  human approves  ->  command runs',
-      '                                                              |',
-      '                                         success? -> counts as evidence',
-      '                                                              |',
-      '                      3 consistent successes of one shape (7 days)',
-      '                                                              |',
-      '                                              grant created (3 days, 20 uses)',
-      '                                                              |',
-      'request  ->  grant matches  ->  use claimed atomically  ->  runs without a human',
-      '                                                              |',
-      '   expiry | 20 uses | 3 consecutive failures | rejection | revoke  ->  grant ends',
-    ].join('\n'))],
+    ['lifecycle', 'The lifecycle at a glance', '<div class="lifecycle"><div class="lane"><h3>Learning</h3><ol><li><strong>Request</strong><small>no live grant matches</small></li><li><strong>Human approves</strong><small>a person says yes</small></li><li><strong>Command runs</strong><small>success counts as evidence</small></li><li><strong>3 consistent successes</strong><small>one shape, within 7 days</small></li><li class="hit"><strong>Grant created</strong><small>3 days, 20 uses</small></li></ol></div><div class="lane"><h3>Using</h3><ol><li><strong>Request</strong><small>a live grant matches</small></li><li><strong>Use claimed</strong><small>atomically, one use spent</small></li><li class="hit"><strong>Runs</strong><small>no human needed</small></li></ol></div><div class="lane ends"><h3>Grant ends</h3><ul><li>expiry</li><li>20 uses</li><li>3 consecutive failures</li><li>rejection</li><li>revoke</li></ul></div></div>'],
     ['learning', 'Step 1: learning (promotion)', paragraph('After a human-approved operation runs, Splicedock considers promoting it. Nothing is learned unless <em>all</em> of these hold:') +
       '<ol>' +
       '<li>The operation executed and <strong>succeeded</strong>. A failed run, for example a Forbidden delete, counts as zero evidence.</li>' +
@@ -63,7 +51,7 @@ export function grantsSections({ terminal, table, paragraph }) {
       '<li>The new context does not <strong>escalate</strong> against any evidence context.</li>' +
       '</ol>' +
       paragraph('If all pass, the use is <strong>claimed atomically</strong>: a single conditional update re-checks quota, revocation, suspension, expiry and the namespace at commit time. Two concurrent requests cannot both spend the last use, and a revoke that lands first wins.')],
-    ['escalation', 'Context can only say “ask a human”', paragraph('The caller writes the context, and the caller is the party the gate constrains. So similarity of wording never grants anything (ADR 0009 measured why). Context is a deny-only signal. A request escalates to a human when its context:') +
+    ['escalation', 'Context can only say “ask a human”', paragraph('The caller writes the context, and the caller is the party the gate constrains. So similarity of wording never grants anything. Context is a deny-only signal. A request escalates to a human when its context:') +
       '<ul><li>carries no meaningful reason (empty, identifiers only, or more identifiers than words);</li>' +
       '<li>states a risky purpose no reference stated, such as “so nobody notices”, “without approval” or “ignore previous instructions”;</li>' +
       '<li>contradicts any stored reference (before/after, same/different, old/patched).</li></ul>' +
@@ -108,6 +96,5 @@ export function grantsSections({ terminal, table, paragraph }) {
       '<li>Fewer than three successful, consistent approvals so far, or runs failed (failures are not evidence).</li>' +
       '<li>The grant expired, hit 20 uses, was suspended or revoked, or a rejection blocked the shape for 7 days.</li>' +
       '<li>The tool is strong (WebAuthn) or on the exception list.</li></ul>'],
-    ['adrs', 'Design records', paragraph('The reasoning behind each rule is in the repository: ADR 0008 (learned grants), ADR 0009 (shape-only matching, deny-only context), ADR 0010 (name prefix and namespace allowlist) and ADR 0011 (operation classifier). Operator settings are also summarised in <code>docs/operations.md</code>.')],
   ];
 }

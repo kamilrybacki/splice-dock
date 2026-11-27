@@ -2,7 +2,7 @@
 
 ## Learned standing grants
 
-`SPLICEDOCK_GRANTS=1` enables learned standing grants (ADR 0008); the default is off. The full algorithm is on the
+`SPLICEDOCK_GRANTS=1` enables learned standing grants; the default is off. The full algorithm is on the
 [Learned grants](https://kamilrybacki.github.io/splice-dock/grants.html) docs page (source: `docs/web/grants-page.mjs`).
 Approval-gated CLI calls accept `approval_context` (at most 500 characters): one
 or two sentences explaining why this conversation needs the operation. Without
@@ -10,7 +10,7 @@ context, requests always require manual approval and cannot teach a grant.
 
 After `SPLICEDOCK_GRANT_THRESHOLD` executed manual approvals (default 3) of the
 same caller-bound kubectl shape within seven days, matching operations can run
-automatically (ADR 0009). The match key is the shape only. Context is stored and
+automatically. The match key is the shape only. Context is stored and
 audited, and it can only send a request back to a human: a request escalates when
 its context carries no meaningful reason (empty, identifiers only or padded with
 identifiers), states a risky purpose no stored context covered (for example "so
@@ -20,7 +20,7 @@ towards promotion. `SPLICEDOCK_GRANT_CONTEXT_MIN_SIM` is ignored; setting it log
 warning. Unknown flags, bulk selectors and widened resource scopes fall back to
 manual approval.
 
-ADR 0010 narrows grants further. `SPLICEDOCK_GRANT_NAMESPACES` is a comma-separated
+The namespace allowlist and name prefix narrow grants further. `SPLICEDOCK_GRANT_NAMESPACES` is a comma-separated
 list of exact namespaces (for example `batch,ci-jobs`); entries are trimmed and must
 be valid DNS-1123 labels, otherwise they are ignored with a warning. It is
 default-deny: unset or empty means no grant forms or matches, and with
@@ -31,7 +31,7 @@ object names cut after the last `-` or `.` (at least three characters before it)
 It matches only when every requested name starts with that prefix. No usable prefix
 means no grant; grants without a prefix never match.
 
-ADR 0011 adds a deny-only operation classifier: `destructive` and `unknown` operations
+A deny-only operation classifier applies too: `destructive` and `unknown` operations
 (for example `kubectl delete deployment`) never form or match a grant, while
 `delete pod|job` is `disruptive` and stays grantable. Unrecognised verbs, kinds or flags
 are `unknown`.
