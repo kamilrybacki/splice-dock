@@ -25,7 +25,7 @@ describe('classifyOperation', () => {
 
   it('picks the longest verb path', () => {
     expect(c('kubectl', 'rollout', 'restart', 'deployment/api').class).toBe('disruptive');
-    expect(c('kubectl', 'rollout', 'status', 'deployment/api').class).toBe('unknown');
+    expect(c('kubectl', 'rollout', 'pause', 'deployment/api').class).toBe('unknown');
   });
 
   it('raises HTTP DELETE through gh', () => {
@@ -36,7 +36,7 @@ describe('classifyOperation', () => {
 
   it('abstains on anything not in the table', () => {
     expect(c('terraform', 'apply').class).toBe('unknown');
-    expect(c('kubectl', 'patch', 'deployment', 'api').class).toBe('unknown');
+    expect(c('kubectl', 'cp', 'a', 'b').class).toBe('unknown');
     expect(c('kubectl', 'get', 'pods', '--weird').class).toBe('unknown');
     expect(c('kubectl').class).toBe('unknown');
     expect(c('constructor', 'get').class).toBe('unknown');
@@ -45,5 +45,22 @@ describe('classifyOperation', () => {
   it('returns a typed key usable for review queues', () => {
     expect(c('kubectl', 'delete', 'job', 'nightly-1').key).toBe('kubectl|delete|job');
     expect(c('kubectl', 'delete', 'job', 'nightly-1').class).toBe('destructive');
+  });
+});
+
+describe('classifyOperation: extended tables', () => {
+  it('keeps benign reads benign and mutations above them', () => {
+    expect(c('kubectl', 'rollout', 'status', 'deployment/api').class).toBe('benign');
+    expect(c('argocd', 'app', 'sync', 'x').class).toBe('disruptive');
+    expect(c('argocd', 'app', 'sync', 'x', '--prune').class).toBe('destructive');
+    expect(c('helm', 'uninstall', 'x').class).toBe('destructive');
+    expect(c('docker', 'system', 'prune', '--volumes').class).toBe('destructive');
+    expect(c('git', 'push', '--force').class).toBe('destructive');
+    expect(c('vault', 'kv', 'get', 'secret/x').class).toBe('benign');
+  });
+
+  it('abstains on exec and unlisted verbs of new tools', () => {
+    expect(c('kubectl', 'exec', 'pod', '--', 'sh').class).toBe('unknown');
+    expect(c('helm', 'repo', 'add').class).toBe('unknown');
   });
 });
