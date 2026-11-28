@@ -2,7 +2,7 @@
 # Smoke-test the npm package the way a bare-metal user installs it.
 #
 #   scripts/smoke/run-npm.sh            # packs the checkout (runs the build)
-#   TARBALL=splicedock-1.1.1.tgz scripts/smoke/run-npm.sh
+#   TARBALL=splicedock-2.0.0.tgz scripts/smoke/run-npm.sh
 #
 # Installs the tarball globally in a fresh node:22-slim container, starts
 # `splicedock` with the Quickstart config shipped in the package, then runs
