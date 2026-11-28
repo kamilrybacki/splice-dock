@@ -65,7 +65,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
     "@fastify/cookie": "^11.0.2",
-    "@fastify/formbody": "^8.0.2",
+    "@fastify/formbody": "^9.0.2",
     "@fastify/rate-limit": "^11.3.0",
     "@fastify/sensible": "^6.0.8",
     "@modelcontextprotocol/sdk": "^1.12.0",
