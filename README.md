@@ -226,6 +226,20 @@ with tool calls mediated by the gateway. See the
 [Code Mode guide](https://kamilrybacki.github.io/splice-dock/code-mode.html)
 for parallel calls, resource limits, and optional preflight review.
 
+Agents can chain several tools in one `code_mode__execute` call instead of
+making a round trip per tool. For example, one script can query ArgoCD and
+Grafana at the same time with `Promise.all`, filter both results, and return
+only a small summary. Up to four calls run concurrently (50 per script), and
+each still goes through the profile's policies and approvals.
+
+```js
+const [apps, sources] = await Promise.all([
+  tools.call("argocd__list_applications", {}),
+  tools.call("grafana__list_datasources", {}),
+]);
+return { appsBytes: JSON.stringify(apps).length, sourcesBytes: JSON.stringify(sources).length };
+```
+
 ![One script runs two independent tool calls in parallel and returns a result with a call summary](docs/assets/code-mode-flow.svg)
 
 ### See an agent choose Code Mode
